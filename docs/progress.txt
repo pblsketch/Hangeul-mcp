@@ -24,3 +24,11 @@
 - D4 name: hangeul-mcp; PyPI deferred to v1.0.
 - D5 git remote: pblsketch/Hangeul-mcp (private), push now.
 - NEXT: ralph build M0 (scaffold) -> M1 (core engine port) -> M2 (MCP server v1).
+
+## 2026-07-08 — Build progress (ralph iters)
+- US-001 scaffold: pyproject, packages, entrypoint, smoke tests. PASS.
+- US-002 owpml: HwpxPackage byte-preserving container. 5 tests. PASS.
+- US-003 analyze: tables/cells/spans/bullet/spacing. 7 tests. PASS.
+- US-004 understand: 2D label-value mapping (merged-cell aware). 4 tests. PASS.
+  * Proven on real form: 성명->r2.c3, 직위->r2.c2, 휴대전화->r2.c7 (value cells, not labels).
+- Total: 18 tests green. NEXT: US-005 inline-blank, US-006 fill engine.

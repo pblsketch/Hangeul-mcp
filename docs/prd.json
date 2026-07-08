@@ -64,7 +64,7 @@
       "title": "Form understanding: 2D label-value mapping (merged-cell aware)",
       "milestone": "M1",
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Maps labels to their value cells including label-above-value and merged (span) layouts",
         "Emits FieldSchema per PLAN.md section 5 with field kind classification",
