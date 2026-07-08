@@ -13,7 +13,7 @@ happens only when :meth:`connect` is called explicitly.
 from __future__ import annotations
 
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 def normalize_field_values(values: Dict[str, str]) -> Dict[str, str]:
@@ -39,11 +39,9 @@ class HwpBridge:
         """
         if sys.platform != "win32":
             return False
-        try:
-            import win32com.client  # noqa: F401
-        except Exception:
-            return False
-        return True
+        import importlib.util
+
+        return importlib.util.find_spec("win32com") is not None
 
     def connect(self, visible: bool = True, register_security: bool = True) -> "HwpBridge":
         """Dispatch/attach to a Hangul instance. Spawns Hangul if none is running."""

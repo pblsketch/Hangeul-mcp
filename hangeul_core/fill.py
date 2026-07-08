@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field as dfield
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from hangeul_core.analyze import analyze
 from hangeul_core.inline import MARKERS
@@ -74,6 +74,9 @@ def _find_cell_span(section: str, table_index: int, row: int, col: int) -> Optio
                     target_level = open_tbl
             else:
                 open_tbl -= 1
+                if target_level is not None and open_tbl < target_level:
+                    # exited the target table without a match; do not spill into siblings
+                    return None
         elif name == "hp:tc" and not selfclose and not closing:
             if target_level is not None and open_tbl == target_level:
                 cell_start = m.start()
@@ -160,6 +163,7 @@ def _apply_inline(tc: str, fld, value: str) -> Optional[str]:
     Inline blanks can live in any paragraph/run of the cell (e.g. '은행명' and
     '계좌번호' are separate paragraphs), so this operates on the full ``<hp:tc>``.
     """
+    value = value.replace("\n", " ")  # inline blanks are single-line
     anchor = fld.insert_after or ""
     if anchor.endswith(":"):
         return _splice_colon(tc, anchor, value)
@@ -255,6 +259,7 @@ def fill(
     spacing_clone: Dict[str, Optional[str]] = {}
 
     for key, value in values.items():
+        value = value.replace("\r\n", "\n").replace("\r", "\n")  # normalize line breaks
         fld = by_id.get(key) or by_label.get(label_key(key))
         if fld is None:
             skipped.append({"key": key, "reason": "no matching field"})
