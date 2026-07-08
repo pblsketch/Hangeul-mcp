@@ -19,6 +19,7 @@ from hangeul_core.fill import fill as _fill
 from hangeul_core.hwp import HwpBridge, normalize_field_values
 from hangeul_core.inline import detect_inline
 from hangeul_core.locate import detect_placeholders
+from hangeul_core.markpen import detect_markpen
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.understand import understand
 
@@ -70,7 +71,12 @@ def analyze_form(path: str) -> Dict[str, Any]:
         path = ensure_hwpx(path)
     except RuntimeError as exc:
         return {"error": str(exc), "format": "hwp", "fields": []}
-    fields = understand(path).fields + detect_inline(path) + detect_placeholders(path)
+    fields = (
+        understand(path).fields
+        + detect_inline(path)
+        + detect_placeholders(path)
+        + detect_markpen(path)
+    )
     return {"format": "hwpx", "fields": [_field_dict(f) for f in fields]}
 
 

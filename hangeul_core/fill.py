@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 from hangeul_core.analyze import analyze
 from hangeul_core.inline import MARKERS
 from hangeul_core.locate import detect_placeholders, replace_placeholders
+from hangeul_core.markpen import markpen_regions, replace_markpen
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.schema import KIND_INLINE_BLANK, label_key
 from hangeul_core.understand import understand
@@ -254,6 +255,14 @@ def fill(
     ph_names = {f.label for f in detect_placeholders(path)}
     ph_values: Dict[str, str] = {}
 
+    # markpen (형광펜) highlighted example values: selectable by field_id/label/sample.
+    mk_regions = markpen_regions(path)
+    mk_selectors: Dict[str, List[Tuple[str, int]]] = {}
+    for r in mk_regions:
+        for sel in {r["field_id"], r["label"], r["sample"]}:
+            mk_selectors.setdefault(sel, []).append((r["section"], r["occ"]))
+    mk_edits: Dict[str, Dict[int, str]] = {}
+
     pkg = HwpxPackage.open(path)
     header = pkg.read("Contents/header.xml").decode("utf-8")
     header_changed = False
@@ -281,6 +290,10 @@ def fill(
         ph_name = key[3:] if key.startswith("ph:") else key
         if ph_name in ph_names:
             ph_values[ph_name] = value.replace("\n", " ")  # tokens are single-line
+            continue
+        if key in mk_selectors:
+            for sname, occ in mk_selectors[key]:
+                mk_edits.setdefault(sname, {})[occ] = value.replace("\n", " ")
             continue
         fld = by_id.get(key) or by_label.get(label_key(key))
         if fld is None:
@@ -330,6 +343,22 @@ def fill(
 
         sections[cell.section] = section[:cs] + newtc + section[ce:]
         filled.append({"field_id": fld.field_id, "label": fld.label, "value": value})
+
+    # markpen pass: swap only highlighted text, keeping markpenBegin/End tags.
+    if mk_edits:
+        region_by_pair = {(r["section"], r["occ"]): r for r in mk_regions}
+        for sname, occ_values in mk_edits.items():
+            text = section_text(sname)
+            newtext, applied = replace_markpen(text, occ_values, _esc)
+            if applied:
+                sections[sname] = newtext
+            applied_set = set(applied)
+            for occ, val in occ_values.items():
+                r = region_by_pair[(sname, occ)]
+                if occ in applied_set:
+                    filled.append({"field_id": r["field_id"], "label": r["label"], "value": val})
+                else:
+                    skipped.append({"key": r["field_id"], "reason": "markpen span has inline markup"})
 
     # Whole-document {placeholder} pass (touches only <hp:t> text of matched tokens).
     if ph_values:
