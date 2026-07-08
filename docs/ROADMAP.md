@@ -19,14 +19,15 @@
 
 ---
 
-## Phase A (P0) — 양식 인식·채우기 심화 [OWN]
+## Phase A (P0) — 양식 인식·채우기 심화 [OWN] ✅ 완료 (US-013~017)
 
-1. **형광펜(markpen) placeholder kind** — 강조 예시값을 필드로 탐지, markpen 안쪽만 치환·서식보존.
-2. **체크박스 필드(☑/□) 탐지·선택** — 옵션 목록 인식, 지정 라벨 `□`→`☑`. `KIND_CHECKBOX` 구현.
-3. **`{placeholder}` 전역 치환** — `{학교명}` 등, 표·중첩 포함. 바이트보존 splice.
-4. **누름틀(form field) 헤드리스 fill** — HWPX 필드 이름 인식·채우기(COM 없이). `apply_to_open_hwp`와 스키마 공유.
-5. **form-fit / 쪽수 드리프트 가드** — 셀·페이지 오버플로 감지, auto-fit(글꼴/자간 축소) 옵션. 프로토타입 `page_guard` 이식.
-- 수용: 각 kind 골든/회귀 테스트, 바이트보존 유지, `analyze_form`/`fill_form` 스키마 확장.
+1. **형광펜(markpen) placeholder kind** ✅ — 강조 예시값을 필드로 탐지, markpen 안쪽만 치환·서식보존. (`markpen.py`, US-014)
+2. **체크박스 필드(☑/□) 탐지·선택** ✅ — 옵션 목록 인식(`options`), 지정 라벨 `□`→`☑`, exclusive/multi. `KIND_CHECKBOX` 구현. (`checkbox.py`, US-015)
+3. **`{placeholder}` 전역 치환** ✅ — `{학교명}` 등, 표·중첩·run 분할 포함. 바이트보존 splice. (`locate.py`, US-013)
+4. **누름틀(form field) 헤드리스 fill** ✅ — HWPX 필드 이름 인식·채우기(COM 없이). `apply_to_open_hwp`와 이름 스키마 공유. (`formfield.py`, US-016)
+5. **form-fit / 쪽수 드리프트 가드** ✅ — 셀 오버플로 추정(휴리스틱) + 선택적 auto-fit(글꼴 축소, 하한 보장). `analyze_formfit` 툴 신설. (`formfit.py`, US-017)
+- 수용: ✅ 각 kind 골든/회귀 테스트(81 passed), 바이트보존 유지, `analyze_form`/`fill_form` 스키마 확장, `analyze_formfit` 툴 추가.
+- 남은 검증: 누름틀(US-016)·form-fit(US-017)은 실양식(PII 없는) 샘플로 재검증 권장(현재 합성 픽스처 기반). form-fit은 렌더러 없는 추정 → Phase B `render_preview`로 시각 검증 보완.
 
 ## Phase B (P1) — 신뢰성·검증·읽기 [OWN + DELEGATE]
 

@@ -181,7 +181,7 @@
       "title": "{placeholder} global replace + shared section-wide locate/splice primitive",
       "milestone": "M5-PhaseA",
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Build order FIRST: establishes the shared per-paragraph concatenated-text->char-span mapper reused by US-014/US-015/US-016. Own core (gap-analysis 3-A), not delegation.",
       "acceptanceCriteria": [
         "New KIND_PLACEHOLDER in schema; detect_placeholders(path) scans every Contents/section*.xml for {token} occurrences (itertext-aware) and emits Field(kind=placeholder, label=token-name-without-braces)",
@@ -197,7 +197,7 @@
       "title": "형광펜(markpen) placeholder kind",
       "milestone": "M5-PhaseA",
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "New KIND_MARKPEN; detector records each hp:markpenBegin..hp:markpenEnd highlighted text (carried as tail) plus location, deriving label from nearest preceding label with a synthesized fallback",
         "analyze_form returns a markpen field per highlighted region with the sample text; multiple regions become distinct fields",
@@ -211,7 +211,7 @@
       "title": "체크박스(☑/□) 탐지·선택 (KIND_CHECKBOX)",
       "milestone": "M5-PhaseA",
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Add options field to Field dataclass and include it in hangeul_mcp.server._field_dict (additive, backward-compatible)",
         "detect_checkbox groups consecutive [glyph][label] tokens (glyph set □ ☐ ☑ ☒ ■ ▣ √) within a paragraph/cell into one KIND_CHECKBOX field with options=[{label, checked}]",
@@ -225,7 +225,7 @@
       "title": "누름틀(form field) 헤드리스 fill (no COM)",
       "milestone": "M5-PhaseA",
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Spike the real hp:fieldBegin..hp:fieldEnd XML shape first; detector regex is attribute-order robust.",
       "acceptanceCriteria": [
         "New KIND_FORMFIELD; detect_form_fields scans hp:fieldBegin(name=..)..hp:fieldEnd controls, resolving name from the name attribute or a parameterSet, and records the field's text span",
@@ -241,7 +241,7 @@
       "title": "form-fit / 쪽수 드리프트 가드 (overflow guard + opt-in auto-fit)",
       "milestone": "M5-PhaseA",
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "No renderer available; overflow is a documented heuristic estimate, not layout truth. True visual verification deferred to Phase B render_preview.",
       "acceptanceCriteria": [
         "Tier1 (MUST): analyze_formfit(path, values) estimates per-field fill width (char classes x font height x width factor) vs cell capacity (cellSz/hp:sz width in HWPUNIT minus inMargin) and returns overflow warnings with field_id + estimated ratio; a comfortably-fitting value yields no warning; pure measurement, no mutation",
