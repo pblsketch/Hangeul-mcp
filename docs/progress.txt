@@ -58,3 +58,9 @@
 - NOTE: live COM (actual fill into open 한글) must be verified on the user's desktop
   with `HANGEUL_MCP_LIVE=1` — cannot run from headless CI/session.
 - NEXT: US-011 skill, US-012 CI + .hwp convert policy + release.
+
+## 2026-07-08 — M4 COMPLETE / v0.1.0
+- US-012: hangeul_core/convert.py (.hwp->.hwpx via COM, guarded); wired into analyze_form/fill_form (graceful error without 한글).
+- .github/workflows/ci.yml (ubuntu, py3.11-3.13). README Quickstart. Version bumped 0.1.0.
+- Suite: 48 passed, 1 skipped (live COM). ALL 13 stories pass.
+- Next external step: codex QA review.

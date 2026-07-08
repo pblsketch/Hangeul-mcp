@@ -13,6 +13,7 @@ from typing import Any, Dict
 
 from mcp.server.fastmcp import FastMCP
 
+from hangeul_core.convert import ensure_hwpx
 from hangeul_core.extract import extract_text as _extract_text
 from hangeul_core.fill import fill as _fill
 from hangeul_core.hwp import HwpBridge, normalize_field_values
@@ -64,6 +65,10 @@ def analyze_form(path: str) -> Dict[str, Any]:
     (empty_cell | inline_blank | ...), insert anchor, and style flags. Use the
     field_id or label as keys when calling fill_form.
     """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "format": "hwp", "fields": []}
     fields = understand(path).fields + detect_inline(path)
     return {"format": "hwpx", "fields": [_field_dict(f) for f in fields]}
 
@@ -82,6 +87,10 @@ def fill_form(
     real paragraphs; bullet cells are not double-marked. Returns the filled and
     skipped fields and the output path. Unmodified regions stay byte-identical.
     """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "filled": [], "skipped": []}
     result = _fill(
         path,
         values,
