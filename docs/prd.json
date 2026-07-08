@@ -318,6 +318,49 @@
         "Two new MCP tools (search_and_replace, batch_replace); tags/attributes never touched (only <hp:t> text)",
         "Golden + regression (run-split match, multiple pairs, overlapping finds longest wins, no cross-cell bleed); pyflakes clean; full suite green"
       ]
+    },
+    {
+      "id": "US-023",
+      "title": "DELEGATE 내보내기/미리보기 (python-hwpx) — hwpx_to_html / hwpx_to_markdown",
+      "milestone": "M8-PhaseC-D",
+      "priority": 24,
+      "passes": true,
+      "notes": "python-hwpx is a soft/optional dependency (extra 'delegate'). Its warnings go to stderr, safe for the stdio MCP server. Read-only, so no byte concern. Partially delivers Phase B render_preview (HTML) too.",
+      "acceptanceCriteria": [
+        "hangeul_core/delegate.py guards python-hwpx as a soft dependency: available() check + a clear RuntimeError/'available:false' when it is not installed (core stays dependency-light)",
+        "to_html / to_markdown / to_text_rich wrap HwpxDocument.export_html/export_markdown/export_text",
+        "New read-only MCP tools hwpx_to_html and hwpx_to_markdown return the rendered string (or available:false)",
+        "pyproject declares an optional extra 'delegate' = python-hwpx; tests use pytest.importorskip('hwpx') so they skip cleanly where the dep is absent (CI stays green)",
+        "Golden tests on the real fixture assert the rendered output contains known text (성명); pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-024",
+      "title": "DELEGATE 구조 편집 (python-hwpx) — add_paragraph / add_table + 검증 게이트",
+      "milestone": "M8-PhaseC-D",
+      "priority": 25,
+      "passes": true,
+      "notes": "Delegated structural edits re-serialize via lxml (NOT byte-identical) — the invariant here is our validate_hwpx gate, not byte preservation. Our own fill/recognition core keeps byte-splice.",
+      "acceptanceCriteria": [
+        "add_paragraph(path, text, out_path) and add_table(path, rows, cols, out_path) wrap python-hwpx, saving via save_to_path (not the deprecated save)",
+        "Each delegated edit runs the output through validate_hwpx and includes the report; the edit is only reported success when valid is True",
+        "New MCP tools add_paragraph and add_table; available:false when python-hwpx is absent",
+        "Tests (importorskip hwpx): new content present in the output AND validate_hwpx valid is True; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-025",
+      "title": "DELEGATE 문서 생성 (python-hwpx) — markdown/text → HWPX",
+      "milestone": "M9-PhaseD",
+      "priority": 26,
+      "passes": true,
+      "notes": "두뇌·손 분리 유지: 문안 생성은 클라이언트 LLM, 서버는 구조 조립만.",
+      "acceptanceCriteria": [
+        "create_from_markdown(markdown, out_path) builds a new HWPX from client-provided markdown/text via python-hwpx (converter or add_paragraph assembly)",
+        "New MCP tool create_hwpx_from_markdown; available:false when python-hwpx is absent",
+        "Output passes validate_hwpx (valid True) and contains the provided content",
+        "Tests (importorskip hwpx): created file valid + content present; pyflakes clean; full suite green"
+      ]
     }
   ],
   "decisions": {

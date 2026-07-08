@@ -44,15 +44,15 @@ python-hwpx를 얇게 감싸 Hangeul-mcp 툴로 노출(재발명 금지). 편집
 단, 텍스트 치환은 위임보다 우리 바이트-splice 엔진이 불변식(바이트보존)에 부합 → OWN으로 선행 구현.
 
 1. **텍스트/치환** ✅ — `search_and_replace`·`batch_replace`. **OWN 바이트보존**(`locate.replace_literals`, run 분할·셀 경계 가드). python-hwpx 위임 아님. (`edit.py`, US-022)
-2. **문단** — `add_heading`/`add_paragraph`/`insert`/`delete`/`add_page_break`.
-3. **표** — create/merge/split/format, add·remove rows·cols, `table_compute`(합계·평균).
-4. **서식** — 글자(bold/italic/underline/color/size/font)·문단(정렬/줄간격/들여쓰기)·`create_custom_style`.
-5. **객체** — 이미지 insert/replace, 도장/서명 배치, 머리말/꼬리말, 페이지 설정, 목차(TOC). (수식/차트/도형은 후순위)
-- 수용: 각 편집 툴이 python-hwpx 위임 + 결과 검증 게이트 통과, 회귀 테스트.
+2. **문단** ✅(부분) — `add_paragraph` 위임 완료(`delegate.py`, US-024). `add_heading`/`insert`/`delete`/`add_page_break`는 후속.
+3. **표** ✅(부분) — `add_table`(생성) 위임 완료(US-024). merge/split/format·rows·cols·`table_compute`는 후속.
+4. **서식** 🔲 후속 — 글자(bold/italic/underline/color/size/font)·문단(정렬/줄간격/들여쓰기)·`create_custom_style` (python-hwpx `ensure_run_style`/`char_properties` 위임).
+5. **객체** 🔲 후속 — 이미지 insert/replace(`add_image`), 도장/서명, 머리말/꼬리말, 페이지 설정, 목차(TOC). 리치 내보내기(`hwpx_to_html`/`hwpx_to_markdown`)는 ✅ 완료(US-023).
+- 수용: ✅ 위임 편집이 python-hwpx 경유 + 우리 `validate_hwpx` 게이트 통과, 회귀 테스트(importorskip). 위임 편집은 재직렬화이므로 바이트동일 아님 — 게이트 통과가 무결성 기준.
 
 ## Phase D (P3) — 문서 생성 [DELEGATE + 우리 레시피]
 
-1. **빌더/변환** — `create_document_from_plan`, markdown/text→HWPX (python-hwpx builder 위임).
+1. **빌더/변환** ✅(부분) — markdown/text→HWPX 완료(`create_hwpx_from_markdown`, `delegate.py`, US-025). `create_document_from_plan`·리치 markdown 구조 매핑은 후속.
 2. **공식문서 레시피** — 기안문·보도자료·계획서·시험지(문제+답안) 템플릿 생성. 우리 템플릿 + 위임 조립.
 3. **mail_merge** — CSV/JSON 대량 생성(우리 fill 엔진 + 레코드 반복).
 - 원칙: 문안 *생성*은 클라이언트 LLM, 서버는 구조 조립·채우기만.
