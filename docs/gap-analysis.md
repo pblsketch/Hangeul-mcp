@@ -74,15 +74,12 @@
 
 ---
 
-## 3. 전략적 판단 (중요)
+## 3. 전략적 판단 (중요) — 전 범위 커버, 단 own vs delegate
 
-**airmang/hwpx-mcp-server가 이미 편집·생성·표·이미지·검증 breadth를 60+툴로 포괄한다.**
-그걸 그대로 따라잡는 건 비효율. Hangeul-mcp의 존재 이유는 **양식 인식 + inline-blank + review→apply**다.
+**목표: 위 A~F 갭을 전부 커버해 제품을 완성한다.** 다만 방식을 나눈다(재발명 금지, D1):
 
-→ 따라서 우선순위는 **breadth 경쟁(C·D)이 아니라 우리 차별점을 깊게(A)** 파는 것:
-- A(양식 인식·채우기)의 갭이 최우선 — 특히 실양식이 요구한 형광펜 placeholder·체크박스·누름틀 헤드리스·form-fit.
-- E(안전·검증)는 신뢰성 필수 기반 — XSD 검증·dry-run·repair·render.
-- B(읽기)는 저비용 고효용 — outline/find/html.
-- C·D(편집·생성)는 **선택적** — 필요시 python-hwpx를 substrate로 위임(재발명 금지, D1 결정과 일치).
+- **OWN (직접 깊게)** — A(양식 인식·채우기), E 일부(검증·dry-run), B 일부(읽기). 우리 차별점 = inline-blank·병합셀 2D·review→apply·서식보존 채우기. 대부분 선행사례에 **없는 강점**이라 사수.
+- **DELEGATE (python-hwpx substrate 위임 + Hangeul-mcp 툴로 노출)** — C(편집)·D(생성)·E 일부(repair/render). airmang/hwpx-mcp-server·python-hwpx가 이미 breadth를 포괄하므로 **재구현이 아니라 얇게 감싸 노출**. 위임 결과도 바이트무결성/XSD 게이트 통과.
 
-우선순위 상세는 [`ROADMAP.md`](ROADMAP.md).
+→ 즉 "breadth를 포기"가 아니라 "breadth는 위임으로 빠르게 채우고, 차별점은 직접 판다".
+실행 순서·Phase 상세는 [`ROADMAP.md`](ROADMAP.md) (Phase A→B→C→D).

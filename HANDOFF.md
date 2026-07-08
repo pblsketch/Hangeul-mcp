@@ -23,13 +23,13 @@
 
 **현재 상태(완료)**: 라벨:값 fill · inline-blank(마커/콜론) · 병합셀 2D occupancy · 멀티섹션 · 바이트보존 채우기 · 자간정규화 · MCP 서버 6툴(detect_format/analyze_form/fill_form/extract_text/hwp_status/apply_to_open_hwp) · 클라이언트무관 · `.hwp→hwpx` COM 변환(데스크톱) · markpen 텍스트 독해 수정.
 
-**이번 작업 목표**: `docs/ROADMAP.md`의 **P0 전부 + P1 상위**를 구현. P0:
-1. 형광펜(markpen) placeholder 필드 kind (탐지+치환, markpen 서식 보존)
-2. 체크박스 필드(☑/□) 탐지·선택
-3. `{placeholder}` 전역 치환(표·중첩 포함)
-4. 누름틀(form field) 헤드리스 fill (COM 없이 HWPX 이름 기반)
-5. form-fit / 쪽수 드리프트 가드(auto-fit 옵션)
-그다음 P1: XSD 검증 통합, dry-run/백업/repair, render_preview, PII 마스킹 게이트.
+**이번 작업 목표(전 범위)**: `docs/ROADMAP.md`의 **Phase A~D 전부**. 단 순서·방식 준수:
+- **Phase A(P0, OWN, 먼저)**: ①형광펜 placeholder kind ②체크박스(☑/□) ③`{placeholder}` 전역치환 ④누름틀 헤드리스 fill ⑤form-fit/쪽수가드
+- **Phase B(P1, OWN+DELEGATE)**: XSD 검증·dry-run/백업/repair·render_preview·PII 마스킹 게이트·`.hwp` 헤드리스 읽기·읽기확장(outline/find/html)
+- **Phase C(P2, DELEGATE)**: 일반 편집(search/replace·문단·표·서식·이미지·머리꼬리말·TOC) — **python-hwpx를 얇게 감싸 Hangeul-mcp 툴로 노출**(재발명 금지), 편집 후 XSD/바이트무결성 게이트
+- **Phase D(P3, DELEGATE+레시피)**: 문서 생성(builder·md→hwpx·기안문/보도자료/계획서/시험지·mail_merge)
+
+핵심 방식 = **own vs delegate**: 차별점(인식·채우기)은 직접, commodity breadth(편집·생성)는 python-hwpx 위임 + 우리 툴로 노출. A·B 먼저, C·D는 위임 어댑터라 병렬 가능.
 
 **반드시 지킬 불변식**:
 - **바이트보존**: 바꾼 필드 외 (엔트리 payload 기준) 무변경. XML 재직렬화 금지 — raw-XML byte splice + mimetype STORED·XML 선언 보존. (ElementTree write는 선언 날림 — 읽기 전용에만 ET 사용.)
@@ -50,10 +50,14 @@
 
 ## 빠른 시작(새 세션 첫 명령 예시)
 
+전 범위는 Phase A→B→C→D. ralph는 증분 구현이므로 **Phase A부터** 계획·구현하고 순차 진행:
 ```
-/ralplan  Hangeul-mcp P0 구현 계획. docs/ROADMAP.md P0 5개(형광펜 placeholder·체크박스·{placeholder}전역치환·누름틀 헤드리스 fill·form-fit 가드)를 스토리로 분해하고 수용기준 확정. 불변식은 HANDOFF.md 참조.
+/ralplan  Hangeul-mcp 다음 개발 계획. 전 범위는 docs/ROADMAP.md Phase A~D(편집·생성 포함, C·D는 python-hwpx 위임).
+이번엔 Phase A(P0) 5개(형광펜 placeholder·체크박스·{placeholder}전역치환·누름틀 헤드리스 fill·form-fit 가드)를
+스토리로 분해하고 수용기준 확정. 불변식(바이트보존·두뇌손분리·own vs delegate)은 HANDOFF.md 참조.
 ```
 계획 승인 후:
 ```
 /ralph  위 계획대로 구현. 스토리별 테스트+커밋, 리뷰어 codex, 바이트보존·두뇌손분리 불변식 준수.
 ```
+Phase A 완료 후 같은 방식으로 B → C → D 진행.
