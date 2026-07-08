@@ -130,7 +130,7 @@
       "title": "COM bridge (v2) via pyhwpx with environment guard",
       "milestone": "M3",
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "hwp/com.py attaches to a running 한글 instance, get_field_list works, put_field_text(dict) fills fields",
         "Off-Windows or 한글-not-installed: import/guard returns available:false gracefully (no crash)",
@@ -143,7 +143,7 @@
       "title": "apply_to_open_hwp MCP tool + review->apply workflow",
       "milestone": "M3",
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "hwp_status and apply_to_open_hwp tools exposed",
         "apply runs format-preserving preprocessing on values before put_field_text",

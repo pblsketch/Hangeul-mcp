@@ -15,6 +15,7 @@ from mcp.server.fastmcp import FastMCP
 
 from hangeul_core.extract import extract_text as _extract_text
 from hangeul_core.fill import fill as _fill
+from hangeul_core.hwp import HwpBridge, normalize_field_values
 from hangeul_core.inline import detect_inline
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.understand import understand
@@ -95,6 +96,42 @@ def fill_form(
 def extract_text(path: str) -> str:
     """Extract plain text from an HWPX document (one line per text node)."""
     return _extract_text(path)
+
+
+@mcp.tool()
+def hwp_status() -> Dict[str, Any]:
+    """Report whether the COM live-apply bridge is available (Windows + Hangul).
+
+    Side-effect free: never launches Hangul. Call this before apply_to_open_hwp.
+    """
+    return HwpBridge().status()
+
+
+@mcp.tool()
+def apply_to_open_hwp(values: Dict[str, str], visible: bool = True) -> Dict[str, Any]:
+    """(v2) Fill values into the currently OPEN Hangul document in one shot (COM).
+
+    Fills named fields (누름틀/cell fields) via PutFieldText. Requires Windows +
+    Hangul + pywin32; otherwise returns ``available: false``. If the open
+    document has no named fields, returns ``needs_field_registration: true``.
+    """
+    bridge = HwpBridge()
+    if not bridge.available():
+        return {"available": False, "error": "COM bridge needs Windows + pywin32 + Hangul"}
+    try:
+        bridge.connect(visible=visible)
+    except Exception as exc:
+        return {"available": True, "connected": False, "error": str(exc)}
+    fields = bridge.get_field_list()
+    if not fields:
+        return {
+            "available": True,
+            "connected": True,
+            "needs_field_registration": True,
+            "note": "no named fields (누름틀) in the open document; register fields first",
+        }
+    result = bridge.put_field_text(normalize_field_values(values))
+    return {"available": True, "connected": True, "field_count": len(fields), **result}
 
 
 def main() -> None:

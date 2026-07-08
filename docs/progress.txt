@@ -47,3 +47,14 @@
   * a standard MCP client spawns `python -m hangeul_mcp.server`, lists 4 tools, calls one. PASS.
 - Total: 38 tests green. v1 headless functionally complete (M0+M1+M2).
 - NEXT: M3 — US-009 COM bridge (pyhwpx, env-guarded), US-010 apply_to_open_hwp.
+
+## 2026-07-08 — M3 COM live-apply (code complete, live-verify pending desktop)
+- US-009 hangeul_core/hwp/com.py: HwpBridge (available/connect/status/get_field_list/put_field_text).
+  * env-guarded: available() import-only (no dispatch); off-Windows/no-pywin32 -> graceful.
+  * security prompt via RegisterModule(FilePathCheckerModule).
+- US-010 server tools: hwp_status (side-effect free), apply_to_open_hwp (normalize -> put_field_text).
+  * returns needs_field_registration when no 누름틀; graceful when unavailable.
+- Tests: 6 (5 run + 1 live-gated skip). Suite 44 passed, 1 skipped.
+- NOTE: live COM (actual fill into open 한글) must be verified on the user's desktop
+  with `HANGEUL_MCP_LIVE=1` — cannot run from headless CI/session.
+- NEXT: US-011 skill, US-012 CI + .hwp convert policy + release.
