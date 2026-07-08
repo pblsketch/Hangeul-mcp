@@ -23,7 +23,7 @@
       "title": "Repo scaffold + packaging",
       "milestone": "M0",
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Directory layout matches PLAN.md section 4 (hangeul_core, hangeul_mcp, tests, docs)",
         "pyproject.toml defines package + console entrypoint 'hangeul-mcp'",
