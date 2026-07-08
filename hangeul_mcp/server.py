@@ -14,6 +14,7 @@ from typing import Any, Dict
 from mcp.server.fastmcp import FastMCP
 
 from hangeul_core.checkbox import detect_checkbox
+from hangeul_core import delegate as _delegate
 from hangeul_core.convert import ensure_hwpx
 from hangeul_core.edit import batch_replace as _batch_replace
 from hangeul_core.edit import search_and_replace as _search_and_replace
@@ -221,6 +222,38 @@ def list_styles(path: str) -> Dict[str, Any]:
     except RuntimeError as exc:
         return {"error": str(exc), "charPr": [], "paraPr": []}
     return _list_styles(path)
+
+
+@mcp.tool()
+def hwpx_to_html(path: str) -> Dict[str, Any]:
+    """Render an HWPX document to HTML (read-only, delegated to python-hwpx).
+
+    Structural preview (not pixel-perfect). Requires the optional python-hwpx
+    substrate; returns available:false if it is not installed.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"available": True, "error": str(exc)}
+    return {"available": True, "html": _delegate.to_html(path)}
+
+
+@mcp.tool()
+def hwpx_to_markdown(path: str) -> Dict[str, Any]:
+    """Render an HWPX document to Markdown (read-only, delegated to python-hwpx).
+
+    Requires the optional python-hwpx substrate; returns available:false if it is
+    not installed.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"available": True, "error": str(exc)}
+    return {"available": True, "markdown": _delegate.to_markdown(path)}
 
 
 @mcp.tool()
