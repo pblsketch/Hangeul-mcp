@@ -16,6 +16,7 @@ from mcp.server.fastmcp import FastMCP
 from hangeul_core.checkbox import detect_checkbox
 from hangeul_core.convert import ensure_hwpx
 from hangeul_core.formfield import detect_form_fields
+from hangeul_core.formfit import analyze_formfit as _analyze_formfit
 from hangeul_core.extract import extract_text as _extract_text
 from hangeul_core.fill import fill as _fill
 from hangeul_core.hwp import HwpBridge, normalize_field_values
@@ -93,15 +94,18 @@ def fill_form(
     normalize_spacing: bool = False,
     respect_bullets: bool = True,
     checkbox_exclusive: bool = True,
+    auto_fit: bool = False,
 ) -> Dict[str, Any]:
     """Fill values into an HWPX form, preserving all original formatting.
 
     ``values`` is a map of field_id or label -> value. Handles empty cells,
-    inline blanks, ``{placeholder}`` tokens, 형광펜(markpen) examples, and
-    checkbox groups (value = option label(s) to check; ``checkbox_exclusive``
-    unchecks the others). Multi-line values become real paragraphs; bullet cells
-    are not double-marked. Returns the filled and skipped fields and the output
-    path. Unmodified regions stay byte-identical.
+    inline blanks, ``{placeholder}`` tokens, 형광펜(markpen) examples, checkbox
+    groups (value = option label(s) to check; ``checkbox_exclusive`` unchecks the
+    others), and 누름틀 named fields. Multi-line values become real paragraphs;
+    bullet cells are not double-marked. With ``auto_fit``, cell text estimated to
+    overflow is shrunk via a cloned charPr (bounded by a floor) and reported in
+    ``shrunk``. Returns the filled/skipped/shrunk fields and the output path.
+    Unmodified regions stay byte-identical.
     """
     try:
         path = ensure_hwpx(path)
@@ -114,8 +118,30 @@ def fill_form(
         normalize_spacing=normalize_spacing,
         respect_bullets=respect_bullets,
         checkbox_exclusive=checkbox_exclusive,
+        auto_fit=auto_fit,
     )
-    return {"filled": result.filled, "skipped": result.skipped, "out_path": result.out_path}
+    return {
+        "filled": result.filled,
+        "skipped": result.skipped,
+        "shrunk": result.shrunk,
+        "out_path": result.out_path,
+    }
+
+
+@mcp.tool()
+def analyze_formfit(path: str, values: Dict[str, str]) -> Dict[str, Any]:
+    """Estimate whether filled values would overflow their target cells.
+
+    Heuristic (no renderer): compares each value's estimated width to the cell's
+    capacity. Returns ``warnings`` (field_id, label, estimated_width,
+    available_width, ratio>1.0 = likely overflow) and ``checked`` count. Use
+    before fill_form(auto_fit=True) to preview page-drift risk. Estimates only.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "warnings": [], "checked": 0}
+    return _analyze_formfit(path, values)
 
 
 @mcp.tool()

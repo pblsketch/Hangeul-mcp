@@ -134,10 +134,13 @@ def analyze(path: str | Path) -> AnalyzeResult:
                         continue
                     addr = _find_child(tc, "cellAddr")
                     span = _find_child(tc, "cellSpan")
+                    sz = _find_child(tc, "cellSz")
                     row = int(addr.get("rowAddr")) if addr is not None else -1
                     col = int(addr.get("colAddr")) if addr is not None else -1
                     cs = int(span.get("colSpan")) if span is not None else 1
                     rs = int(span.get("rowSpan")) if span is not None else 1
+                    cw = int(sz.get("width")) if sz is not None and sz.get("width") else None
+                    chh = int(sz.get("height")) if sz is not None and sz.get("height") else None
                     text, nested, ppr, cpr, pid = _cell_content(tc)
                     cells.append(
                         Cell(
@@ -156,6 +159,8 @@ def analyze(path: str | Path) -> AnalyzeResult:
                             para_id=pid,
                             section=sname,
                             table_in_section=tis,
+                            width=cw,
+                            height=chh,
                         )
                     )
             tables.append(Table(index=ti, rows=rowcnt, cols=colcnt, cells=cells))

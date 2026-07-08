@@ -50,6 +50,8 @@ class Cell:
     para_id: Optional[str] = None  # id of the cell's first paragraph (unique anchor)
     section: Optional[str] = None  # containing section xml entry (e.g. Contents/section0.xml)
     table_in_section: int = 0      # 1-based table index within its own section
+    width: Optional[int] = None    # cellSz width in HWPUNIT (for form-fit)
+    height: Optional[int] = None   # cellSz height in HWPUNIT
 
     @property
     def field_id(self) -> str:

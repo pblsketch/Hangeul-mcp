@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 from hangeul_core.analyze import _section_names, analyze
 from hangeul_core.checkbox import detect_checkbox, toggle_checkbox
 from hangeul_core.formfield import form_field_names, replace_form_fields
+from hangeul_core.formfit import clone_charpr_scaled, overflow_scale
 from hangeul_core.inline import MARKERS
 from hangeul_core.locate import detect_placeholders, replace_placeholders
 from hangeul_core.markpen import markpen_regions, replace_markpen
@@ -37,6 +38,7 @@ _MARKER_PREFIX = re.compile(r"^\s*[-∘○•·]\s*")
 class FillResult:
     filled: List[dict] = dfield(default_factory=list)
     skipped: List[dict] = dfield(default_factory=list)
+    shrunk: List[dict] = dfield(default_factory=list)
     out_path: Optional[str] = None
 
 
@@ -242,6 +244,8 @@ def fill(
     respect_bullets: bool = True,
     normalize_spacing: bool = False,
     checkbox_exclusive: bool = True,
+    auto_fit: bool = False,
+    auto_fit_floor: float = 0.6,
 ) -> FillResult:
     """Fill *values* (keyed by field_id or label) into the form at *path*."""
     result = analyze(path)
@@ -290,6 +294,7 @@ def fill(
 
     filled: List[dict] = []
     skipped: List[dict] = []
+    shrunk: List[dict] = []
     spacing_clone: Dict[str, Optional[str]] = {}
 
     for key, value in values.items():
@@ -351,6 +356,23 @@ def fill(
                         r"\g<1>" + new_id + r"\g<2>",
                         pblock,
                     )
+            if auto_fit and cell.width:
+                scale = overflow_scale(value, cell, header, floor=auto_fit_floor)
+                if scale is not None:
+                    rm = re.search(r'charPrIDRef="(\d+)"', pblock)
+                    cur_cpr = rm.group(1) if rm else None
+                    if cur_cpr:
+                        header, sid = clone_charpr_scaled(header, cur_cpr, scale)
+                        if sid:
+                            header_changed = True
+                            pblock = re.sub(
+                                r'(<hp:run\b[^>]*charPrIDRef=")' + re.escape(cur_cpr) + r'(")',
+                                r"\g<1>" + sid + r"\g<2>",
+                                pblock,
+                            )
+                            shrunk.append(
+                                {"field_id": fld.field_id, "label": fld.label, "scale": round(scale, 2)}
+                            )
             newp = _apply_cell(pblock, cell, value, respect_bullets, alloc)
             if newp is None:
                 skipped.append({"key": key, "reason": "could not apply value"})
@@ -413,7 +435,12 @@ def fill(
 
     if out_path is not None:
         pkg.save(out_path)
-    return FillResult(filled=filled, skipped=skipped, out_path=str(out_path) if out_path else None)
+    return FillResult(
+        filled=filled,
+        skipped=skipped,
+        shrunk=shrunk,
+        out_path=str(out_path) if out_path else None,
+    )
 
 
 def _inline(path):
