@@ -308,6 +308,19 @@ def add_paragraph(path: str, text: str, out_path: str, section_index: int = -1) 
 
 
 @mcp.tool()
+def create_hwpx_from_markdown(markdown: str, out_path: str) -> Dict[str, Any]:
+    """Build a new HWPX from client-provided markdown/text → new .hwpx (delegated).
+
+    Assembly only: the content is authored by the client LLM (brain/hand
+    separation); this maps each line to a paragraph and validates the output.
+    Requires the optional python-hwpx substrate.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    return {"available": True, **_delegate.create_from_markdown(markdown, out_path)}
+
+
+@mcp.tool()
 def add_table(path: str, rows: int, cols: int, out_path: str) -> Dict[str, Any]:
     """Append a rows×cols table to an HWPX document → new .hwpx (delegated).
 

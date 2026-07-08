@@ -19,10 +19,13 @@ stdio MCP server (stdout stays protocol-clean).
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 from typing import Dict, Optional
 
 from hangeul_core.validate import validate_hwpx
+
+_MD_MARKER = re.compile(r"^\s{0,3}(#{1,6}\s+|[-*+]\s+|>\s+|\d+\.\s+)")
 
 
 def hwpx_available() -> bool:
@@ -30,7 +33,7 @@ def hwpx_available() -> bool:
     return importlib.util.find_spec("hwpx") is not None
 
 
-def _doc(path: str | Path):
+def _module():
     if not hwpx_available():
         raise RuntimeError(
             "python-hwpx not installed; run `pip install python-hwpx` "
@@ -38,7 +41,11 @@ def _doc(path: str | Path):
         )
     import hwpx  # local import: keep the core import-light
 
-    return hwpx.HwpxDocument.open(str(path))
+    return hwpx
+
+
+def _doc(path: str | Path):
+    return _module().HwpxDocument.open(str(path))
 
 
 # -- export / preview (read-only) --------------------------------------------
@@ -98,3 +105,25 @@ def add_table(
     doc.add_table(rows, cols)
     _save(doc, out_path)
     return _edit_result(out_path)
+
+
+# -- generation (delegated assembly; content is client-provided) -------------
+def create_from_markdown(markdown: str, out_path: str | Path) -> Dict:
+    """Build a new HWPX from client-provided markdown/text (one paragraph per line).
+
+    Assembly only — the *content* is authored by the client LLM (brain/hand
+    separation). Leading markdown markers (``#``, ``-``, ``>`` , ``1.``) are
+    stripped to plain paragraph text; rich markdown structure mapping is a
+    follow-up. Output is validated via our gate.
+    """
+    doc = _module().HwpxDocument.new()
+    lines = markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    added = 0
+    for line in lines:
+        text = _MD_MARKER.sub("", line.rstrip())
+        doc.add_paragraph(text)
+        added += 1
+    _save(doc, out_path)
+    result = _edit_result(out_path)
+    result["paragraphs"] = added
+    return result
