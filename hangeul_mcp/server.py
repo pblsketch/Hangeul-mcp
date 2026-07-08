@@ -24,6 +24,7 @@ from hangeul_core.inline import detect_inline
 from hangeul_core.locate import detect_placeholders
 from hangeul_core.markpen import detect_markpen
 from hangeul_core.owpml import HwpxPackage
+from hangeul_core.pii import scan_text as _scan_pii
 from hangeul_core.understand import understand
 
 mcp = FastMCP("hangeul-mcp")
@@ -95,6 +96,7 @@ def fill_form(
     respect_bullets: bool = True,
     checkbox_exclusive: bool = True,
     auto_fit: bool = False,
+    mask_pii: bool = False,
 ) -> Dict[str, Any]:
     """Fill values into an HWPX form, preserving all original formatting.
 
@@ -119,12 +121,33 @@ def fill_form(
         respect_bullets=respect_bullets,
         checkbox_exclusive=checkbox_exclusive,
         auto_fit=auto_fit,
+        mask_pii=mask_pii,
     )
     return {
         "filled": result.filled,
         "skipped": result.skipped,
         "shrunk": result.shrunk,
+        "masked": result.masked,
         "out_path": result.out_path,
+    }
+
+
+@mcp.tool()
+def scan_pii(path: str) -> Dict[str, Any]:
+    """Audit a document's text for PII (주민번호/전화/카드/계좌/이메일).
+
+    Read-only. Returns ``findings`` (type + masked preview, no raw value echoed
+    beyond the match) and a ``count``. Use before sharing/committing a filled
+    form, or pair with fill_form(mask_pii=True) to mask values on write.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "findings": [], "count": 0}
+    findings = _scan_pii(_extract_text(path))
+    return {
+        "findings": [{"type": f["type"], "masked": f["masked"]} for f in findings],
+        "count": len(findings),
     }
 
 

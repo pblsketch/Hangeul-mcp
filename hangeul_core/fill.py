@@ -26,6 +26,7 @@ from hangeul_core.inline import MARKERS
 from hangeul_core.locate import detect_placeholders, replace_placeholders
 from hangeul_core.markpen import markpen_regions, replace_markpen
 from hangeul_core.owpml import HwpxPackage
+from hangeul_core.pii import mask_value, scan_text
 from hangeul_core.schema import KIND_CHECKBOX, KIND_INLINE_BLANK, label_key
 from hangeul_core.understand import understand
 
@@ -39,6 +40,7 @@ class FillResult:
     filled: List[dict] = dfield(default_factory=list)
     skipped: List[dict] = dfield(default_factory=list)
     shrunk: List[dict] = dfield(default_factory=list)
+    masked: List[dict] = dfield(default_factory=list)
     out_path: Optional[str] = None
 
 
@@ -246,6 +248,7 @@ def fill(
     checkbox_exclusive: bool = True,
     auto_fit: bool = False,
     auto_fit_floor: float = 0.6,
+    mask_pii: bool = False,
 ) -> FillResult:
     """Fill *values* (keyed by field_id or label) into the form at *path*."""
     result = analyze(path)
@@ -295,10 +298,16 @@ def fill(
     filled: List[dict] = []
     skipped: List[dict] = []
     shrunk: List[dict] = []
+    masked_out: List[dict] = []
     spacing_clone: Dict[str, Optional[str]] = {}
 
     for key, value in values.items():
         value = value.replace("\r\n", "\n").replace("\r", "\n")  # normalize line breaks
+        if mask_pii:
+            findings = scan_text(value)
+            if findings:
+                masked_out.append({"key": key, "types": sorted({f["type"] for f in findings})})
+                value = mask_value(value)
         ph_name = key[3:] if key.startswith("ph:") else key
         if ph_name in ph_names:
             ph_values[ph_name] = value.replace("\n", " ")  # tokens are single-line
@@ -439,6 +448,7 @@ def fill(
         filled=filled,
         skipped=skipped,
         shrunk=shrunk,
+        masked=masked_out,
         out_path=str(out_path) if out_path else None,
     )
 
