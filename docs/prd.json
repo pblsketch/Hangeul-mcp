@@ -37,7 +37,7 @@
       "title": "OWPML container I/O (byte-preserving) + substrate decision",
       "milestone": "M1",
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Spike evaluates python-hwpx as substrate; decision recorded in docs/architecture.md (adopt or use own engine)",
         "unpack/repack preserves mimetype as first entry with STORED compression",
