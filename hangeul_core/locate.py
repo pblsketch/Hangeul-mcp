@@ -137,6 +137,69 @@ def replace_placeholders(section: str, values: Dict[str, str]) -> Tuple[str, Lis
     return out, seen
 
 
+def replace_literals(section: str, mapping: Dict[str, str]) -> Tuple[str, Dict[str, int]]:
+    """Replace arbitrary literal substrings inside ``<hp:t>`` text.
+
+    ``mapping`` is ``{find: replace}``. Matching spans the concatenated ``<hp:t>``
+    text (so a match may cross runs) but never bridges a paragraph/cell/table
+    boundary. Longer finds win on overlap and each position is edited at most
+    once (no chained re-replacement). Returns ``(new_section, counts)``.
+    """
+    segs = _segments(section)
+    if not segs:
+        return section, {}
+    concat, idxmap = _concat_map(section, segs)
+
+    # collect all candidate match spans across all finds
+    spans: List[Tuple[int, int, str]] = []
+    for find in mapping:
+        if not find:
+            continue
+        start = 0
+        while True:
+            i = concat.find(find, start)
+            if i < 0:
+                break
+            spans.append((i, i + len(find), find))
+            start = i + len(find)
+    # longest-first at each position; greedily claim non-overlapping left-to-right
+    spans.sort(key=lambda s: (s[0], -(s[1] - s[0])))
+
+    edits: Dict[int, List[Tuple[int, int, str]]] = {}
+    counts: Dict[str, int] = {}
+    last_end = -1
+    for s, e, find in spans:
+        if s < last_end:
+            continue  # overlaps an already-claimed span
+        s_si, s_off = idxmap[s]
+        e_si, e_off = idxmap[e - 1]
+        e_off += 1
+        if s_si != e_si and not _gaps_clean(section, segs, s_si, e_si):
+            continue
+        repl = _esc(mapping[find])
+        if s_si == e_si:
+            edits.setdefault(s_si, []).append((s_off, e_off, repl))
+        else:
+            first_len = segs[s_si][1] - segs[s_si][0]
+            edits.setdefault(s_si, []).append((s_off, first_len, repl))
+            for mid in range(s_si + 1, e_si):
+                edits.setdefault(mid, []).append((0, segs[mid][1] - segs[mid][0], ""))
+            edits.setdefault(e_si, []).append((0, e_off, ""))
+        counts[find] = counts.get(find, 0) + 1
+        last_end = e
+
+    if not edits:
+        return section, {}
+    out = section
+    for si in sorted(edits.keys(), reverse=True):
+        s, e = segs[si]
+        inner = section[s:e]
+        for start, end, text in sorted(edits[si], reverse=True):
+            inner = inner[:start] + text + inner[end:]
+        out = out[:s] + inner + out[e:]
+    return out, counts
+
+
 def detect_placeholders(path: str | Path) -> List[Field]:
     """Detect ``{token}`` template variables across all sections as fields."""
     pkg = HwpxPackage.open(path)

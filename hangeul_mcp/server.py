@@ -15,6 +15,8 @@ from mcp.server.fastmcp import FastMCP
 
 from hangeul_core.checkbox import detect_checkbox
 from hangeul_core.convert import ensure_hwpx
+from hangeul_core.edit import batch_replace as _batch_replace
+from hangeul_core.edit import search_and_replace as _search_and_replace
 from hangeul_core.formfield import detect_form_fields
 from hangeul_core.formfit import analyze_formfit as _analyze_formfit
 from hangeul_core.extract import extract_text as _extract_text
@@ -219,6 +221,39 @@ def list_styles(path: str) -> Dict[str, Any]:
     except RuntimeError as exc:
         return {"error": str(exc), "charPr": [], "paraPr": []}
     return _list_styles(path)
+
+
+@mcp.tool()
+def search_and_replace(path: str, find: str, replace: str, out_path: str) -> Dict[str, Any]:
+    """Replace every occurrence of *find* with *replace* → new .hwpx (byte-preserving).
+
+    Only ``<hp:t>`` text changes (tags/attributes untouched); matches may cross
+    runs but never bridge a cell/paragraph/table boundary. Returns the match
+    count and output path. For structural edits (paragraphs/tables/formatting),
+    see the planned python-hwpx-backed tools.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "total": 0}
+    res = _search_and_replace(path, find, replace, out_path)
+    return {"counts": res.counts, "total": res.total, "out_path": res.out_path}
+
+
+@mcp.tool()
+def batch_replace(path: str, replacements: Dict[str, str], out_path: str) -> Dict[str, Any]:
+    """Apply many find→replace pairs in one pass → new .hwpx (byte-preserving).
+
+    ``replacements`` maps find-text to replacement. Longer finds win on overlap;
+    each position is edited at most once (no chained re-replacement). Returns
+    per-find counts and the output path.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "total": 0}
+    res = _batch_replace(path, replacements, out_path)
+    return {"counts": res.counts, "total": res.total, "out_path": res.out_path}
 
 
 @mcp.tool()
