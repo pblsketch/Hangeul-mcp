@@ -97,6 +97,8 @@ def fill_form(
     checkbox_exclusive: bool = True,
     auto_fit: bool = False,
     mask_pii: bool = False,
+    dry_run: bool = False,
+    backup: bool = False,
 ) -> Dict[str, Any]:
     """Fill values into an HWPX form, preserving all original formatting.
 
@@ -122,6 +124,8 @@ def fill_form(
         checkbox_exclusive=checkbox_exclusive,
         auto_fit=auto_fit,
         mask_pii=mask_pii,
+        dry_run=dry_run,
+        backup=backup,
     )
     return {
         "filled": result.filled,
@@ -129,6 +133,7 @@ def fill_form(
         "shrunk": result.shrunk,
         "masked": result.masked,
         "out_path": result.out_path,
+        "dry_run": dry_run,
     }
 
 

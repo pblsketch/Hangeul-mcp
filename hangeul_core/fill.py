@@ -14,6 +14,7 @@ regions stay byte-identical. Learned rules baked in:
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass, field as dfield
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -249,6 +250,8 @@ def fill(
     auto_fit: bool = False,
     auto_fit_floor: float = 0.6,
     mask_pii: bool = False,
+    dry_run: bool = False,
+    backup: bool = False,
 ) -> FillResult:
     """Fill *values* (keyed by field_id or label) into the form at *path*."""
     result = analyze(path)
@@ -442,14 +445,20 @@ def fill(
     if header_changed:
         pkg.replace("Contents/header.xml", header.encode("utf-8"))
 
-    if out_path is not None:
+    wrote = False
+    if out_path is not None and not dry_run:
+        if backup:
+            op = Path(out_path)
+            if op.exists():
+                shutil.copyfile(str(op), str(op) + ".bak")
         pkg.save(out_path)
+        wrote = True
     return FillResult(
         filled=filled,
         skipped=skipped,
         shrunk=shrunk,
         masked=masked_out,
-        out_path=str(out_path) if out_path else None,
+        out_path=str(out_path) if wrote else None,
     )
 
 
