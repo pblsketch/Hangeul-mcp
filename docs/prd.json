@@ -51,7 +51,7 @@
       "title": "Form analyzer (tables, cells, spans, paraPr, charPr)",
       "milestone": "M1",
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "analyze() returns tables with cells addressed by rowAddr/colAddr and colSpan/rowSpan",
         "Detects empty cells, bullet paragraphs (heading type=BULLET), and charPr spacing",
