@@ -77,7 +77,7 @@
       "title": "Inline-blank detector (mid-sentence / mid-cell blanks)",
       "milestone": "M1",
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Detects patterns like '∘ ___ 을 졸업하시고' and '은행명: ___ 계좌번호: ___' as kind=inline_blank with insert positions",
         "Distinguishes inline_blank from empty_cell and bullet_item",
