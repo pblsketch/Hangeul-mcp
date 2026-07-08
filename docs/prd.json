@@ -1,8 +1,8 @@
 {
   "project": "Hangeul-mcp",
   "summary": "Korean HWP/HWPX form-fill MCP server. Client-agnostic (Claude Desktop, Codex, Antigravity 2.0). Python. v1 headless fill, v2 COM live-apply via pyhwpx put_field_text. Differentiators: inline-blank fill, merged-cell 2D understanding, review-then-apply.",
-  "status": "planning",
-  "planApprovedByUser": false,
+  "status": "building",
+  "planApprovedByUser": true,
   "note": "This run is plan-first. Build loop starts only after user approves PLAN.md and answers the open questions in section 10. All stories passes:false.",
   "stories": [
     {
@@ -10,7 +10,7 @@
       "title": "Plan & scope approval gate",
       "milestone": "M0",
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "PLAN.md exists with architecture, MCP tool API, data model, roadmap, test strategy",
         "prd.json exists with concrete task-specific acceptance criteria per story",
@@ -176,5 +176,13 @@
         "Coverage of core modules documented"
       ]
     }
-  ]
+  ],
+  "decisions": {
+    "substrate": "own byte-preserving engine (core) + python-hwpx for XSD validation & security hardening",
+    "matching_key": "field_id (authoritative) + label (alias)",
+    "hwp_input": "v1 auto-convert to HWPX (COM-first, LibreOffice/H2Orestart fallback)",
+    "package_name": "hangeul-mcp",
+    "pypi": "deferred to v1.0",
+    "git_remote": "pblsketch/Hangeul-mcp (private)"
+  }
 }

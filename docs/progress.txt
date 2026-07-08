@@ -16,3 +16,11 @@
 
 ## Next
 - US-000 approval gate: user reviews plan, confirms repo location + decisions.
+
+## 2026-07-08 — Decisions locked, build approved (US-000 passes)
+- D1 substrate: own byte-preserving engine + python-hwpx (XSD validation, security).
+- D2 matching: field_id authoritative + label alias.
+- D3 .hwp: v1 auto-convert to HWPX (COM-first, LibreOffice/H2Orestart fallback).
+- D4 name: hangeul-mcp; PyPI deferred to v1.0.
+- D5 git remote: pblsketch/Hangeul-mcp (private), push now.
+- NEXT: ralph build M0 (scaffold) -> M1 (core engine port) -> M2 (MCP server v1).
