@@ -40,3 +40,10 @@
   * verified: only target cells change, other entries byte-identical. 9 tests.
 - Total: 32 tests green. M1 (owpml/analyze/understand/inline/fill) done.
 - NEXT: M2 — US-007 MCP server (FastMCP stdio), US-008 client configs.
+
+## 2026-07-08 — M2 COMPLETE (v1 headless done)
+- US-007 MCP server (FastMCP stdio): detect_format/analyze_form/fill_form/extract_text. 5 tests.
+- US-008 client docs (Claude Desktop/Codex/Antigravity) + real stdio client integration test.
+  * a standard MCP client spawns `python -m hangeul_mcp.server`, lists 4 tools, calls one. PASS.
+- Total: 38 tests green. v1 headless functionally complete (M0+M1+M2).
+- NEXT: M3 — US-009 COM bridge (pyhwpx, env-guarded), US-010 apply_to_open_hwp.

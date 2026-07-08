@@ -117,7 +117,7 @@
       "title": "Client-agnostic config docs + verification",
       "milestone": "M2",
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "docs/clients/ contains registration snippets for Claude Desktop, Codex, and Antigravity 2.0",
         "Server starts via the documented stdio command for each client",
