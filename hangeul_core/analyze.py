@@ -77,12 +77,18 @@ def _cell_content(tc):
                     state["para"] = ch.get("paraPrIDRef")
                 if state["pid"] is None and ch.get("id") is not None:
                     state["pid"] = ch.get("id")
-            if ln == "run" and state["char"] is None:
+            elif ln == "run" and state["char"] is None:
                 cpr = ch.get("charPrIDRef")
                 if cpr is not None:
                     state["char"] = cpr
-            if ln == "t" and ch.text:
-                parts.append(ch.text)
+            elif ln == "t":
+                # Capture ALL text inside <hp:t>, including text carried as the
+                # tail of inline children like <hp:markpenBegin> (highlight) —
+                # otherwise highlighted cells look empty.
+                txt = "".join(ch.itertext())
+                if txt:
+                    parts.append(txt)
+                continue  # fully captured; don't re-descend into inline markup
             rec(ch)
 
     rec(tc)
