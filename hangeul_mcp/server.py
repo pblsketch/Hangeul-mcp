@@ -25,6 +25,9 @@ from hangeul_core.locate import detect_placeholders
 from hangeul_core.markpen import detect_markpen
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.pii import scan_text as _scan_pii
+from hangeul_core.read import find_text as _find_text
+from hangeul_core.read import get_document_outline as _get_document_outline
+from hangeul_core.read import list_styles as _list_styles
 from hangeul_core.understand import understand
 
 mcp = FastMCP("hangeul-mcp")
@@ -176,6 +179,45 @@ def analyze_formfit(path: str, values: Dict[str, str]) -> Dict[str, Any]:
 def extract_text(path: str) -> str:
     """Extract plain text from an HWPX document (one line per text node)."""
     return _extract_text(path)
+
+
+@mcp.tool()
+def find_text(path: str, query: str) -> Dict[str, Any]:
+    """Find text in an HWPX document (read-only).
+
+    Returns a document-wide ``count`` and addressed ``cell_occurrences``
+    (section, field_id, snippet) for matches located in table cells.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "query": query, "count": 0, "cell_occurrences": []}
+    return _find_text(path, query)
+
+
+@mcp.tool()
+def get_document_outline(path: str) -> Dict[str, Any]:
+    """Structural overview of an HWPX form (read-only).
+
+    Returns section count, per-table geometry, cell/empty-cell counts, and a
+    tally of fillable fields by kind (empty_cell/inline_blank/placeholder/
+    markpen/checkbox/form_field).
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc)}
+    return _get_document_outline(path)
+
+
+@mcp.tool()
+def list_styles(path: str) -> Dict[str, Any]:
+    """List the header's charPr (font height / hangul spacing) and paraPr (bullet)."""
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "charPr": [], "paraPr": []}
+    return _list_styles(path)
 
 
 @mcp.tool()
