@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Tuple
 
 from hangeul_core.analyze import analyze
 from hangeul_core.inline import MARKERS
+from hangeul_core.locate import detect_placeholders, replace_placeholders
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.schema import KIND_INLINE_BLANK, label_key
 from hangeul_core.understand import understand
@@ -247,6 +248,12 @@ def fill(
     for f in fields:
         by_label.setdefault(label_key(f.label), f)
 
+    # Section-wide {placeholder} tokens are resolved separately from the
+    # cell-based path: keys matching a token name (or "ph:<name>") are routed
+    # to a whole-document replacement pass after the per-cell fills.
+    ph_names = {f.label for f in detect_placeholders(path)}
+    ph_values: Dict[str, str] = {}
+
     pkg = HwpxPackage.open(path)
     header = pkg.read("Contents/header.xml").decode("utf-8")
     header_changed = False
@@ -271,6 +278,10 @@ def fill(
 
     for key, value in values.items():
         value = value.replace("\r\n", "\n").replace("\r", "\n")  # normalize line breaks
+        ph_name = key[3:] if key.startswith("ph:") else key
+        if ph_name in ph_names:
+            ph_values[ph_name] = value.replace("\n", " ")  # tokens are single-line
+            continue
         fld = by_id.get(key) or by_label.get(label_key(key))
         if fld is None:
             skipped.append({"key": key, "reason": "no matching field"})
@@ -319,6 +330,23 @@ def fill(
 
         sections[cell.section] = section[:cs] + newtc + section[ce:]
         filled.append({"field_id": fld.field_id, "label": fld.label, "value": value})
+
+    # Whole-document {placeholder} pass (touches only <hp:t> text of matched tokens).
+    if ph_values:
+        applied_all: set[str] = set()
+        from hangeul_core.analyze import _section_names  # ordered section list
+
+        for sname in _section_names(pkg):
+            text = section_text(sname)
+            newtext, applied = replace_placeholders(text, ph_values)
+            if applied:
+                sections[sname] = newtext
+                applied_all.update(applied)
+        for name in applied_all:
+            filled.append({"field_id": f"ph:{name}", "label": name, "value": ph_values[name]})
+        for name in ph_values:
+            if name not in applied_all:
+                skipped.append({"key": name, "reason": "placeholder token not found"})
 
     for name, text in sections.items():
         pkg.replace(name, text.encode("utf-8"))

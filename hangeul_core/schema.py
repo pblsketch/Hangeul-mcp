@@ -16,6 +16,9 @@ KIND_INLINE_BLANK = "inline_blank"
 KIND_BULLET_ITEM = "bullet_item"
 KIND_CHECKBOX = "checkbox"
 KIND_NARRATIVE = "narrative"
+KIND_PLACEHOLDER = "placeholder"  # {token} template variable (section-wide)
+KIND_MARKPEN = "markpen"          # 형광펜-highlighted example value
+KIND_FORMFIELD = "form_field"     # 누름틀 named field control
 
 
 def normalize_label(text: str) -> str:
