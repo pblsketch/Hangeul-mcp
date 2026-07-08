@@ -61,10 +61,10 @@ def _parse_header(header_xml: bytes) -> Tuple[Dict[str, bool], Dict[str, Optiona
     return para_bullet, char_spacing
 
 
-def _cell_content(tc) -> Tuple[str, bool, Optional[str], Optional[str]]:
-    """Own text (excluding nested tables), nested-table flag, first paraPr, first charPr."""
+def _cell_content(tc):
+    """Own text (excluding nested tables) + nested flag + first paraPr/charPr/paraId."""
     parts = []
-    state = {"nested": False, "para": None, "char": None}
+    state = {"nested": False, "para": None, "char": None, "pid": None}
 
     def rec(node):
         for ch in node:
@@ -72,10 +72,11 @@ def _cell_content(tc) -> Tuple[str, bool, Optional[str], Optional[str]]:
             if ln == "tbl":
                 state["nested"] = True
                 continue  # do not descend into a nested table's own content
-            if ln == "p" and state["para"] is None:
-                ppr = ch.get("paraPrIDRef")
-                if ppr is not None:
-                    state["para"] = ppr
+            if ln == "p":
+                if state["para"] is None and ch.get("paraPrIDRef") is not None:
+                    state["para"] = ch.get("paraPrIDRef")
+                if state["pid"] is None and ch.get("id") is not None:
+                    state["pid"] = ch.get("id")
             if ln == "run" and state["char"] is None:
                 cpr = ch.get("charPrIDRef")
                 if cpr is not None:
@@ -85,7 +86,7 @@ def _cell_content(tc) -> Tuple[str, bool, Optional[str], Optional[str]]:
             rec(ch)
 
     rec(tc)
-    return "".join(parts), state["nested"], state["para"], state["char"]
+    return "".join(parts), state["nested"], state["para"], state["char"], state["pid"]
 
 
 def _section_names(pkg: HwpxPackage):
@@ -129,7 +130,7 @@ def analyze(path: str | Path) -> AnalyzeResult:
                     col = int(addr.get("colAddr")) if addr is not None else -1
                     cs = int(span.get("colSpan")) if span is not None else 1
                     rs = int(span.get("rowSpan")) if span is not None else 1
-                    text, nested, ppr, cpr = _cell_content(tc)
+                    text, nested, ppr, cpr, pid = _cell_content(tc)
                     cells.append(
                         Cell(
                             table=ti,
@@ -144,6 +145,7 @@ def analyze(path: str | Path) -> AnalyzeResult:
                             char_spacing=char_spacing.get(cpr) if cpr else None,
                             para_pr=ppr,
                             char_pr=cpr,
+                            para_id=pid,
                         )
                     )
             tables.append(Table(index=ti, rows=rowcnt, cols=colcnt, cells=cells))

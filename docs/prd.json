@@ -90,7 +90,7 @@
       "title": "Format-preserving fill engine (set/append/inline)",
       "milestone": "M1",
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Fills empty_cell (set), bullet_item (append after marker, no duplicate '-'/'∘'), inline_blank (mid-run insert)",
         "Multi-line values become real paragraphs/lineBreaks (no raw \\n inside <hp:t>)",

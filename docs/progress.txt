@@ -32,3 +32,11 @@
 - US-004 understand: 2D label-value mapping (merged-cell aware). 4 tests. PASS.
   * Proven on real form: 성명->r2.c3, 직위->r2.c2, 휴대전화->r2.c7 (value cells, not labels).
 - Total: 18 tests green. NEXT: US-005 inline-blank, US-006 fill engine.
+
+## 2026-07-08 — M1 core engine COMPLETE
+- US-006 fill engine: raw-XML byte-preserving fill via cellAddr location (nesting-aware).
+  * set (empty/self-closing runs), append (bullet dedup), inline (marker + multi-paragraph colon).
+  * multi-line -> real <hp:p> (no raw \n); spacing normalize via cloned charPr; declaration/mimetype preserved.
+  * verified: only target cells change, other entries byte-identical. 9 tests.
+- Total: 32 tests green. M1 (owpml/analyze/understand/inline/fill) done.
+- NEXT: M2 — US-007 MCP server (FastMCP stdio), US-008 client configs.

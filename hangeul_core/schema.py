@@ -44,6 +44,7 @@ class Cell:
     char_spacing: Optional[int] = None
     para_pr: Optional[str] = None
     char_pr: Optional[str] = None
+    para_id: Optional[str] = None  # id of the cell's first paragraph (unique anchor)
 
     @property
     def field_id(self) -> str:
