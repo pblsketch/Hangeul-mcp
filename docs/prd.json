@@ -104,7 +104,7 @@
       "title": "MCP server (v1 headless) via FastMCP stdio",
       "milestone": "M2",
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Server built on official MCP Python SDK (FastMCP), stdio transport",
         "Exposes tools: detect_format, analyze_form, fill_form, extract_text with JSON schemas",
