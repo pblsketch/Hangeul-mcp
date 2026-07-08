@@ -1,0 +1,180 @@
+{
+  "project": "Hangeul-mcp",
+  "summary": "Korean HWP/HWPX form-fill MCP server. Client-agnostic (Claude Desktop, Codex, Antigravity 2.0). Python. v1 headless fill, v2 COM live-apply via pyhwpx put_field_text. Differentiators: inline-blank fill, merged-cell 2D understanding, review-then-apply.",
+  "status": "planning",
+  "planApprovedByUser": false,
+  "note": "This run is plan-first. Build loop starts only after user approves PLAN.md and answers the open questions in section 10. All stories passes:false.",
+  "stories": [
+    {
+      "id": "US-000",
+      "title": "Plan & scope approval gate",
+      "milestone": "M0",
+      "priority": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "PLAN.md exists with architecture, MCP tool API, data model, roadmap, test strategy",
+        "prd.json exists with concrete task-specific acceptance criteria per story",
+        "User has reviewed PLAN.md and answered the 5 open questions (section 10)",
+        "Repo location, python-hwpx-vs-own-engine decision, and matching-key decision are confirmed"
+      ]
+    },
+    {
+      "id": "US-001",
+      "title": "Repo scaffold + packaging",
+      "milestone": "M0",
+      "priority": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Directory layout matches PLAN.md section 4 (hangeul_core, hangeul_mcp, tests, docs)",
+        "pyproject.toml defines package + console entrypoint 'hangeul-mcp'",
+        "LICENSE (MIT), README.md, .gitignore present",
+        "git repo initialized; `pip install -e .` (or uv sync) succeeds with no error",
+        "Sample fixtures copied into tests/fixtures (blank + filled 강사카드)"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "OWPML container I/O (byte-preserving) + substrate decision",
+      "milestone": "M1",
+      "priority": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Spike evaluates python-hwpx as substrate; decision recorded in docs/architecture.md (adopt or use own engine)",
+        "unpack/repack preserves mimetype as first entry with STORED compression",
+        "XML declaration (standalone=\"yes\") preserved byte-for-byte after repack",
+        "Round-trip test: repack of untouched file is byte-identical to original (or documented minimal diff)",
+        "test_owpml passes"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Form analyzer (tables, cells, spans, paraPr, charPr)",
+      "milestone": "M1",
+      "priority": 4,
+      "passes": false,
+      "acceptanceCriteria": [
+        "analyze() returns tables with cells addressed by rowAddr/colAddr and colSpan/rowSpan",
+        "Detects empty cells, bullet paragraphs (heading type=BULLET), and charPr spacing",
+        "Golden test on 강사카드(양식).hwpx reproduces the known 표2 field set (성명, 주민등록번호, 학력, 경력×3, 현직, etc.)",
+        "test_analyze passes"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Form understanding: 2D label-value mapping (merged-cell aware)",
+      "milestone": "M1",
+      "priority": 5,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Maps labels to their value cells including label-above-value and merged (span) layouts",
+        "Emits FieldSchema per PLAN.md section 5 with field kind classification",
+        "On the 강사카드(양식) fixture, correctly identifies 성명/직위/휴대전화 value cells (not adjacent labels)",
+        "test_understand passes"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Inline-blank detector (mid-sentence / mid-cell blanks)",
+      "milestone": "M1",
+      "priority": 6,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Detects patterns like '∘ ___ 을 졸업하시고' and '은행명: ___ 계좌번호: ___' as kind=inline_blank with insert positions",
+        "Distinguishes inline_blank from empty_cell and bullet_item",
+        "Golden test on the 강사카드(양식) narrative rows (학력/경력/현직) passes",
+        "test_inline passes"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Format-preserving fill engine (set/append/inline)",
+      "milestone": "M1",
+      "priority": 7,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Fills empty_cell (set), bullet_item (append after marker, no duplicate '-'/'∘'), inline_blank (mid-run insert)",
+        "Multi-line values become real paragraphs/lineBreaks (no raw \\n inside <hp:t>)",
+        "Spacing normalization option produces spacing=0 without affecting untouched runs",
+        "Round-trip test: filled fields present AND all untouched regions byte-identical AND well-formed AND mimetype/declaration preserved",
+        "test_fill passes"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "MCP server (v1 headless) via FastMCP stdio",
+      "milestone": "M2",
+      "priority": 8,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Server built on official MCP Python SDK (FastMCP), stdio transport",
+        "Exposes tools: detect_format, analyze_form, fill_form, extract_text with JSON schemas",
+        "An MCP client smoke test (or mcp dev/inspector) lists the 4 tools and calls fill_form end-to-end on a fixture",
+        "Tools are pure (params in -> JSON out), no client-specific assumptions"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Client-agnostic config docs + verification",
+      "milestone": "M2",
+      "priority": 9,
+      "passes": false,
+      "acceptanceCriteria": [
+        "docs/clients/ contains registration snippets for Claude Desktop, Codex, and Antigravity 2.0",
+        "Server starts via the documented stdio command for each client",
+        "README documents that only MCP tools are used (max client compatibility)",
+        "At least one non-Claude client (Codex or Antigravity) verified to list tools"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "COM bridge (v2) via pyhwpx with environment guard",
+      "milestone": "M3",
+      "priority": 10,
+      "passes": false,
+      "acceptanceCriteria": [
+        "hwp/com.py attaches to a running 한글 instance, get_field_list works, put_field_text(dict) fills fields",
+        "Off-Windows or 한글-not-installed: import/guard returns available:false gracefully (no crash)",
+        "Security file-access prompt handling documented (FilePathCheckerModule)",
+        "Guarded integration test passes on a machine with 한글 (skips elsewhere)"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "apply_to_open_hwp MCP tool + review->apply workflow",
+      "milestone": "M3",
+      "priority": 11,
+      "passes": false,
+      "acceptanceCriteria": [
+        "hwp_status and apply_to_open_hwp tools exposed",
+        "apply runs format-preserving preprocessing on values before put_field_text",
+        "Returns applied[] and skipped[] with reasons; returns needs_field_registration when no named fields exist",
+        "End-to-end demo: analyze -> (LLM draft) -> apply to open 한글 fills the live document one-shot"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Review->apply Agent Skill (thin orchestration)",
+      "milestone": "M4",
+      "priority": 12,
+      "passes": false,
+      "acceptanceCriteria": [
+        "skills/SKILL.md guides: analyze_form -> draft -> user review -> fill_form or apply_to_open_hwp",
+        "Skill instructs value generation to respect field kind (bullets, inline, checkbox)",
+        "Documented usage from Claude Desktop"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "CI, golden fixtures, .hwp policy, release",
+      "milestone": "M4",
+      "priority": 13,
+      "passes": false,
+      "acceptanceCriteria": [
+        "CI runs tests on push (GitHub Actions) green",
+        ".hwp input policy implemented per user decision (reject-with-guidance or auto-convert)",
+        "README quickstart verified; version tag cut",
+        "Coverage of core modules documented"
+      ]
+    }
+  ]
+}

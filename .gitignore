@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OMC / ralph state
+.omc/
+
+# Temp unpack dirs
+_inspect/
+_verify/
+_tpl/
+_chk/
+
+# Privacy: never commit filled forms with real personal data (PII).
+# Keep private samples out of git history.
+samples-private/
+*_reference.hwpx
+*_채움.hwpx
+*_완성.hwpx
+*_filled*.hwpx
+*_demo.hwpx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

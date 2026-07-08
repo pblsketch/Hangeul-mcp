@@ -1,0 +1,18 @@
+# Hangeul-mcp — progress log
+
+## 2026-07-08 — Planning phase (plan-first run)
+- Created PLAN.md (architecture, MCP tool API, FieldSchema data model, roadmap M0-M4, test strategy, risks, open questions).
+- Created prd.json with 13 concrete user stories (US-000 approval gate .. US-012 release).
+- Assets carried from prototype (workspace): working XML fill engine — analyze (rowAddr/colAddr+span), line-break->paragraph, bullet dedup, spacing normalize, byte-preserving repack, inline-blank discovery.
+- Proven learnings to encode in engine:
+  * kordoc fill_form emits raw \n inside <hp:t> -> overlap; must convert to paragraphs.
+  * BULLET paraPr cells auto-add marker -> don't add manual "-"/"∘".
+  * ElementTree drops XML declaration standalone="yes" -> must byte-preserve, not re-serialize.
+  * Complex forms: merged 2D layouts + inline blanks (mid-sentence) are the hard, differentiating cases.
+- STATUS: awaiting user approval of PLAN.md + answers to 5 open questions (section 10). Build loop (M0->M4) starts after approval.
+
+## Substrate decision (pending US-002 spike)
+- Candidate: python-hwpx (byte-preserving patch, mature) as substrate + our understanding/inline/fill layer on top.
+
+## Next
+- US-000 approval gate: user reviews plan, confirms repo location + decisions.
