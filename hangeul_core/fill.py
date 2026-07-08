@@ -18,8 +18,9 @@ from dataclasses import dataclass, field as dfield
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from hangeul_core.analyze import analyze
+from hangeul_core.analyze import _section_names, analyze
 from hangeul_core.checkbox import detect_checkbox, toggle_checkbox
+from hangeul_core.formfield import form_field_names, replace_form_fields
 from hangeul_core.inline import MARKERS
 from hangeul_core.locate import detect_placeholders, replace_placeholders
 from hangeul_core.markpen import markpen_regions, replace_markpen
@@ -265,6 +266,10 @@ def fill(
             mk_selectors.setdefault(sel, []).append((r["section"], r["occ"]))
     mk_edits: Dict[str, Dict[int, str]] = {}
 
+    # 누름틀 named fields (headless): selectable by name or "field:<name>".
+    ff_names = set(form_field_names(path))
+    ff_values: Dict[str, str] = {}
+
     pkg = HwpxPackage.open(path)
     header = pkg.read("Contents/header.xml").decode("utf-8")
     header_changed = False
@@ -296,6 +301,10 @@ def fill(
         if key in mk_selectors:
             for sname, occ in mk_selectors[key]:
                 mk_edits.setdefault(sname, {})[occ] = value.replace("\n", " ")
+            continue
+        ff_name = key[6:] if key.startswith("field:") else key
+        if ff_name in ff_names:
+            ff_values[ff_name] = value.replace("\n", " ")  # single-line field text
             continue
         fld = by_id.get(key) or by_label.get(label_key(key))
         if fld is None:
@@ -367,11 +376,24 @@ def fill(
                 else:
                     skipped.append({"key": r["field_id"], "reason": "markpen span has inline markup"})
 
+    # 누름틀 pass: fill named fields headlessly, keeping fieldBegin/fieldEnd.
+    if ff_values:
+        applied_ff: set[str] = set()
+        for sname in _section_names(pkg):
+            text = section_text(sname)
+            newtext, applied = replace_form_fields(text, ff_values)
+            if applied:
+                sections[sname] = newtext
+                applied_ff.update(applied)
+        for name in applied_ff:
+            filled.append({"field_id": f"field:{name}", "label": name, "value": ff_values[name]})
+        for name in ff_values:
+            if name not in applied_ff:
+                skipped.append({"key": f"field:{name}", "reason": "form field not found"})
+
     # Whole-document {placeholder} pass (touches only <hp:t> text of matched tokens).
     if ph_values:
         applied_all: set[str] = set()
-        from hangeul_core.analyze import _section_names  # ordered section list
-
         for sname in _section_names(pkg):
             text = section_text(sname)
             newtext, applied = replace_placeholders(text, ph_values)

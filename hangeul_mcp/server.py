@@ -15,6 +15,7 @@ from mcp.server.fastmcp import FastMCP
 
 from hangeul_core.checkbox import detect_checkbox
 from hangeul_core.convert import ensure_hwpx
+from hangeul_core.formfield import detect_form_fields
 from hangeul_core.extract import extract_text as _extract_text
 from hangeul_core.fill import fill as _fill
 from hangeul_core.hwp import HwpBridge, normalize_field_values
@@ -79,6 +80,7 @@ def analyze_form(path: str) -> Dict[str, Any]:
         + detect_placeholders(path)
         + detect_markpen(path)
         + detect_checkbox(path)
+        + detect_form_fields(path)
     )
     return {"format": "hwpx", "fields": [_field_dict(f) for f in fields]}
 
