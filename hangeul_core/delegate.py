@@ -20,6 +20,9 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from typing import Dict, Optional
+
+from hangeul_core.validate import validate_hwpx
 
 
 def hwpx_available() -> bool:
@@ -52,3 +55,46 @@ def to_markdown(path: str | Path) -> str:
 def to_text_rich(path: str | Path) -> str:
     """Extract rich text (python-hwpx's export_text) from an HWPX document."""
     return _doc(path).export_text()
+
+
+# -- structural editing (delegated; validated via our gate) ------------------
+def _save(doc, out_path: str | Path) -> None:
+    """Save via the current API (save_to_path), falling back to legacy save()."""
+    saver = getattr(doc, "save_to_path", None)
+    if callable(saver):
+        saver(str(out_path))
+    else:  # pragma: no cover - older python-hwpx
+        doc.save(str(out_path))
+
+
+def _edit_result(out_path: str | Path) -> Dict:
+    """Run our validate_hwpx gate on delegated output and shape a result."""
+    report = validate_hwpx(out_path)
+    return {"ok": bool(report["valid"]), "out_path": str(out_path), "validation": report}
+
+
+def add_paragraph(
+    path: str | Path,
+    text: str,
+    out_path: str | Path,
+    section_index: Optional[int] = None,
+) -> Dict:
+    """Append a paragraph, save, and validate the output (delegated)."""
+    doc = _doc(path)
+    kwargs = {} if section_index is None else {"section_index": section_index}
+    doc.add_paragraph(text, **kwargs)
+    _save(doc, out_path)
+    return _edit_result(out_path)
+
+
+def add_table(
+    path: str | Path,
+    rows: int,
+    cols: int,
+    out_path: str | Path,
+) -> Dict:
+    """Append an (rows x cols) table, save, and validate the output (delegated)."""
+    doc = _doc(path)
+    doc.add_table(rows, cols)
+    _save(doc, out_path)
+    return _edit_result(out_path)

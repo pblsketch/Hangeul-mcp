@@ -290,6 +290,40 @@ def batch_replace(path: str, replacements: Dict[str, str], out_path: str) -> Dic
 
 
 @mcp.tool()
+def add_paragraph(path: str, text: str, out_path: str, section_index: int = -1) -> Dict[str, Any]:
+    """Append a paragraph to an HWPX document → new .hwpx (delegated to python-hwpx).
+
+    Structural edit (re-serialized, not byte-identical); the output is run through
+    validate_hwpx and reported under ``validation`` (ok=true only when valid).
+    Requires the optional python-hwpx substrate. Text is client-provided.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"available": True, "error": str(exc)}
+    idx = None if section_index < 0 else section_index
+    return {"available": True, **_delegate.add_paragraph(path, text, out_path, section_index=idx)}
+
+
+@mcp.tool()
+def add_table(path: str, rows: int, cols: int, out_path: str) -> Dict[str, Any]:
+    """Append a rows×cols table to an HWPX document → new .hwpx (delegated).
+
+    Structural edit (re-serialized); output validated via validate_hwpx and
+    reported under ``validation``. Requires the optional python-hwpx substrate.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"available": True, "error": str(exc)}
+    return {"available": True, **_delegate.add_table(path, rows, cols, out_path)}
+
+
+@mcp.tool()
 def validate_hwpx(path: str) -> Dict[str, Any]:
     """Validate an HWPX file's integrity (read-only, never raises).
 
