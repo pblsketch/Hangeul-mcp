@@ -175,6 +175,81 @@
         "README quickstart verified; version tag cut",
         "Coverage of core modules documented"
       ]
+    },
+    {
+      "id": "US-013",
+      "title": "{placeholder} global replace + shared section-wide locate/splice primitive",
+      "milestone": "M5-PhaseA",
+      "priority": 14,
+      "passes": false,
+      "notes": "Build order FIRST: establishes the shared per-paragraph concatenated-text->char-span mapper reused by US-014/US-015/US-016. Own core (gap-analysis 3-A), not delegation.",
+      "acceptanceCriteria": [
+        "New KIND_PLACEHOLDER in schema; detect_placeholders(path) scans every Contents/section*.xml for {token} occurrences (itertext-aware) and emits Field(kind=placeholder, label=token-name-without-braces)",
+        "Detects tokens even when split across runs/<hp:t> within a paragraph (shared paragraph offset mapper) and tokens inside table/nested-table cells",
+        "fill_form replaces EVERY occurrence of each provided {token} with the client value (braces removed), preserving the token's run/charPr; duplicate tokens all replaced",
+        "Values are client-provided only (brain/hand separation): unknown tokens are left byte-untouched and reported in skipped/unfilled",
+        "Byte-preservation: every unchanged ZIP entry payload byte-identical (a.read(name)==b.read(name)); mimetype first STORED; section keeps standalone=\"yes\" declaration; section well-formed (ET.fromstring)",
+        "Golden test (synthetic hwpx) + regressions: token split across two runs, token in nested table, same token twice; pyflakes clean; all prior 56 tests still green"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "형광펜(markpen) placeholder kind",
+      "milestone": "M5-PhaseA",
+      "priority": 15,
+      "passes": false,
+      "acceptanceCriteria": [
+        "New KIND_MARKPEN; detector records each hp:markpenBegin..hp:markpenEnd highlighted text (carried as tail) plus location, deriving label from nearest preceding label with a synthesized fallback",
+        "analyze_form returns a markpen field per highlighted region with the sample text; multiple regions become distinct fields",
+        "fill_form replaces ONLY the highlighted text, leaving hp:markpenBegin/hp:markpenEnd tags intact so the highlight is preserved (assert both new text and markpen tags present)",
+        "Existing tests/test_markpen.py (analyze reads highlighted itertext) stays green — the itertext reading is not broken",
+        "Byte-preservation + well-formed + mimetype/declaration golden pattern; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "체크박스(☑/□) 탐지·선택 (KIND_CHECKBOX)",
+      "milestone": "M5-PhaseA",
+      "priority": 16,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add options field to Field dataclass and include it in hangeul_mcp.server._field_dict (additive, backward-compatible)",
+        "detect_checkbox groups consecutive [glyph][label] tokens (glyph set □ ☐ ☑ ☒ ■ ▣ √) within a paragraph/cell into one KIND_CHECKBOX field with options=[{label, checked}]",
+        "analyze_form JSON includes options with per-option checked state",
+        "fill_form value = option label(s) to check: toggles chosen option box □->☑; default exclusive unchecks the others (☑->□); checkbox_exclusive=False leaves others unchanged; unknown option -> skipped, no glyph changed",
+        "Byte-preservation + well-formed + mimetype/declaration; regressions: glyph split across runs, re-checking an already-checked option is idempotent; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-016",
+      "title": "누름틀(form field) 헤드리스 fill (no COM)",
+      "milestone": "M5-PhaseA",
+      "priority": 17,
+      "passes": false,
+      "notes": "Spike the real hp:fieldBegin..hp:fieldEnd XML shape first; detector regex is attribute-order robust.",
+      "acceptanceCriteria": [
+        "New KIND_FORMFIELD; detect_form_fields scans hp:fieldBegin(name=..)..hp:fieldEnd controls, resolving name from the name attribute or a parameterSet, and records the field's text span",
+        "analyze_form returns form_field fields keyed by field name/label",
+        "fill_form fills the field content headlessly (no COM), preserving hp:fieldBegin/hp:fieldEnd controls (replace existing placeholder text, not append)",
+        "Value schema parity with COM apply_to_open_hwp: the same name-keyed values dict works for both headless and COM paths (documented; unit test on key handling)",
+        "No named fields -> analyze returns none of this kind gracefully (consistent with COM needs_field_registration)",
+        "Byte-preservation + well-formed + mimetype/declaration; regressions: parameterSet-named vs attribute-named field; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-017",
+      "title": "form-fit / 쪽수 드리프트 가드 (overflow guard + opt-in auto-fit)",
+      "milestone": "M5-PhaseA",
+      "priority": 18,
+      "passes": false,
+      "notes": "No renderer available; overflow is a documented heuristic estimate, not layout truth. True visual verification deferred to Phase B render_preview.",
+      "acceptanceCriteria": [
+        "Tier1 (MUST): analyze_formfit(path, values) estimates per-field fill width (char classes x font height x width factor) vs cell capacity (cellSz/hp:sz width in HWPUNIT minus inMargin) and returns overflow warnings with field_id + estimated ratio; a comfortably-fitting value yields no warning; pure measurement, no mutation",
+        "Heuristic (formula + Hangul/latin width factors + assumptions) is documented and unit-tested on synthetic widths; explicit non-goal: pixel-perfect layout",
+        "Tier2 (opt-in): fill_form(auto_fit=True) shrinks only the target run's font/spacing via a cloned charPr (reusing the _clone_charpr pattern) stepwise to a documented min floor; reports applied shrink per field; untouched runs stay byte-identical; no zero/negative sizes",
+        "auto_fit=False (default) never mutates formatting — pure fill, backward-compatible with all existing fill tests",
+        "Byte-preservation + well-formed + mimetype/declaration; golden/regression: overflow fixture flagged, fitting value no-op, auto-fit floor respected; pyflakes clean; full suite green"
+      ]
     }
   ],
   "decisions": {
