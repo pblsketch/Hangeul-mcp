@@ -13,6 +13,7 @@ from typing import Any, Dict
 
 from mcp.server.fastmcp import FastMCP
 
+from hangeul_core.checkbox import detect_checkbox
 from hangeul_core.convert import ensure_hwpx
 from hangeul_core.extract import extract_text as _extract_text
 from hangeul_core.fill import fill as _fill
@@ -35,6 +36,7 @@ def _field_dict(f) -> Dict[str, Any]:
         "template": f.template,
         "para_bullet": f.para_bullet,
         "char_spacing": f.char_spacing,
+        "options": f.options,
     }
 
 
@@ -76,6 +78,7 @@ def analyze_form(path: str) -> Dict[str, Any]:
         + detect_inline(path)
         + detect_placeholders(path)
         + detect_markpen(path)
+        + detect_checkbox(path)
     )
     return {"format": "hwpx", "fields": [_field_dict(f) for f in fields]}
 
@@ -87,12 +90,16 @@ def fill_form(
     out_path: str,
     normalize_spacing: bool = False,
     respect_bullets: bool = True,
+    checkbox_exclusive: bool = True,
 ) -> Dict[str, Any]:
     """Fill values into an HWPX form, preserving all original formatting.
 
-    ``values`` is a map of field_id or label -> value. Multi-line values become
-    real paragraphs; bullet cells are not double-marked. Returns the filled and
-    skipped fields and the output path. Unmodified regions stay byte-identical.
+    ``values`` is a map of field_id or label -> value. Handles empty cells,
+    inline blanks, ``{placeholder}`` tokens, 형광펜(markpen) examples, and
+    checkbox groups (value = option label(s) to check; ``checkbox_exclusive``
+    unchecks the others). Multi-line values become real paragraphs; bullet cells
+    are not double-marked. Returns the filled and skipped fields and the output
+    path. Unmodified regions stay byte-identical.
     """
     try:
         path = ensure_hwpx(path)
@@ -104,6 +111,7 @@ def fill_form(
         out_path,
         normalize_spacing=normalize_spacing,
         respect_bullets=respect_bullets,
+        checkbox_exclusive=checkbox_exclusive,
     )
     return {"filled": result.filled, "skipped": result.skipped, "out_path": result.out_path}
 

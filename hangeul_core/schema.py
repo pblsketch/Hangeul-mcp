@@ -93,6 +93,8 @@ class Field:
     # inline_blank specifics
     template: Optional[str] = None
     insert_after: Optional[str] = None
+    # checkbox specifics: [{"label": str, "checked": bool}, ...]
+    options: Optional[List[dict]] = None
 
 
 @dataclass

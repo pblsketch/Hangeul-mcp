@@ -19,11 +19,12 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from hangeul_core.analyze import analyze
+from hangeul_core.checkbox import detect_checkbox, toggle_checkbox
 from hangeul_core.inline import MARKERS
 from hangeul_core.locate import detect_placeholders, replace_placeholders
 from hangeul_core.markpen import markpen_regions, replace_markpen
 from hangeul_core.owpml import HwpxPackage
-from hangeul_core.schema import KIND_INLINE_BLANK, label_key
+from hangeul_core.schema import KIND_CHECKBOX, KIND_INLINE_BLANK, label_key
 from hangeul_core.understand import understand
 
 _TAG = re.compile(r"<(/?)([A-Za-z][\w:.\-]*)([^>]*?)(/?)>")
@@ -239,11 +240,12 @@ def fill(
     *,
     respect_bullets: bool = True,
     normalize_spacing: bool = False,
+    checkbox_exclusive: bool = True,
 ) -> FillResult:
     """Fill *values* (keyed by field_id or label) into the form at *path*."""
     result = analyze(path)
     cells = {c.field_id: c for c in result.all_cells()}
-    fields = understand(path).fields + list(_inline(path))
+    fields = understand(path).fields + list(_inline(path)) + detect_checkbox(path)
     by_id = {f.field_id: f for f in fields}
     by_label: Dict[str, object] = {}
     for f in fields:
@@ -316,6 +318,11 @@ def fill(
             newtc = _apply_inline(tc, fld, value, respect_bullets)
             if newtc is None:
                 skipped.append({"key": key, "reason": "could not apply value"})
+                continue
+        elif fld.kind == KIND_CHECKBOX:
+            newtc = toggle_checkbox(tc, value, checkbox_exclusive)
+            if newtc is None:
+                skipped.append({"key": key, "reason": "no matching checkbox option"})
                 continue
         else:
             fp = _first_paragraph(tc)
