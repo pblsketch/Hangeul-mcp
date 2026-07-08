@@ -250,6 +250,59 @@
         "auto_fit=False (default) never mutates formatting — pure fill, backward-compatible with all existing fill tests",
         "Byte-preservation + well-formed + mimetype/declaration; golden/regression: overflow fixture flagged, fitting value no-op, auto-fit floor respected; pyflakes clean; full suite green"
       ]
+    },
+    {
+      "id": "US-018",
+      "title": "PII 마스킹 게이트 (코드화)",
+      "milestone": "M6-PhaseB",
+      "priority": 19,
+      "passes": true,
+      "acceptanceCriteria": [
+        "hangeul_core/pii.py: scan_text(text) detects 주민등록번호/외국인등록번호, 전화번호, 신용카드번호, 계좌번호(heuristic), 이메일 with type + span + masked form",
+        "mask_value(text) masks detected PII (keeps format, hides sensitive digits) without altering non-PII text",
+        "fill_form(mask_pii=True) masks PII inside provided values before writing and reports a masked[] list; mask_pii=False (default) is unchanged behavior",
+        "New MCP tool scan_pii(path) audits a document's text and returns findings (no mutation)",
+        "Tests use synthetic (fake) PII patterns only; no real PII committed; golden + regression; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-019",
+      "title": "dry-run + 편집 전 백업",
+      "milestone": "M6-PhaseB",
+      "priority": 20,
+      "passes": true,
+      "acceptanceCriteria": [
+        "fill(dry_run=True) computes filled/skipped/shrunk WITHOUT writing out_path (no file created); returns the same report shape",
+        "fill(backup=True) copies the destination to <out>.bak before overwriting an existing file",
+        "fill_form exposes dry_run and backup; defaults preserve current behavior",
+        "Golden + regression: dry-run writes nothing, backup created only when overwriting; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-020",
+      "title": "읽기 확장 (find_text / outline / styles)",
+      "milestone": "M6-PhaseB",
+      "priority": 21,
+      "passes": true,
+      "acceptanceCriteria": [
+        "find_text(path, query) returns occurrences with section + containing cell/paragraph context and a total count (read-only)",
+        "get_document_outline(path) returns a structural summary: sections, tables (rows/cols), field/kind counts, and heading-like paragraphs",
+        "list_styles(path) returns charPr/paraPr style ids with key attributes (font height, spacing, bullet)",
+        "Three new read-only MCP tools; built on existing analyze/extract; no mutation; golden tests; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-021",
+      "title": "validate_hwpx (well-formed + optional XSD)",
+      "milestone": "M6-PhaseB",
+      "priority": 22,
+      "passes": true,
+      "acceptanceCriteria": [
+        "validate_hwpx(path) checks: every XML entry well-formed (ET.fromstring), mimetype first + STORED + correct value, section XML declaration present",
+        "Returns {valid, well_formed, mimetype_ok, declaration_ok, errors[], xsd:{available, valid?}}; a corrupted XML entry yields valid=False with a specific error",
+        "If python-hwpx is installed, run its XSD validation and include the result; otherwise xsd.available=False (soft dependency, D1)",
+        "New MCP tool validate_hwpx; golden + regression (valid passes, corrupted fails); pyflakes clean; full suite green"
+      ]
     }
   ],
   "decisions": {

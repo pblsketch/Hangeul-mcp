@@ -29,14 +29,14 @@
 - 수용: ✅ 각 kind 골든/회귀 테스트(81 passed), 바이트보존 유지, `analyze_form`/`fill_form` 스키마 확장, `analyze_formfit` 툴 추가.
 - 남은 검증: 누름틀(US-016)·form-fit(US-017)은 실양식(PII 없는) 샘플로 재검증 권장(현재 합성 픽스처 기반). form-fit은 렌더러 없는 추정 → Phase B `render_preview`로 시각 검증 보완.
 
-## Phase B (P1) — 신뢰성·검증·읽기 [OWN + DELEGATE]
+## Phase B (P1) — 신뢰성·검증·읽기 [OWN + DELEGATE] 🟢 자체코어 완료 (US-018~021)
 
-1. **XSD 스키마 검증 통합** — python-hwpx/OWPML XSD로 출력 검증. `validate_hwpx` 툴. (D1 미이행분)
-2. **dry-run / 백업 / repair** — `fill(dry_run=True)`, 편집 전 원본 백업, `repair_hwpx`(안 열리는 파일 복구, DELEGATE).
-3. **render_preview (HTML/PNG)** — 채운 결과 시각 확인(헤드리스 HTML/SVG 또는 COM/한컴독스 캡처). "정적검사≠렌더확인" 교훈.
-4. **PII 마스킹 게이트(코드화)** — 주민번호·계좌 패턴 탐지·마스킹 옵션. SKILL 권고 → 실제 게이트.
-5. **`.hwp` 헤드리스 읽기** — COM 없이 .hwp 텍스트/구조(pyhwp/hwp-rs 또는 kordoc 위임). 최소 detect+extract.
-6. **읽기 확장(저비용)** — `get_document_outline`/`get_document_map`/`find_text`/`hwpx_to_html`/`list_styles` 툴.
+1. **XSD 스키마 검증 통합** ✅ — `validate_hwpx` 툴: 모든 XML well-formed·mimetype·XML 선언 검증. python-hwpx XSD는 설치 시 선택 적용(soft dep). (`validate.py`, US-021)
+2. **dry-run / 백업 / repair** ✅(부분) — `fill(dry_run=True)`·`backup=True`(덮어쓰기 전 `.bak`) 완료. `repair_hwpx`(안 열리는 파일 복구)는 DELEGATE로 보류. (US-019)
+3. **render_preview (HTML/PNG)** 🔲 보류 — 렌더 엔진(헤드리스 HTML/SVG 또는 COM/한컴독스 캡처) 필요. 도구 확보 후 진행. "정적검사≠렌더확인".
+4. **PII 마스킹 게이트(코드화)** ✅ — 주민번호·전화·카드·계좌·이메일 탐지·마스킹. `fill(mask_pii=True)` + `scan_pii` 툴. SKILL 권고 → 실제 게이트. (`pii.py`, US-018)
+5. **`.hwp` 헤드리스 읽기** 🔲 보류(DELEGATE) — pyhwp/hwp-rs/kordoc 미설치. 도구 확보 후 최소 detect+extract.
+6. **읽기 확장(저비용)** ✅(부분) — `find_text`·`get_document_outline`·`list_styles` 완료. `get_document_map`·`hwpx_to_html`는 후속. (`read.py`, US-020)
 
 ## Phase C (P2) — 일반 편집 [DELEGATE: python-hwpx substrate]
 
