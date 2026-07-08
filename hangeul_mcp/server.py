@@ -29,6 +29,7 @@ from hangeul_core.read import find_text as _find_text
 from hangeul_core.read import get_document_outline as _get_document_outline
 from hangeul_core.read import list_styles as _list_styles
 from hangeul_core.understand import understand
+from hangeul_core.validate import validate_hwpx as _validate_hwpx
 
 mcp = FastMCP("hangeul-mcp")
 
@@ -218,6 +219,18 @@ def list_styles(path: str) -> Dict[str, Any]:
     except RuntimeError as exc:
         return {"error": str(exc), "charPr": [], "paraPr": []}
     return _list_styles(path)
+
+
+@mcp.tool()
+def validate_hwpx(path: str) -> Dict[str, Any]:
+    """Validate an HWPX file's integrity (read-only, never raises).
+
+    Checks every XML entry is well-formed, mimetype is the first STORED entry,
+    and sections carry an XML declaration. If python-hwpx is installed, its XSD
+    validation is folded in. Returns {valid, well_formed, mimetype_ok,
+    declaration_ok, errors[], xsd}.
+    """
+    return _validate_hwpx(path)
 
 
 @mcp.tool()
