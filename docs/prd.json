@@ -156,7 +156,7 @@
       "title": "Review->apply Agent Skill (thin orchestration)",
       "milestone": "M4",
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "skills/SKILL.md guides: analyze_form -> draft -> user review -> fill_form or apply_to_open_hwp",
         "Skill instructs value generation to respect field kind (bullets, inline, checkbox)",
