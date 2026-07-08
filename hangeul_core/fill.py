@@ -157,7 +157,7 @@ def _set_empty(pblock: str, esc_value: str) -> Optional[str]:
     return None
 
 
-def _apply_inline(tc: str, fld, value: str) -> Optional[str]:
+def _apply_inline(tc: str, fld, value: str, respect_bullets: bool = True) -> Optional[str]:
     """Splice an inline blank (marker or colon) anywhere in the whole cell.
 
     Inline blanks can live in any paragraph/run of the cell (e.g. '은행명' and
@@ -168,6 +168,10 @@ def _apply_inline(tc: str, fld, value: str) -> Optional[str]:
     if anchor.endswith(":"):
         return _splice_colon(tc, anchor, value)
     if anchor in MARKERS:
+        if respect_bullets:
+            # strip only a leading duplicate of THIS cell's marker, not other
+            # content that merely starts with a different marker char (e.g. "○○대학교").
+            value = re.sub(r"^\s*" + re.escape(anchor) + r"\s*", "", value, count=1)
         for m in re.finditer(r"<hp:t>(.*?)</hp:t>", tc, re.S):
             cur = m.group(1)
             if cur.strip() == anchor:
@@ -244,11 +248,18 @@ def fill(
         by_label.setdefault(label_key(f.label), f)
 
     pkg = HwpxPackage.open(path)
-    section = pkg.read("Contents/section0.xml").decode("utf-8")
     header = pkg.read("Contents/header.xml").decode("utf-8")
+    header_changed = False
+    sections: Dict[str, str] = {}
 
-    ids = [int(x) for x in re.findall(r'\bid="(\d+)"', section)]
-    counter = [(max(ids) + 1) if ids else 1_000_000_000]
+    def section_text(name: str) -> str:
+        if name not in sections:
+            sections[name] = pkg.read(name).decode("utf-8")
+        return sections[name]
+
+    # High base so newly minted paragraph ids never collide with real ones
+    # (real ids are <= 2^31), across any number of sections.
+    counter = [4_290_000_000]
 
     def alloc() -> int:
         counter[0] += 1
@@ -266,10 +277,11 @@ def fill(
             continue
         base = fld.field_id.split("#")[0]
         cell = cells.get(base)
-        if cell is None:
+        if cell is None or not cell.section:
             skipped.append({"key": key, "reason": "target cell not found"})
             continue
-        span = _find_cell_span(section, cell.table, cell.row, cell.col)
+        section = section_text(cell.section)
+        span = _find_cell_span(section, cell.table_in_section, cell.row, cell.col)
         if span is None:
             skipped.append({"key": key, "reason": "cell not located in xml"})
             continue
@@ -277,7 +289,7 @@ def fill(
         tc = section[cs:ce]
 
         if fld.kind == KIND_INLINE_BLANK:
-            newtc = _apply_inline(tc, fld, value)
+            newtc = _apply_inline(tc, fld, value, respect_bullets)
             if newtc is None:
                 skipped.append({"key": key, "reason": "could not apply value"})
                 continue
@@ -291,6 +303,7 @@ def fill(
                 if cell.char_pr not in spacing_clone:
                     header, new_id = _clone_charpr_spacing0(header, cell.char_pr)
                     spacing_clone[cell.char_pr] = new_id
+                    header_changed = header_changed or new_id is not None
                 new_id = spacing_clone[cell.char_pr]
                 if new_id:
                     pblock = re.sub(
@@ -304,11 +317,12 @@ def fill(
                 continue
             newtc = tc[:p_start] + newp + tc[p_end:]
 
-        section = section[:cs] + newtc + section[ce:]
+        sections[cell.section] = section[:cs] + newtc + section[ce:]
         filled.append({"field_id": fld.field_id, "label": fld.label, "value": value})
 
-    pkg.replace("Contents/section0.xml", section.encode("utf-8"))
-    if normalize_spacing:
+    for name, text in sections.items():
+        pkg.replace(name, text.encode("utf-8"))
+    if header_changed:
         pkg.replace("Contents/header.xml", header.encode("utf-8"))
 
     if out_path is not None:

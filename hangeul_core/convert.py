@@ -35,8 +35,13 @@ def hwp_to_hwpx(hwp_path, out_path: Optional[str] = None) -> str:
         )
     src = Path(hwp_path).resolve()
     dst = Path(out_path).resolve() if out_path else src.with_suffix(".hwpx")
-    bridge.connect(visible=False)
-    hwp = bridge._hwp  # noqa: SLF001 - controlled internal use
-    hwp.Open(str(src))
-    hwp.SaveAs(str(dst), "HWPX", "")
+    try:
+        bridge.connect(visible=False)
+        hwp = bridge._hwp  # noqa: SLF001 - controlled internal use
+        hwp.Open(str(src))
+        hwp.SaveAs(str(dst), "HWPX", "")
+    except RuntimeError:
+        raise
+    except Exception as exc:  # COM boundary: normalize any pywin32/COM error to a typed one
+        raise RuntimeError(f"HWP->HWPX conversion via Hangul COM failed: {exc}") from exc
     return str(dst)

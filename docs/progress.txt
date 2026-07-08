@@ -64,3 +64,14 @@
 - .github/workflows/ci.yml (ubuntu, py3.11-3.13). README Quickstart. Version bumped 0.1.0.
 - Suite: 48 passed, 1 skipped (live COM). ALL 13 stories pass.
 - Next external step: codex QA review.
+
+## 2026-07-08 — Codex QA round + hardening (v0.1.0)
+- codex exec (xhigh) reviewed against acceptance criteria; found & reproduced 5 issues, all fixed:
+  * HIGH multi-section fill (Cell.section/table_in_section; fill per-section).
+  * HIGH inline marker double-marker (anchor-specific dedup).
+  * MED merged covered-coordinate mapping (understand._occupancy grid).
+  * MED .hwp convert COM error -> RuntimeError (graceful).
+  * LOW byte-preservation wording clarified.
+- Round-1 fixes (also codex): _find_cell_span spillover, CRLF, unused imports.
+- Regression tests added (test_qa_regress, test_fill_regress). Suite: 55 passed, 1 skipped. pyflakes clean.
+- See docs/qa-codex-v0.1.0.md. STATUS: v1 headless done + v2 COM scaffolded (live-verify pending desktop).

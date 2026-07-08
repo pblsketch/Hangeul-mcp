@@ -7,11 +7,12 @@ stage byte replacements for specific entries, and repacks while preserving:
 * original entry order,
 * per-entry compression method,
 * the ``mimetype`` entry as the first, STORED entry,
-* every unmodified entry byte-for-byte.
+* every unmodified entry's payload byte-for-byte.
 
 Only entries explicitly replaced via :meth:`HwpxPackage.replace` change; all
-others are re-emitted with identical bytes. This is the substrate that makes
-"fill only the fields, touch nothing else" possible.
+others are re-emitted with identical content bytes. (The archive is rewritten,
+so raw ZIP local-header framing may differ; each entry's *payload* is identical.)
+This is the substrate that makes "fill only the fields, touch nothing else" possible.
 """
 
 from __future__ import annotations

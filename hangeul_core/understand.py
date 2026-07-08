@@ -29,13 +29,27 @@ def _looks_like_label(text: str) -> bool:
     return len(stripped) <= 24
 
 
-def _value_cell(label: Cell, index: Dict[Tuple[int, int], Cell]) -> Optional[Cell]:
-    """Find the empty value cell for *label*: right first, then below."""
-    right = index.get((label.row, label.col + label.col_span))
-    if right is not None and right.is_empty:
+def _occupancy(cells) -> Dict[Tuple[int, int], Cell]:
+    """Map every covered (row, col) coordinate to its owning (top-left) cell.
+
+    Merged cells occupy a rectangle; indexing only the top-left would miss value
+    cells whose adjacency coordinate is a *covered* (non-origin) coordinate.
+    """
+    grid: Dict[Tuple[int, int], Cell] = {}
+    for c in cells:
+        for r in range(c.row, c.row + max(1, c.row_span)):
+            for cc in range(c.col, c.col + max(1, c.col_span)):
+                grid.setdefault((r, cc), c)
+    return grid
+
+
+def _value_cell(label: Cell, grid: Dict[Tuple[int, int], Cell]) -> Optional[Cell]:
+    """Find the empty value cell for *label*: right of its span, else below it."""
+    right = grid.get((label.row, label.col + label.col_span))
+    if right is not None and right is not label and right.is_empty:
         return right
-    below = index.get((label.row + label.row_span, label.col))
-    if below is not None and below.is_empty:
+    below = grid.get((label.row + label.row_span, label.col))
+    if below is not None and below is not label and below.is_empty:
         return below
     return None
 
@@ -47,11 +61,11 @@ def understand(path: str | Path) -> FormSchema:
     claimed = set()  # value cell field_ids already mapped
 
     for table in result.tables:
-        index = {(c.row, c.col): c for c in table.cells}
+        grid = _occupancy(table.cells)
         for cell in table.cells:
             if cell.is_empty or not _looks_like_label(cell.text):
                 continue
-            value = _value_cell(cell, index)
+            value = _value_cell(cell, grid)
             if value is None or value.field_id in claimed:
                 continue
             claimed.add(value.field_id)

@@ -112,10 +112,12 @@ def analyze(path: str | Path) -> AnalyzeResult:
     ti = 0
     for sname in _section_names(pkg):
         root = ET.fromstring(pkg.read(sname))
+        tis = 0  # table index within this section
         for tbl in root.iter():
             if _local(tbl.tag) != "tbl":
                 continue
             ti += 1
+            tis += 1
             trs = [tr for tr in tbl if _local(tr.tag) == "tr"]
             rowcnt = int(tbl.get("rowCnt") or len(trs) or 0)
             colcnt = int(tbl.get("colCnt") or 0)
@@ -146,6 +148,8 @@ def analyze(path: str | Path) -> AnalyzeResult:
                             para_pr=ppr,
                             char_pr=cpr,
                             para_id=pid,
+                            section=sname,
+                            table_in_section=tis,
                         )
                     )
             tables.append(Table(index=ti, rows=rowcnt, cols=colcnt, cells=cells))

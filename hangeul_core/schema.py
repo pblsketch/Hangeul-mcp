@@ -45,6 +45,8 @@ class Cell:
     para_pr: Optional[str] = None
     char_pr: Optional[str] = None
     para_id: Optional[str] = None  # id of the cell's first paragraph (unique anchor)
+    section: Optional[str] = None  # containing section xml entry (e.g. Contents/section0.xml)
+    table_in_section: int = 0      # 1-based table index within its own section
 
     @property
     def field_id(self) -> str:
