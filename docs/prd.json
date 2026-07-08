@@ -1,7 +1,7 @@
 {
   "project": "Hangeul-mcp",
   "summary": "Korean HWP/HWPX form-fill MCP server. Client-agnostic (Claude Desktop, Codex, Antigravity 2.0). Python. v1 headless fill, v2 COM live-apply via pyhwpx put_field_text. Differentiators: inline-blank fill, merged-cell 2D understanding, review-then-apply.",
-  "status": "v0.1.0",
+  "status": "v0.1.0 released; codex QA passed (all findings fixed)",
   "planApprovedByUser": true,
   "note": "This run is plan-first. Build loop starts only after user approves PLAN.md and answers the open questions in section 10. All stories passes:false.",
   "stories": [
