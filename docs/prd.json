@@ -303,6 +303,21 @@
         "If python-hwpx is installed, run its XSD validation and include the result; otherwise xsd.available=False (soft dependency, D1)",
         "New MCP tool validate_hwpx; golden + regression (valid passes, corrupted fails); pyflakes clean; full suite green"
       ]
+    },
+    {
+      "id": "US-022",
+      "title": "일반 텍스트 치환 (search_and_replace / batch_replace) — OWN, byte-preserving",
+      "milestone": "M7-PhaseC",
+      "priority": 23,
+      "passes": true,
+      "notes": "Done with our own byte-splice engine (locate.replace_literals), NOT python-hwpx — preserves the byte invariant and needs no new dependency. Structural editing (paragraphs/tables/rich formatting/images) remains DELEGATE to python-hwpx pending a dependency decision.",
+      "acceptanceCriteria": [
+        "locate.replace_literals(section, mapping) replaces arbitrary literal substrings inside <hp:t> text (run-split aware, boundary-guarded so a match never bridges a cell/paragraph/table), longest-match-first with no chained re-replacement",
+        "search_and_replace(path, find, replace, out_path) replaces all occurrences and returns a count; batch_replace(path, mapping, out_path) applies multiple find->replace pairs in a single pass",
+        "Byte-preservation: unchanged ZIP entries byte-identical; mimetype first STORED; section keeps standalone declaration; well-formed",
+        "Two new MCP tools (search_and_replace, batch_replace); tags/attributes never touched (only <hp:t> text)",
+        "Golden + regression (run-split match, multiple pairs, overlapping finds longest wins, no cross-cell bleed); pyflakes clean; full suite green"
+      ]
     }
   ],
   "decisions": {

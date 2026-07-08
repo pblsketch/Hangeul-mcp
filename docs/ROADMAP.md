@@ -41,8 +41,9 @@
 ## Phase C (P2) — 일반 편집 [DELEGATE: python-hwpx substrate]
 
 python-hwpx를 얇게 감싸 Hangeul-mcp 툴로 노출(재발명 금지). 편집 후 XSD/바이트무결성 게이트 통과.
+단, 텍스트 치환은 위임보다 우리 바이트-splice 엔진이 불변식(바이트보존)에 부합 → OWN으로 선행 구현.
 
-1. **텍스트/치환** — `search_and_replace`, `batch_replace`.
+1. **텍스트/치환** ✅ — `search_and_replace`·`batch_replace`. **OWN 바이트보존**(`locate.replace_literals`, run 분할·셀 경계 가드). python-hwpx 위임 아님. (`edit.py`, US-022)
 2. **문단** — `add_heading`/`add_paragraph`/`insert`/`delete`/`add_page_break`.
 3. **표** — create/merge/split/format, add·remove rows·cols, `table_compute`(합계·평균).
 4. **서식** — 글자(bold/italic/underline/color/size/font)·문단(정렬/줄간격/들여쓰기)·`create_custom_style`.
