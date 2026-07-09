@@ -27,8 +27,9 @@ _GLYPHS = _UNCHECKED + _CHECKED
 _CHECK_CANON = "☑"
 _UNCHECK_CANON = "□"
 
-_OPT = re.compile(rf"([{_GLYPHS}])\s*([^{_GLYPHS}]{{0,24}})")
+_OPT = re.compile(rf"([{_GLYPHS}])\s*([^{_GLYPHS}]{{0,40}})")
 _HAS_GLYPH = re.compile(rf"[{_GLYPHS}]")
+_YES_NO = ({"예", "아니요"}, {"예", "아니오"}, {"동의", "미동의"}, {"동의", "비동의"}, {"Y", "N"})
 
 
 def _parse_options(text: str) -> List[Tuple[str, bool]]:
@@ -71,16 +72,37 @@ def detect_checkbox(path: str | Path) -> List[Field]:
             if not label:
                 same = rows.get(cell.row, [])
                 left = [c for c in same if c.col < cell.col and c.text.strip() and not _HAS_GLYPH.search(c.text)]
-                label = normalize_label(left[-1].text) if left else f"선택{n}"
+                if left:
+                    label = normalize_label(left[-1].text)
+            if not label:
+                above = _cell_above(table, cell)  # header row above the checkbox
+                if above is not None:
+                    label = normalize_label(above.text)
+            if not label:
+                # descriptive fallback so a generic group is still identifiable
+                preview = " / ".join(o[0] for o in opts)
+                label = (preview[:40] + ("…" if len(preview) > 40 else "")) + " 중 선택"
+            select_type = "yes_no" if {o[0] for o in opts} in _YES_NO else "select"
             fields.append(
                 Field(
                     field_id=cell.field_id,
                     label=label,
                     kind=KIND_CHECKBOX,
+                    template=select_type,  # "yes_no" | "select" (client hint)
                     options=[{"label": lab, "checked": chk} for lab, chk in opts],
                 )
             )
     return fields
+
+
+def _cell_above(table, cell):
+    """Nearest non-empty, non-checkbox cell directly above *cell* (header label)."""
+    candidates = [
+        c
+        for c in table.cells
+        if c.col == cell.col and c.row < cell.row and c.text.strip() and not _HAS_GLYPH.search(c.text)
+    ]
+    return max(candidates, key=lambda c: c.row) if candidates else None
 
 
 def toggle_checkbox(tc_xml: str, value: str, exclusive: bool = True) -> Optional[str]:
