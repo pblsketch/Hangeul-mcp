@@ -116,11 +116,17 @@ def detect_form_fields(path: str | Path) -> List[Field]:
 
 
 def _set_field_text(region: str, value: str) -> str:
-    """Replace the field's inner text with *value* (first <hp:t>, else insert)."""
+    """Replace the field's inner text with *value* (first <hp:t>, else insert).
+
+    A field value split across multiple runs must not leave stale tail text, so
+    every subsequent ``<hp:t>`` in the region is emptied after the first is set.
+    """
     esc = _esc(value)
     tm = _T_ANY.search(region)
     if tm:
-        return region[: tm.start()] + "<hp:t>" + esc + "</hp:t>" + region[tm.end():]
+        head = region[: tm.start()] + "<hp:t>" + esc + "</hp:t>"
+        tail = re.sub(r"<hp:t>.*?</hp:t>", "<hp:t></hp:t>", region[tm.end():], flags=re.S)
+        return head + tail
     # self-closing run -> expand
     m = re.search(r"<hp:run\b([^>]*?)/>", region)
     if m:

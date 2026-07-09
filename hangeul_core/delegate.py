@@ -75,9 +75,18 @@ def _save(doc, out_path: str | Path) -> None:
 
 
 def _edit_result(out_path: str | Path) -> Dict:
-    """Run our validate_hwpx gate on delegated output and shape a result."""
+    """Run our validate_hwpx gate on delegated output and shape a result.
+
+    Delegated output is a complete OPC package, so the gate additionally requires
+    package/XSD validation (validate_package) to pass when python-hwpx is present.
+    """
     report = validate_hwpx(out_path)
-    return {"ok": bool(report["valid"]), "out_path": str(out_path), "validation": report}
+    xsd_ok = report.get("xsd", {}).get("valid", True) is not False
+    return {
+        "ok": bool(report["valid"]) and xsd_ok,
+        "out_path": str(out_path),
+        "validation": report,
+    }
 
 
 def add_paragraph(

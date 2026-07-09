@@ -60,11 +60,13 @@ def test_mail_merge_produces_one_file_per_record(tmp_path):
 
 
 def test_mail_merge_outputs_are_byte_preserving_and_valid(tmp_path):
-    tpl = tmp_path / "t.hwpx"
-    _template(tpl)
-    res = mail_merge(tpl, [{"성명": "홍길동", "학교명": "세종초"}], tmp_path / "out")
+    # Use the real (complete) fixture so validate_hwpx's package validation applies;
+    # a minimal synthetic template is not a complete OPC package and is correctly
+    # rejected by python-hwpx's validate_package (see QA High-1).
+    fixture = Path(__file__).parent / "fixtures" / "sample_form.hwpx"
+    res = mail_merge(fixture, [{"성명": "홍길동"}], tmp_path / "out")
     out = res["outputs"][0]["out_path"]
-    a, b = HwpxPackage.open(tpl), HwpxPackage.open(out)
+    a, b = HwpxPackage.open(fixture), HwpxPackage.open(out)
     for name in a.names():
         if name == "Contents/section0.xml":
             continue

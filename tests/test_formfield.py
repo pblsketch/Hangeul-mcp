@@ -111,6 +111,37 @@ def test_hyperlink_not_fillable(tmp_path):
     assert res.filled == [] and res.skipped  # not a fillable field
 
 
+def test_split_run_field_value_no_stale_tail(tmp_path):
+    # a field whose display value is split across TWO runs must not leak the tail
+    header = (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>'
+        b'<hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"/>'
+    )
+    field = _field(
+        '<hp:fieldBegin id="1" type="CLICKHERE" name="성명"/>',
+        '<hp:run charPrIDRef="0"><hp:t>이름</hp:t></hp:run>'
+        '<hp:run charPrIDRef="0"><hp:t>예시</hp:t></hp:run>',  # split value
+        '<hp:fieldEnd id="1"/>',
+    )
+    section0 = (
+        f'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hs:sec {_NS}>'
+        f'<hp:p id="1">{field}</hp:p></hs:sec>'
+    ).encode()
+    src = tmp_path / "s.hwpx"
+    with zipfile.ZipFile(src, "w") as z:
+        zi = zipfile.ZipInfo("mimetype")
+        zi.compress_type = zipfile.ZIP_STORED
+        z.writestr(zi, b"application/hwp+zip")
+        z.writestr("Contents/header.xml", header)
+        z.writestr("Contents/section0.xml", section0)
+    out = tmp_path / "o.hwpx"
+    fill(src, {"성명": "홍길동"}, out)
+    import re as _re
+    txt = "".join(_re.findall(r"<hp:t>(.*?)</hp:t>", _section(out)))
+    assert txt == "홍길동"          # not "홍길동예시" (stale tail cleared)
+    assert "예시" not in _section(out)
+
+
 def test_formfield_byte_preservation_and_wellformed(tmp_path):
     src = tmp_path / "f.hwpx"
     _build(src)

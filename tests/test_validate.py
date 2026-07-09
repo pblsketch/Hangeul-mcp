@@ -1,5 +1,6 @@
 """US-021: validate_hwpx — well-formedness, container invariants, optional XSD."""
 
+import importlib.util
 import zipfile
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from hangeul_core.fill import fill
 from hangeul_core.validate import validate_hwpx
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_form.hwpx"
+_HWPX_INSTALLED = importlib.util.find_spec("hwpx") is not None
 
 _NS = (
     'xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" '
@@ -19,7 +21,44 @@ def test_real_fixture_is_valid():
     assert r["valid"] is True
     assert r["well_formed"] and r["mimetype_ok"] and r["declaration_ok"]
     assert r["errors"] == []
-    assert r["xsd"]["available"] is False  # python-hwpx not installed
+    # xsd.available reflects whether python-hwpx is installed (validate_package)
+    assert r["xsd"]["available"] is _HWPX_INSTALLED
+    if _HWPX_INSTALLED:
+        assert r["xsd"]["valid"] is True  # real package validation ran
+
+
+def test_missing_standalone_is_invalid(tmp_path):
+    # a section whose declaration dropped standalone="yes" must fail (HANDOFF invariant)
+    bad = tmp_path / "nostandalone.hwpx"
+    section0 = (
+        f'<?xml version="1.0" encoding="UTF-8" ?><hs:sec {_NS}>'  # no standalone
+        '<hp:p id="1"><hp:run><hp:t>x</hp:t></hp:run></hp:p></hs:sec>'
+    ).encode()
+    with zipfile.ZipFile(bad, "w") as z:
+        zi = zipfile.ZipInfo("mimetype")
+        zi.compress_type = zipfile.ZIP_STORED
+        z.writestr(zi, b"application/hwp+zip")
+        z.writestr("Contents/header.xml", b'<hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"/>')
+        z.writestr("Contents/section0.xml", section0)
+    r = validate_hwpx(bad)
+    assert r["declaration_ok"] is False and r["valid"] is False
+    assert any("standalone" in e for e in r["errors"])
+
+
+def test_single_quoted_standalone_accepted(tmp_path):
+    # python-hwpx re-serializes with single quotes; that must still pass
+    ok = tmp_path / "singlequote.hwpx"
+    section0 = (
+        f"<?xml version='1.0' encoding='UTF-8' standalone='yes'?><hs:sec {_NS}>"
+        '<hp:p id="1"><hp:run><hp:t>x</hp:t></hp:run></hp:p></hs:sec>'
+    ).encode()
+    with zipfile.ZipFile(ok, "w") as z:
+        zi = zipfile.ZipInfo("mimetype")
+        zi.compress_type = zipfile.ZIP_STORED
+        z.writestr(zi, b"application/hwp+zip")
+        z.writestr("Contents/header.xml", b'<hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"/>')
+        z.writestr("Contents/section0.xml", section0)
+    assert validate_hwpx(ok)["declaration_ok"] is True
 
 
 def test_fill_output_stays_valid(tmp_path):
