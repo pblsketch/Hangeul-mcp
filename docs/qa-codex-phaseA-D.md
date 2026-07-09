@@ -109,3 +109,19 @@ Scope: `hangeul_core` modules added/expanded in US-013..US-037 and `hangeul_mcp/
 - `checkbox.toggle_checkbox()` edits glyph offsets inside `<hp:t>` text only for the normal synthetic cases; the remaining concern is the raw-entity label mapping covered above.
 - `markpen.replace_markpen()` preserves `markpenBegin`/`markpenEnd` and skips inline-markup spans rather than corrupting them; the remaining concern is raw-entity label extraction covered above.
 - `delegate.py` mutation functions do call `_edit_result()` after saving; the main gate problem is `validate_hwpx()` implementation, not missing calls.
+
+## Resolution (2026-07-09, follow-up commits)
+
+All findings addressed; suite 167 passed / 1 skipped after fixes.
+
+- High-1 ✅ `validate._xsd_check` now uses `hwpx.validate_package`; delegated edits gated by real package validation (`delegate._edit_result` requires `xsd.valid`).
+- High-2 ✅ declaration check enforces `standalone=yes` (quote-agnostic); `valid` = structural integrity, package/XSD reported separately; regression added (missing/single-quote standalone).
+- High-3 ✅ `_set_field_text` clears trailing `<hp:t>` in the field region; split-run regression added.
+- High-4 ✅ documented as an intentional layout-chrome exception (DECISIONS D6); content values stay client-provided.
+- Med-2 ✅ `replace_literals` global longest-first interval scheduling.
+- Med-3 ✅ overflow estimate uses effective post-fill text (defensive; empty_cell targets are value-only).
+- Med-4 ✅ separatorless mobile phone detection with strict digit boundaries.
+- Med-5 ✅ `replace_literals` matches the escaped needle (XML entities).
+- Med-1 🟡 documented mapping caveat (DECISIONS D7); deep fix pending live validation.
+- Low-1 ✅ `live_available()` guarded import.
+- Low-2 ✅ delegated tools return structured errors via `_delegate_op`.
