@@ -468,6 +468,19 @@
         "mask_pii=True marks masked:true and masks the value; off flags but leaves as-is; surfaced in fill_form",
         "Golden + regression; existing PII tests stay green; pyflakes clean"
       ]
+    },
+    {
+      "id": "US-034",
+      "title": "DELEGATE 리치 서식 — emphasize_text (bold/italic/underline/color/size)",
+      "milestone": "M8-PhaseC-D",
+      "priority": 35,
+      "passes": true,
+      "notes": "Whole-run scope (does not split sub-run substrings). Structurally verified: a matched run's .bold is True after reopening.",
+      "acceptanceCriteria": [
+        "emphasize_text(path, find, out, bold/italic/underline/color/size) applies one ensured charPr (ensure_run_style) to every run whose text contains find, saves, and validates",
+        "New MCP tool emphasize_text returning matched_runs; available:false when python-hwpx absent",
+        "Tests (importorskip): a matched run becomes bold after reopening; color/size output stays valid; no-match is a valid no-op; pyflakes clean"
+      ]
     }
   ],
   "decisions": {
