@@ -189,6 +189,52 @@ def create_table_from_rows(rows, out_path: str | Path) -> Dict:
     return result
 
 
+def _official_lines(fields: Dict[str, str]) -> list:
+    """Lay out a standard Korean 공문(official letter) skeleton from *fields*."""
+    def g(key: str) -> str:
+        return (fields.get(key) or "").strip()
+
+    lines: list = []
+    if g("기관명"):
+        lines.append(g("기관명"))
+        lines.append("")
+    for key in ("수신", "참조"):
+        if g(key):
+            lines.append(f"{key}  {g(key)}")
+    if g("수신") or g("참조"):
+        lines.append("")
+    if g("제목"):
+        lines.append(f"제목  {g('제목')}")
+        lines.append("")
+    for para in g("본문").split("\n"):
+        lines.append(para)
+    lines.append("")
+    if g("날짜"):
+        lines.append(g("날짜"))
+    if g("발신명의"):
+        lines.append(g("발신명의"))
+    if g("담당자"):
+        lines.append(f"담당자: {g('담당자')}")
+    return lines
+
+
+def create_official_document(fields: Dict[str, str], out_path: str | Path) -> Dict:
+    """Assemble a 공문-style official document from client-provided *fields*.
+
+    Recognized keys: 기관명, 수신, 참조, 제목, 본문(줄바꿈=문단), 날짜, 발신명의, 담당자.
+    Content is client-authored (brain/hand separation); this only lays out the
+    standard skeleton and validates the output. Unknown keys are ignored.
+    """
+    lines = _official_lines(fields)
+    doc = _module().HwpxDocument.new()
+    for text in lines:
+        doc.add_paragraph(text)
+    _save(doc, out_path)
+    result = _edit_result(out_path)
+    result["lines"] = len(lines)
+    return result
+
+
 def create_from_markdown(markdown: str, out_path: str | Path) -> Dict:
     """Build a new HWPX from client-provided markdown/text (one paragraph per line).
 
