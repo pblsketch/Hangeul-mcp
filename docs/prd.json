@@ -361,6 +361,35 @@
         "Output passes validate_hwpx (valid True) and contains the provided content",
         "Tests (importorskip hwpx): created file valid + content present; pyflakes clean; full suite green"
       ]
+    },
+    {
+      "id": "US-026",
+      "title": "mail_merge (대량 생성) — OWN, 우리 fill 엔진 + 레코드 반복",
+      "milestone": "M9-PhaseD",
+      "priority": 27,
+      "passes": true,
+      "notes": "OWN (byte-preserving fill per record), not python-hwpx. Reuses every fill kind (empty_cell/inline/placeholder/markpen/checkbox/누름틀). 두뇌·손 분리: records are client-provided.",
+      "acceptanceCriteria": [
+        "hangeul_core/mailmerge.py: mail_merge(template_path, records, out_dir) fills the template once per record via the byte-preserving fill engine and writes numbered outputs",
+        "Returns a per-record summary (index, out_path, filled/skipped counts) and a total count; supports the same value keys as fill (field_id/label/placeholder/checkbox/markpen/누름틀)",
+        "Each output is a byte-preserving fill of the template (untouched entries identical) and passes validate_hwpx (valid True)",
+        "New MCP tool mail_merge(template_path, records, out_dir, mask_pii=false); records are client-provided",
+        "Golden test: N records -> N files, each containing its own values; pyflakes clean; full suite green"
+      ]
+    },
+    {
+      "id": "US-027",
+      "title": "DELEGATE 이미지 삽입 (add_image / 도장·서명) — python-hwpx",
+      "milestone": "M8-PhaseC-D",
+      "priority": 28,
+      "passes": true,
+      "notes": "Delegated to python-hwpx add_picture. Output validated via our gate. Image bytes are read from a client-provided file path.",
+      "acceptanceCriteria": [
+        "delegate.add_picture(path, image_path, out_path, width_mm, height_mm) reads the image bytes, infers format from the extension, delegates HwpxDocument.add_picture, saves, and validates the output",
+        "New MCP tool add_image(path, image_path, out_path, width_mm, height_mm); available:false when python-hwpx is absent",
+        "Output passes validate_hwpx (valid True) and the document's image count increases by one",
+        "Tests (importorskip hwpx) using a tiny synthetic PNG; pyflakes clean; full suite green"
+      ]
     }
   ],
   "decisions": {
