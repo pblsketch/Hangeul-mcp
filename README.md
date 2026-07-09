@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml)
 
-**상태: v0.1.0 + Phase A~D 핵심** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, v2 COM 라이브 반영은 **코드 완성 + 데스크톱 실검증 대기**. 테스트 128 passed(python-hwpx `delegate` extra 포함; 미설치 시 위임 테스트는 skip) · 독립 codex QA 통과([`docs/qa-codex-v0.1.0.md`](docs/qa-codex-v0.1.0.md)).
+**상태: v0.1.0 + Phase A~D 핵심** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 실사용 피드백 반영(form-fit 데드밴드·체크박스 라벨·용량 힌트·PII 경고), **누름틀 없이 열린 문서 셀 라이브 채우기**(`apply_cells_to_open_hwp`, 클라이언트 실검증 대기). 테스트 145 passed(python-hwpx `delegate` extra 포함; 미설치 시 위임/라이브 테스트는 skip) · 독립 codex QA 통과([`docs/qa-codex-v0.1.0.md`](docs/qa-codex-v0.1.0.md)).
 
 ---
 
@@ -145,9 +145,9 @@ Hangeul-mcp/
 │  ├─ convert.py            #   .hwp → .hwpx (한글 COM)
 │  ├─ schema.py             #   FieldSchema 데이터 모델
 │  └─ hwp/com.py            #   (v2) COM 브릿지 (put_field_text)
-├─ hangeul_mcp/server.py    # FastMCP stdio 서버 (24 tools: 18 OWN + 6 위임)
+├─ hangeul_mcp/server.py    # FastMCP stdio 서버 (25 tools: 19 OWN + 6 위임)
 ├─ skills/SKILL.md          # 검토→반영 Agent Skill
-├─ tests/                   # 128 tests + fixtures (PII 없는 빈 양식)
+├─ tests/                   # 145 tests + fixtures (PII 없는 빈 양식)
 ├─ docs/                    # PLAN · DECISIONS · architecture · clients/ · qa-codex · research
 └─ .github/workflows/ci.yml # CI (ubuntu, py3.11–3.13)
 ```

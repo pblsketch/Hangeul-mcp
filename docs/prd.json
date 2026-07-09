@@ -419,6 +419,55 @@
         "New MCP tool apply_cells_to_open_hwp(path, values); apply_to_open_hwp's needs_field_registration response points cell-forms to it; optional 'live' extra (pyhwpx)",
         "LIVE VALIDATION (client-side, PENDING): filling the open 강사카드 cells succeeds live without field registration — to be confirmed in Claude Desktop"
       ]
+    },
+    {
+      "id": "US-030",
+      "title": "form-fit 정확도 — 병합셀 폭 + 미세축소 오탐 감소 (실사용 피드백)",
+      "milestone": "M7-reliability",
+      "priority": 31,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Investigation: cellSz width already reflects colSpan (merged cells) — formfit width is span-aware; documented",
+        "overflow_scale gains a deadband (default 1.05): text within ~5% of the cell width is treated as fitting (no 94-99% micro-shrinks)",
+        "fill reports overflow warnings ALWAYS (FillResult.overflow), even without auto_fit, so clients can shorten instead of shrink",
+        "Golden + regression; existing formfit tests stay green; pyflakes clean"
+      ]
+    },
+    {
+      "id": "US-031",
+      "title": "체크박스 라벨 유도 개선 + 선택유형 힌트 (실사용 피드백)",
+      "milestone": "M7-reliability",
+      "priority": 32,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Label derivation: leading text -> left cell -> header cell above -> descriptive fallback from option texts (fixes unidentifiable '선택N')",
+        "select_type hint (yes_no|select) exposed via template; option-label cap widened 24->40 for long section titles",
+        "Golden + regression; existing checkbox tests stay green; pyflakes clean"
+      ]
+    },
+    {
+      "id": "US-032",
+      "title": "analyze_form 용량 힌트 (capacity_hint) — 생성 전 셀 크기 인지",
+      "milestone": "M7-reliability",
+      "priority": 33,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Empty-cell fields carry capacity_hint = approx max Korean chars = (cell width - inner margin) / font height",
+        "Computed in understand (lazy formfit import, no cycle), surfaced in analyze_form _field_dict",
+        "Golden tests on the real fixture; pyflakes clean"
+      ]
+    },
+    {
+      "id": "US-033",
+      "title": "PII 자동 경고 (warn-first) in fill",
+      "milestone": "M7-reliability",
+      "priority": 34,
+      "passes": true,
+      "acceptanceCriteria": [
+        "fill scans every value for PII on every run and reports FillResult.pii_warnings ({key, types, masked}) regardless of mask_pii",
+        "mask_pii=True marks masked:true and masks the value; off flags but leaves as-is; surfaced in fill_form",
+        "Golden + regression; existing PII tests stay green; pyflakes clean"
+      ]
     }
   ],
   "decisions": {
