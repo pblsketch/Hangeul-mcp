@@ -150,26 +150,29 @@ def replace_literals(section: str, mapping: Dict[str, str]) -> Tuple[str, Dict[s
         return section, {}
     concat, idxmap = _concat_map(section, segs)
 
-    # collect all candidate match spans across all finds
+    # Collect candidate spans. Match against the *escaped* needle so user-visible
+    # text containing XML entities (&amp; &lt; &gt;) is found (raw <hp:t> is escaped).
     spans: List[Tuple[int, int, str]] = []
     for find in mapping:
         if not find:
             continue
+        needle = _esc(find)
         start = 0
         while True:
-            i = concat.find(find, start)
+            i = concat.find(needle, start)
             if i < 0:
                 break
-            spans.append((i, i + len(find), find))
-            start = i + len(find)
-    # longest-first at each position; greedily claim non-overlapping left-to-right
-    spans.sort(key=lambda s: (s[0], -(s[1] - s[0])))
+            spans.append((i, i + len(needle), find))
+            start = i + len(needle)
+    # Longer finds win on overlap *globally* (interval scheduling), not just at the
+    # same start: sort longest-first, then claim any non-overlapping span.
+    spans.sort(key=lambda s: (-(s[1] - s[0]), s[0]))
 
     edits: Dict[int, List[Tuple[int, int, str]]] = {}
     counts: Dict[str, int] = {}
-    last_end = -1
+    claimed: List[Tuple[int, int]] = []
     for s, e, find in spans:
-        if s < last_end:
+        if any(not (e <= cs or s >= ce) for cs, ce in claimed):
             continue  # overlaps an already-claimed span
         s_si, s_off = idxmap[s]
         e_si, e_off = idxmap[e - 1]
@@ -186,7 +189,7 @@ def replace_literals(section: str, mapping: Dict[str, str]) -> Tuple[str, Dict[s
                 edits.setdefault(mid, []).append((0, segs[mid][1] - segs[mid][0], ""))
             edits.setdefault(e_si, []).append((0, e_off, ""))
         counts[find] = counts.get(find, 0) + 1
-        last_end = e
+        claimed.append((s, e))
 
     if not edits:
         return section, {}

@@ -374,14 +374,23 @@ def fill(
                         r"\g<1>" + new_id + r"\g<2>",
                         pblock,
                     )
+            # Effective text after fill: non-empty cells APPEND to existing text,
+            # so overflow must be estimated on base+value, not value alone.
+            eff_value = value
+            if cell.text and cell.text.strip():
+                base = cell.text.rstrip()
+                sep = "" if base.endswith(" ") else " "
+                _lines = value.split("\n")
+                _lines[0] = base + sep + _lines[0]
+                eff_value = "\n".join(_lines)
             if cell.width:  # warn-first: report overflow regardless of auto_fit
-                _r = overflow_ratio(value, cell, header)
+                _r = overflow_ratio(eff_value, cell, header)
                 if _r is not None and _r > 1.0:
                     overflow_out.append(
                         {"field_id": fld.field_id, "label": fld.label, "ratio": round(_r, 2)}
                     )
             if auto_fit and cell.width:
-                scale = overflow_scale(value, cell, header, floor=auto_fit_floor)
+                scale = overflow_scale(eff_value, cell, header, floor=auto_fit_floor)
                 if scale is not None:
                     rm = re.search(r'charPrIDRef="(\d+)"', pblock)
                     cur_cpr = rm.group(1) if rm else None

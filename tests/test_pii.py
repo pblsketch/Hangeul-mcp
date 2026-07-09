@@ -33,6 +33,20 @@ def test_no_false_positive_on_plain_text():
     assert scan_text("서울특별시 강남구 3층") == []
 
 
+def test_separatorless_mobile_detected_and_masked():
+    f = scan_text("연락처 01012345678 입니다")
+    assert any(x["type"] == "phone" for x in f)
+    assert mask_value("01012345678") == "010****5678"
+    # must NOT be swallowed by RRN(13)/card(16); 11 digits is phone only
+    assert {x["type"] for x in scan_text("01012345678")} == {"phone"}
+
+
+def test_phone_not_matched_inside_card_or_rrn():
+    # separatorless mobile boundary must not fire inside longer digit runs
+    assert {x["type"] for x in scan_text("1234567890123456")} == {"credit_card"}
+    assert {x["type"] for x in scan_text("901231-1234567")} == {"resident_registration_number"}
+
+
 def _empty_cell_form(dst: Path) -> None:
     header = (
         b'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>'

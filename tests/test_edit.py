@@ -48,6 +48,20 @@ def _section(hwpx) -> str:
     return HwpxPackage.open(hwpx).read("Contents/section0.xml").decode("utf-8")
 
 
+def test_replace_literals_longest_wins_on_different_start():
+    # "bcde" (len 4) overlaps "ab" (len 2) but starts later — longer must win globally
+    out, counts = replace_literals("<hp:t>abcde</hp:t>", {"ab": "X", "bcde": "Y"})
+    inner = "".join(__import__("re").findall(r"<hp:t>(.*?)</hp:t>", out))
+    assert inner == "aY" and counts == {"bcde": 1}
+
+
+def test_replace_literals_matches_xml_entities():
+    # user-visible "A & B" is stored as "A &amp; B"; the find must still match
+    out, counts = replace_literals("<hp:t>A &amp; B</hp:t>", {"A & B": "세종"})
+    assert counts == {"A & B": 1}
+    assert "<hp:t>세종</hp:t>" in out
+
+
 def test_replace_literals_run_split_and_boundary():
     section = (
         '<hp:p><hp:run><hp:t>서울</hp:t></hp:run><hp:run><hp:t>시</hp:t></hp:run></hp:p>'

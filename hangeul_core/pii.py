@@ -25,8 +25,13 @@ from typing import Callable, Dict, List, Tuple
 _RRN = re.compile(r"\b\d{6}[-\s]?[1-8]\d{6}\b")
 # 신용카드: 16 digits in four groups.
 _CARD = re.compile(r"\b(?:\d{4}[-\s]?){3}\d{4}\b")
-# 전화번호: mobile 01x or area code, 3-4 then 4 digits.
-_PHONE = re.compile(r"\b(?:01[016789]|0\d{1,2})[-\s.]\d{3,4}[-\s.]\d{4}\b")
+# 전화번호: separated (01x/area code, 3-4 then 4 digits) OR separatorless mobile.
+# The separatorless form uses strict digit boundaries so it never matches inside a
+# longer digit run (e.g. a 13-digit RRN or 16-digit card).
+_PHONE = re.compile(
+    r"\b(?:01[016789]|0\d{1,2})[-\s.]\d{3,4}[-\s.]\d{4}\b"
+    r"|(?<!\d)01[016789]\d{7,8}(?!\d)"
+)
 # 이메일.
 _EMAIL = re.compile(r"\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b")
 # 계좌번호(heuristic): 2-3 hyphenated numeric groups. Lowest priority.
