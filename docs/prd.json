@@ -819,8 +819,8 @@
       "title": "상류 delegate API-표면 스파이크 (ADR D13 + surface test)",
       "milestone": "M16-Breadth",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "complete",
       "acceptanceCriteria": [
         "ADR D13: supported={header/footer, page-setup, split_merged_cell}, unsupported={row/col add-remove, TOC}",
         "tests/test_delegate_api_surface.py: existence of supported methods = hard assert; absence of unsupported = soft tripwire only (BC1, never red on upstream additions)",

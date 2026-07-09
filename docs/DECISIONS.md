@@ -69,3 +69,12 @@
 - **fixture**: PII 없는 실 `.hwp` fixture 미확보(COM 없이 합성 `.hwp` 생성 곤란). US-055의 구현 전제조건 미충족.
 - **결론**: keep-gate. `extract_hwp_text`는 계속 `available:false` + 후보 점검 결과를 반환하고, COM 변환을 headless로 위장하지 않는다(D9). 후속: olefile/PrvText 경로는 PII 없는 fixture 확보 시 별도 스토리로 재평가(OWN 텍스트 추출로 한정, 구조 파싱은 그 다음).
 - **경계**: 어댑터를 채택하는 날에도 `CANDIDATES` 이름 존재 검사만으로 available을 올리지 않는다 — 실제 추출 스모크가 통과해야 활성화(hwp5 네임스페이스 함정).
+
+## D13. delegate breadth는 python-hwpx 2.24 실측 표면 안에서만 (US-056, ⑤ 상류 스파이크)
+- **결정**: Phase ⑤ breadth는 python-hwpx **2.24.0 실측 API 표면**이 지원하는 것만 delegate 스토리로 구현한다. 플로어는 `python-hwpx>=2.24,<3`(D1 소프트 의존 유지, `<3`은 major 격리용 — minor의 표면 변화는 런타임 feature-detect가 흡수).
+- **실측 표면 (2026-07-10, hwpx 2.24.0 직접 검증)**:
+  - **지원** — `HwpxDocument`: `set_header_text` / `set_footer_text` / `remove_header` / `remove_footer` / `set_header_content`·`set_footer_content`·`set_header_footer` / `set_page_size` / `set_page_margins` / `set_page_number` / `set_page_setup` / `set_columns` / `add_control`·`add_bookmark`·`add_hyperlink`. `HwpxOxmlTable`: `merge_cells` / `split_merged_cell(row, col)` / `get_cell_map` / `set_cell_shading` / `set_cell_text` / `set_column_widths`.
+  - **미지원** — 표 **행/열 추가·삭제**(`add_row`/`remove_row`/`add_column`/`remove_column` 부재, `HwpxOxmlTableRow`는 `cells`만) · **임의 셀 분할**(`split_merged_cell`은 병합 해제 전용) · **TOC**(`toc`/`generate_toc` 부재).
+- **계약 테스트**: `tests/test_delegate_api_surface.py` — 지원 메서드 **존재는 hard assert**(위임 툴의 실계약), 미지원 메서드 **부재는 soft tripwire**(BC1: 상류가 추가하는 날 suite를 red로 만들지 않고 "US-060 재검토" 경고만 발생 — 상류 개선은 호재이지 실패가 아니다).
+- **버전 게이트**: 위임 함수는 `getattr` feature-detect로 메서드 부재 시 `AttributeError` 대신 `requires python-hwpx>=2.24` 구조화 메시지를 반환한다(2.20 설치 환경에서 원인 은폐 방지).
+- **귀결**: 머리말/꼬리말(US-057)·페이지 설정(US-058)·병합셀 분할(US-059)은 delegate로 제공. 행/열 추가삭제·TOC는 D14(US-060) 재분류를 따른다.
