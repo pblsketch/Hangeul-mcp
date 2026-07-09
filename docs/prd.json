@@ -731,8 +731,8 @@
       "title": "HANDOFF.md 대체 + 상태 매트릭스 SSOT",
       "milestone": "M12-Doc-Runtime-Truth",
       "priority": "P0",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "complete",
       "acceptanceCriteria": [
         "HANDOFF.md rewritten to current baseline with 4-state matrix SSOT",
         "stale tokens ('56 passed', '6툴', 'Phase A~D 전부') grep 0 hits",

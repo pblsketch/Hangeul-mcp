@@ -1,63 +1,60 @@
-# 핸드오프 프롬프트 — Hangeul-mcp 다음 개발
+# HANDOFF — Hangeul-mcp 현재 상태 SSOT
 
-> 새 세션에 이 파일 내용을 그대로 붙여넣고 시작. **/ralplan 으로 계획 → /ralph 로 구현**.
+> 새 세션/에이전트는 **이 파일 하나**로 현재 상태를 파악한다. 여기 수치는 커밋 시점 실측값이며,
+> 툴/스토리 카운트는 `tests/test_maintainability.py`의 드리프트 가드가 README와 함께 강제한다.
+> 다음 작업 계획: [`.omo/plans/hangeul-mcp-stabilization-ralplan.md`](.omo/plans/hangeul-mcp-stabilization-ralplan.md)
 
----
+## 검증된 기준선 (실측)
 
-## 프롬프트 (복사해서 새 세션에 붙여넣기)
+- 테스트: `./.venv/Scripts/python.exe -m pytest -q` → **195 passed, 1 skipped (196 collected)**
+  - 유일한 skip = `tests/test_com.py` 라이브 COM 테스트(`HANGEUL_MCP_LIVE=1` 데스크톱 전용)
+- 린트: `./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests` → clean
+- 런타임 MCP 툴: **35** (등록은 정적 — optional extra 유무와 무관하게 등록되고, 미설치 시 호출 결과가 `available:false`)
+- PRD: `docs/prd.json` **61 stories** (US-000~US-060), pass 카운트 정의 = `passes==true` (BC3)
+- 개발 환경: venv `./.venv` (Windows), CI는 ubuntu py3.11–3.13 코어 레인
 
-너는 **Hangeul-mcp** (한글 HWP/HWPX 양식 인식 + 서식보존 채우기 MCP 서버, Python)의 다음 개발을 이어받는다.
+## 상태 매트릭스 (SSOT — 기계판독 원본은 docs/prd.json의 status 필드)
 
-**리포**: `E:/github/Hangeul-mcp` (GitHub `pblsketch/Hangeul-mcp`, public, v0.1.0).
-**개발 환경**: venv `E:/github/Hangeul-mcp/.venv` (Python 3.14, Windows).
-- 테스트: `./.venv/Scripts/python.exe -m pytest -q` (현재 56 passed, 1 skipped)
-- 린트: `./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests`
-- COM(pywin32) 설치됨. 라이브 COM 테스트는 `HANGEUL_MCP_LIVE=1`에서만.
+| 상태 | 의미 | 해당 영역 |
+|---|---|---|
+| `complete` | 코드 + 테스트 + 관측 산출물 모두 존재 | v1 헤드리스 코어(인식·바이트보존 채우기·읽기·검증·PII·formfit), 텍스트치환(OWN), mail_merge, capability manifest |
+| `optional-gated` | 코드·테스트 완료, optional extra 필요(미설치 시 `available:false`) | 위임 편집/생성/내보내기(python-hwpx `delegate`), `render_preview`(playwright `render`) |
+| `desktop-live-pending` | 코드 완료, **실기기(Windows+한글) 증거 대기** | `apply_to_open_hwp`(US-010) · `apply_cells_to_open_hwp`(US-029) · COM 브릿지(US-009). D7: 중첩표 인덱스 매핑은 best-effort |
+| `spike-pending` | 구현 전 리서치/ADR 필요 | `.hwp` 비COM 읽기(US-042/054/055) · 표 행/열 추가삭제·TOC(US-060, python-hwpx 미노출) |
+| `planned` | 안정화 패스에서 승인됐으나 미착수 | US-047~US-060 중 미완료분 |
 
-**먼저 읽을 것 (SSOT)**:
-- `docs/ROADMAP.md` — 우선순위(P0/P1/P2)와 작업 정의. **이게 작업 목록**.
-- `docs/gap-analysis.md` — 선행사례 대비 미지원 목록.
-- `docs/DECISIONS.md` — 확정 결정(바이트보존·field_id·python-hwpx substrate 등).
-- `docs/architecture.md` — 계층/모듈.
-- `docs/qa-codex-v0.1.0.md` — codex QA 이력 + 남은 리팩터 제안.
+## 불변식 (위반 금지)
 
-**현재 상태(완료)**: 라벨:값 fill · inline-blank(마커/콜론) · 병합셀 2D occupancy · 멀티섹션 · 바이트보존 채우기 · 자간정규화 · MCP 서버 6툴(detect_format/analyze_form/fill_form/extract_text/hwp_status/apply_to_open_hwp) · 클라이언트무관 · `.hwp→hwpx` COM 변환(데스크톱) · markpen 텍스트 독해 수정.
+1. **바이트보존**: OWN fill은 raw-XML splice. 재직렬화 금지(ElementTree write는 선언 훼손 — 읽기 전용에만). 바꾼 필드 외 엔트리 payload 무변경. 기존 바이트보존 테스트 약화 금지.
+2. **두뇌·손 분리**: 서버는 LLM/API를 절대 호출하지 않음(D10). 문안·값 생성은 클라이언트 몫. 예외는 D6 레이아웃 chrome뿐.
+3. **own vs delegate (D1)**: 차별점(인식·채우기·inline-blank·병합셀 2D·review→apply)은 OWN. commodity breadth는 python-hwpx 위임 + `validate_hwpx` 게이트(바이트동일이 아니라 게이트 통과가 기준). **위임 불가 API를 OWN raw-XML로 재발명 금지.**
+4. **optional dep는 구조화 폴백**: 미설치 `available:false`, 버전 미달은 원인이 드러나는 구조화 메시지.
+5. **증거 없이 완료 선언 금지**: live/render/`.hwp`는 실행 증거 또는 명시적 pending 라벨로만 종결.
+6. 실 PII 파일 커밋 금지. fixture는 PII 없는 합성 양식만.
 
-**이번 작업 목표(전 범위)**: `docs/ROADMAP.md`의 **Phase A~D 전부**. 단 순서·방식 준수:
-- **Phase A(P0, OWN, 먼저)**: ①형광펜 placeholder kind ②체크박스(☑/□) ③`{placeholder}` 전역치환 ④누름틀 헤드리스 fill ⑤form-fit/쪽수가드
-- **Phase B(P1, OWN+DELEGATE)**: XSD 검증·dry-run/백업/repair·render_preview·PII 마스킹 게이트·`.hwp` 헤드리스 읽기·읽기확장(outline/find/html)
-- **Phase C(P2, DELEGATE)**: 일반 편집(search/replace·문단·표·서식·이미지·머리꼬리말·TOC) — **python-hwpx를 얇게 감싸 Hangeul-mcp 툴로 노출**(재발명 금지), 편집 후 XSD/바이트무결성 게이트
-- **Phase D(P3, DELEGATE+레시피)**: 문서 생성(builder·md→hwpx·기안문/보도자료/계획서/시험지·mail_merge)
+## 공통 게이트 (스토리 완료 조건)
 
-핵심 방식 = **own vs delegate**: 차별점(인식·채우기)은 직접, commodity breadth(편집·생성)는 python-hwpx 위임 + 우리 툴로 노출. A·B 먼저, C·D는 위임 어댑터라 병렬 가능.
-
-**반드시 지킬 불변식**:
-- **바이트보존**: 바꾼 필드 외 (엔트리 payload 기준) 무변경. XML 재직렬화 금지 — raw-XML byte splice + mimetype STORED·XML 선언 보존. (ElementTree write는 선언 날림 — 읽기 전용에만 ET 사용.)
-- **두뇌·손 분리**: 값 *생성*은 클라이언트 LLM. 서버는 인식·채우기·반영만. 텍스트 생성 툴 만들지 말 것.
-- **차별점 사수**: inline-blank·병합셀 2D·review→apply. breadth(편집/생성)는 python-hwpx substrate 위임 검토, 재발명 금지(DECISIONS D1).
-- **kind 인식 실양식 함정**(중요): `analyze`는 `<hp:t>` 안 inline 마크업(markpen 등) 텍스트를 itertext로 읽는다 — 새 kind 추가 시 유지. 자동 글머리표 중복 금지, 줄바꿈은 실제 문단화(raw \n/\r 금지). 자세한 함정: 커밋 이력·`docs/qa-codex-v0.1.0.md`.
-- 각 스토리는 **골든/회귀 테스트** 동반. `tests/fixtures/sample_form.hwpx`(PII 없는 빈 강사카드) 사용. 실 PII 파일 커밋 금지(.gitignore).
-- 커밋 메시지 끝에 `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. 커밋/푸시는 요청 시. 스토리별 커밋.
-
-**진행 방식**:
-1. **/ralplan** 으로 P0 스토리들을 PRD로 분해(수용 기준 구체화). `docs/prd.json` 갱신 또는 신규 PRD.
-2. **/ralph** 로 스토리별 구현 → 테스트 → 커밋. 리뷰어는 `--critic=codex` 권장(codex CLI 사용 가능: `codex exec`). 각 스토리 완료 시 pyflakes clean + 전체 pytest green 확인.
-3. 완료 후 README/ROADMAP 상태 갱신, 푸시.
-
-**참고**: 선행사례 `airmang/hwpx-mcp-server`(60+툴), `python-hwpx`가 편집/생성/검증 breadth를 이미 포괄 — 참고·위임 대상이지 재구현 대상 아님. 우리는 양식 인식·채우기 깊이로 승부.
-
----
-
-## 빠른 시작(새 세션 첫 명령 예시)
-
-전 범위는 Phase A→B→C→D. ralph는 증분 구현이므로 **Phase A부터** 계획·구현하고 순차 진행:
+```powershell
+Set-Location E:/github/Hangeul-mcp
+./.venv/Scripts/python.exe -m pytest -q
+./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests
+./.venv/Scripts/python.exe -m json.tool docs/prd.json > $null
+git diff --check
 ```
-/ralplan  Hangeul-mcp 다음 개발 계획. 전 범위는 docs/ROADMAP.md Phase A~D(편집·생성 포함, C·D는 python-hwpx 위임).
-이번엔 Phase A(P0) 5개(형광펜 placeholder·체크박스·{placeholder}전역치환·누름틀 헤드리스 fill·form-fit 가드)를
-스토리로 분해하고 수용기준 확정. 불변식(바이트보존·두뇌손분리·own vs delegate)은 HANDOFF.md 참조.
-```
-계획 승인 후:
-```
-/ralph  위 계획대로 구현. 스토리별 테스트+커밋, 리뷰어 codex, 바이트보존·두뇌손분리 불변식 준수.
-```
-Phase A 완료 후 같은 방식으로 B → C → D 진행.
+
+- 툴을 추가/제거하면 **같은 커밋**에서 README `(NN tools)` 수치 갱신(가드가 강제).
+- 스토리 pass를 뒤집으면 **같은 커밋**에서 README `NN개 — MM pass` 갱신(가드가 강제).
+- 테스트 수 문구(`NNN collected`)는 soft — `pytest -q --collect-only` 결과로 커밋 시 재동기화.
+
+## 먼저 읽을 것
+
+- [`.omo/plans/hangeul-mcp-stabilization-ralplan.md`](.omo/plans/hangeul-mcp-stabilization-ralplan.md) — 현재 진행 중인 안정화 패스(US-047~US-060)와 binding conditions(BC1~BC3).
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — 확정 ADR(D1 own/delegate, D6 chrome 예외, D7 live 매핑 best-effort, D9 렌더/헤드리스 게이트, D10 BYO-AI, D11 파일/live 분리, …).
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — phase별 완료/후속 정의.
+- [`docs/qa-codex-v0.1.0.md`](docs/qa-codex-v0.1.0.md) · [`docs/qa-codex-phaseA-D.md`](docs/qa-codex-phaseA-D.md) — 독립 QA 이력(전부 수정·명문화 완료).
+- [`docs/architecture.md`](docs/architecture.md) — 계층/모듈.
+
+## 커밋 규약
+
+- 스토리별 커밋, conventional prefix(`feat:`/`fix:`/`docs:` …). 푸시는 사용자 요청 시.
+- 커밋 메시지 끝: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>` (세션 모델 기준).
