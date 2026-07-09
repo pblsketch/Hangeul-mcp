@@ -744,8 +744,8 @@
       "title": "파일모드 e2e 증거팩 드라이버",
       "milestone": "M13-FileMode-Evidence",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "complete",
       "acceptanceCriteria": [
         "scripts/e2e_evidence.py runs capabilities->analyze->scan_pii->fill(dry)->fill->verify->validate->render chain on sample_form.hwpx",
         "evidence under gitignored build/evidence/; regeneration documented",

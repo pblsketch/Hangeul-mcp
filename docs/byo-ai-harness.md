@@ -66,3 +66,16 @@ apply_cells_to_open_hwp(path, values)
 ## 개인정보 경계
 
 Hangeul-mcp는 자체적으로 외부 AI API를 호출하지 않는다. 다만 사용자의 AI 클라이언트가 문서 내용을 모델에 보낼지는 해당 클라이언트의 설정과 사용 방식에 달려 있다. 민감한 문서는 먼저 `scan_pii`를 호출해 확인한다.
+
+## 파일모드 e2e 증거팩 (재생성)
+
+파일 모드 전체 체인(캐퍼빌리티 → 인식 → PII → dry-run → 채우기 → 검증 → validate → 렌더)의
+관측 증거는 커밋하지 않고 로컬에서 재생성한다:
+
+```bash
+python scripts/e2e_evidence.py     # 산출물: build/evidence/ (gitignored)
+```
+
+- 필수 게이트(analyze/fill/verify/validate, dry-run 무기록, 바이트보존) 실패 시 exit 1.
+- `render_preview`는 render extra 미설치 환경에서 `available:false`가 **관측 결과로 기록**될 뿐
+  실패로 치지 않는다(렌더 pass로 위장 금지). PNG가 생성되면 시그니처·치수를 함께 기록한다.
