@@ -770,8 +770,8 @@
       "title": "라이브 QA 준비 — fixture/runbook + 순수부 테스트",
       "milestone": "M14-Live-Desktop-QA",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "complete",
       "acceptanceCriteria": [
         "PII-free live fixture + values mapping + runbook (hwp_status -> preview -> apply)",
         "preview pure computation, hwp_status side-effect-free, apply available:false without substrate — all unit-tested"

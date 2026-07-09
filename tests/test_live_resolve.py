@@ -56,6 +56,37 @@ def test_preview_cells_to_open_is_pure_and_returns_targets():
     assert res["apply_tool"] == "apply_cells_to_open_hwp"
 
 
+def test_hwp_status_never_dispatches_com(monkeypatch):
+    """US-052: hwp_status must stay side-effect-free — no COM dispatch, ever.
+
+    On machines with pywin32 installed this is a live tripwire: if status()
+    ever starts dispatching, EnsureDispatch would raise here.
+    """
+    try:
+        import win32com.client as w
+    except ImportError:
+        pass  # without pywin32, dispatching is impossible by construction
+    else:
+        def boom(*a, **k):  # pragma: no cover - only fires on regression
+            raise AssertionError("hwp_status dispatched COM")
+
+        monkeypatch.setattr(w.gencache, "EnsureDispatch", boom)
+    st = server.hwp_status()
+    assert st.get("connected") is False
+
+
+def test_runbook_values_mapping_resolves_documented_targets():
+    """US-052: the live-QA runbook's value mapping resolves to cell targets.
+
+    Inline-blank/append labels (학력/은행명) are file-mode only by design (D11);
+    the live cell path handles label:value empty_cell fields.
+    """
+    res = preview_cells_to_open(FIXTURE, {"성명": "홍길동", "직위": "교사"})
+    assert res["count"] == 2
+    labels = {t["label"].replace(" ", "") for t in res["targets"]}
+    assert labels == {"성명", "직위"}
+
+
 def test_server_preview_rejects_hwp_without_conversion(tmp_path):
     fake = tmp_path / "form.hwp"
     fake.write_bytes(b"HWP binary placeholder")
