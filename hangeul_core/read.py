@@ -21,6 +21,7 @@ from hangeul_core.inline import detect_inline
 from hangeul_core.locate import detect_placeholders
 from hangeul_core.markpen import detect_markpen
 from hangeul_core.owpml import HwpxPackage
+from hangeul_core.schema import label_key
 from hangeul_core.understand import understand
 
 
@@ -83,6 +84,61 @@ def get_document_outline(path: str | Path) -> Dict:
         "empty_cells": sum(1 for c in cells if c.is_empty),
         "fields_by_kind": dict(kinds),
     }
+
+
+def get_table_map(path: str | Path) -> Dict:
+    """Expose analyzed tables/cells as a structured map (read-only)."""
+    result = analyze(path)
+    return {
+        "tables": [
+            {
+                "index": t.index,
+                "rows": t.rows,
+                "cols": t.cols,
+                "cells": [
+                    {
+                        "field_id": c.field_id,
+                        "row": c.row,
+                        "col": c.col,
+                        "col_span": c.col_span,
+                        "row_span": c.row_span,
+                        "text": c.text,
+                        "is_empty": c.is_empty,
+                    }
+                    for c in t.cells
+                ],
+            }
+            for t in result.tables
+        ]
+    }
+
+
+def find_cell_by_label(path: str | Path, label: str) -> Dict:
+    """Locate a label cell and its mapped value cell (read-only)."""
+    result = analyze(path)
+    key = label_key(label)
+    label_cells = [c.field_id for c in result.all_cells() if label_key(c.text) == key]
+    fld = understand(path).by_label(label)
+    return {
+        "label": label,
+        "label_cells": label_cells,
+        "value_field_id": fld.field_id if fld else None,
+    }
+
+
+def verify_fill(path: str | Path, expected: Dict[str, str]) -> Dict:
+    """Confirm each expected value actually appears in the document text.
+
+    Whitespace-insensitive. Returns ``verified`` (all present) plus ``present``
+    and ``missing`` key lists. Use after fill to confirm the merge landed.
+    """
+    haystack = extract_text(path).replace(" ", "").replace("\n", "")
+    present: List[str] = []
+    missing: List[str] = []
+    for key, value in expected.items():
+        needle = (value or "").replace(" ", "").replace("\n", "")
+        (present if needle and needle in haystack else missing).append(key)
+    return {"verified": not missing, "present": present, "missing": missing}
 
 
 def list_styles(path: str | Path) -> Dict:

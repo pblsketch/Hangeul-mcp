@@ -29,9 +29,12 @@ from hangeul_core.mailmerge import mail_merge as _mail_merge
 from hangeul_core.markpen import detect_markpen
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.pii import scan_text as _scan_pii
+from hangeul_core.read import find_cell_by_label as _find_cell_by_label
 from hangeul_core.read import find_text as _find_text
 from hangeul_core.read import get_document_outline as _get_document_outline
+from hangeul_core.read import get_table_map as _get_table_map
 from hangeul_core.read import list_styles as _list_styles
+from hangeul_core.read import verify_fill as _verify_fill
 from hangeul_core.understand import understand
 from hangeul_core.validate import validate_hwpx as _validate_hwpx
 
@@ -213,6 +216,45 @@ def get_document_outline(path: str) -> Dict[str, Any]:
     except RuntimeError as exc:
         return {"error": str(exc)}
     return _get_document_outline(path)
+
+
+@mcp.tool()
+def get_table_map(path: str) -> Dict[str, Any]:
+    """Structured table/cell map (read-only): per table rows/cols, per cell
+    field_id/row/col/spans/text/is_empty. Use to locate fill targets by address."""
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "tables": []}
+    return _get_table_map(path)
+
+
+@mcp.tool()
+def find_cell_by_label(path: str, label: str) -> Dict[str, Any]:
+    """Locate a label cell and its mapped value cell (read-only).
+
+    Returns the label cell field_id(s) and the value-cell field_id that fill_form
+    would target for this label.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "label": label}
+    return _find_cell_by_label(path, label)
+
+
+@mcp.tool()
+def verify_fill(path: str, expected: Dict[str, str]) -> Dict[str, Any]:
+    """Verify a filled document actually contains the expected values (read-only).
+
+    Whitespace-insensitive. Returns verified + present[] + missing[]. Use after
+    fill_form/apply_to_open_hwp to confirm the values landed.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "verified": False}
+    return _verify_fill(path, expected)
 
 
 @mcp.tool()
