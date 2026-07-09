@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml)
 
-**상태: v0.1.0 + Phase A~D 핵심** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 실사용 피드백 반영(form-fit 데드밴드·체크박스 라벨·용량 힌트·PII 경고), **누름틀 없이 열린 문서 셀 라이브 채우기**(`apply_cells_to_open_hwp`, 클라이언트 실검증 대기). 테스트 159 passed(python-hwpx `delegate` extra 포함; 미설치 시 위임/라이브 테스트는 skip) · 독립 codex QA 통과([`docs/qa-codex-v0.1.0.md`](docs/qa-codex-v0.1.0.md)).
+**상태: v0.1.0 + Phase A~D 핵심** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 실사용 피드백 반영(form-fit 데드밴드·체크박스 라벨·용량 힌트·PII 경고), **누름틀 없이 열린 문서 셀 라이브 채우기**(`apply_cells_to_open_hwp`, 클라이언트 실검증 대기). 테스트 167 passed(python-hwpx `delegate` extra 포함; 미설치 시 위임/라이브 테스트는 skip) · 독립 codex QA 2회([`v0.1.0`](docs/qa-codex-v0.1.0.md) · [`Phase A~D`](docs/qa-codex-phaseA-D.md)) — High/Medium/Low 지적 **전부 수정·문서화**(바이트무결성·`standalone` 강제·누름틀 split-run·치환 겹침/엔티티·PII 무구분 전화 등).
 
 ---
 
@@ -117,12 +117,15 @@ python -m pytest tests/test_com.py -q          # 라이브 연결 테스트
 ## 로드맵 / 상태
 
 - **v1 (헤드리스)** ✅ 완료 — analyze/understand/inline/fill + MCP 서버 + `.hwp` 자동변환.
-- **Phase A (P0) 양식 인식·채우기 심화** ✅ 완료 — 형광펜(markpen) placeholder · 체크박스(☑/□) · `{placeholder}` 전역치환 · 누름틀 헤드리스 fill · form-fit/쪽수 드리프트 가드.
-- **Phase B (P1) 신뢰성·검증·읽기** 🟢 자체코어 완료 — PII 마스킹 게이트 · dry-run/백업 · 읽기 확장(find_text/outline/styles) · `validate_hwpx`. (위임/외부의존 항목 render_preview·`.hwp` 헤드리스 읽기는 도구 확보 후 진행.)
-- **v2 (COM 라이브)** 🟡 코드 완료, 데스크톱 실검증 대기 — `apply_to_open_hwp`로 열린 한글에 원샷 반영.
-- 다음: Phase B 잔여(render_preview·`.hwp` 읽기), Phase C/D(편집·생성, python-hwpx 위임) — [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- **Phase A (P0) 양식 인식·채우기 심화** ✅ 완료 — 형광펜(markpen) · 체크박스(☑/□) · `{placeholder}` 전역치환 · 누름틀 헤드리스 fill · form-fit/쪽수 드리프트 가드.
+- **Phase B (P1) 신뢰성·검증·읽기** ✅ 완료 — PII 마스킹·경고 · dry-run/백업 · 읽기 확장(find_text/outline/styles/table_map/verify_fill) · `validate_hwpx`(실제 패키지검증·`standalone` 강제).
+- **Phase C (P2) 편집** ✅ 완료 — 텍스트 치환(OWN 바이트보존) · 문단/표/이미지/리치서식(python-hwpx 위임 + validate 게이트).
+- **Phase D (P3) 생성** ✅ 완료 — markdown→HWPX · 표 생성 · 공문/보도자료/기안문 레시피 · mail_merge(OWN).
+- **codex QA(Phase A~D)** ✅ 반영 — High/Medium/Low 지적 전부 수정 또는 명문화(D6 레시피 chrome, D7 라이브 표 매핑).
+- **v2 COM 라이브** 🟡 코드 완료, **실기기 검증 대기** — `apply_to_open_hwp`(누름틀) · `apply_cells_to_open_hwp`(누름틀 없이 셀). Claude Desktop에서 검증 필요.
+- 후속(선택): render_preview PNG · `.hwp` 헤드리스 읽기 · 기존 표 merge/셀음영 · `create_document_from_blocks` — [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-마일스톤·유저 스토리(38개 — 37 pass + 1 라이브 실검증 대기): [`docs/prd.json`](docs/prd.json) · 설계 결정: [`docs/DECISIONS.md`](docs/DECISIONS.md) · 아키텍처: [`docs/architecture.md`](docs/architecture.md).
+마일스톤·유저 스토리(38개 — 37 pass + 1 라이브 실검증 대기): [`docs/prd.json`](docs/prd.json) · 설계 결정: [`docs/DECISIONS.md`](docs/DECISIONS.md) · QA 리포트: [`docs/qa-codex-phaseA-D.md`](docs/qa-codex-phaseA-D.md) · 아키텍처: [`docs/architecture.md`](docs/architecture.md).
 
 ## 리포 구조
 
@@ -148,10 +151,11 @@ Hangeul-mcp/
 │  ├─ extract.py            #   텍스트 추출
 │  ├─ convert.py            #   .hwp → .hwpx (한글 COM)
 │  ├─ schema.py             #   FieldSchema 데이터 모델
-│  └─ hwp/com.py            #   (v2) COM 브릿지 (put_field_text)
+│  ├─ hwp/com.py            #   (v2) COM 브릿지 (put_field_text, 누름틀)
+│  └─ hwp/live.py           #   (v2) 누름틀 없이 열린 셀 라이브 채우기 (pyhwpx, optional)
 ├─ hangeul_mcp/server.py    # FastMCP stdio 서버 (28 tools: 19 OWN + 9 위임)
 ├─ skills/SKILL.md          # 검토→반영 Agent Skill
-├─ tests/                   # 159 tests + fixtures (PII 없는 빈 양식)
+├─ tests/                   # 167 tests + fixtures (PII 없는 빈 양식)
 ├─ docs/                    # PLAN · DECISIONS · architecture · clients/ · qa-codex · research
 └─ .github/workflows/ci.yml # CI (ubuntu, py3.11–3.13)
 ```
