@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+from typing import Any, Dict
+
+from hangeul_core import delegate as _delegate
+from hangeul_core.convert import ensure_hwpx
+from hangeul_core.edit import batch_replace as _batch_replace
+from hangeul_core.edit import search_and_replace as _search_and_replace
+from hangeul_core.mailmerge import mail_merge as _mail_merge
+from hangeul_core.render import render_preview as _render_preview
+
+
+def _unavailable() -> Dict[str, Any]:
+    return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+
+
+def _delegate_op(extra_key: str, fn, *args, **kwargs) -> Dict[str, Any]:
+    try:
+        out = fn(*args, **kwargs)
+        if isinstance(out, dict):
+            return {"available": True, **out}
+        return {"available": True, extra_key: out}
+    except Exception as exc:
+        return {"available": True, "ok": False, "error": str(exc)}
+
+
+def _hwpx_path(path: str) -> tuple[str | None, Dict[str, Any] | None]:
+    try:
+        return ensure_hwpx(path), None
+    except RuntimeError as exc:
+        return None, {"available": True, "error": str(exc)}
+
+
+def register_delegate_tools(mcp) -> Dict[str, Any]:
+    @mcp.tool()
+    def hwpx_to_html(path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("html", _delegate.to_html, path)
+
+    @mcp.tool()
+    def hwpx_to_markdown(path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("markdown", _delegate.to_markdown, path)
+
+    @mcp.tool()
+    def search_and_replace(path: str, find: str, replace: str, out_path: str) -> Dict[str, Any]:
+        try:
+            path = ensure_hwpx(path)
+        except RuntimeError as exc:
+            return {"error": str(exc), "total": 0}
+        res = _search_and_replace(path, find, replace, out_path)
+        return {"counts": res.counts, "total": res.total, "out_path": res.out_path}
+
+    @mcp.tool()
+    def batch_replace(path: str, replacements: Dict[str, str], out_path: str) -> Dict[str, Any]:
+        try:
+            path = ensure_hwpx(path)
+        except RuntimeError as exc:
+            return {"error": str(exc), "total": 0}
+        res = _batch_replace(path, replacements, out_path)
+        return {"counts": res.counts, "total": res.total, "out_path": res.out_path}
+
+    @mcp.tool()
+    def add_paragraph(path: str, text: str, out_path: str, section_index: int = -1) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        idx = None if section_index < 0 else section_index
+        return error or _delegate_op("", _delegate.add_paragraph, path, text, out_path, section_index=idx)
+
+    @mcp.tool()
+    def merge_table_cells(path: str, table_index: int, cell_range: str, out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.merge_table_cells, path, table_index, cell_range, out_path)
+
+    @mcp.tool()
+    def set_cell_shading(path: str, table_index: int, row: int, col: int, fill_color: str, out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.set_cell_shading, path, table_index, row, col, fill_color, out_path)
+
+    @mcp.tool()
+    def mail_merge(template_path: str, records: list, out_dir: str, mask_pii: bool = False) -> Dict[str, Any]:
+        try:
+            template_path = ensure_hwpx(template_path)
+        except RuntimeError as exc:
+            return {"error": str(exc), "count": 0}
+        return _mail_merge(template_path, list(records), out_dir, mask_pii=mask_pii)
+
+    @mcp.tool()
+    def emphasize_text(path: str, find: str, out_path: str, bold: bool = False, italic: bool = False, underline: bool = False, color: str = "", size: float = 0.0) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.emphasize_text, path, find, out_path, bold=bold, italic=italic, underline=underline, color=(color or None), size=(size or None))
+
+    @mcp.tool()
+    def create_official_document(fields: Dict[str, str], out_path: str, doc_type: str = "공문") -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        return _delegate_op("", _delegate.create_official_document, dict(fields), out_path, doc_type=doc_type)
+
+    @mcp.tool()
+    def create_hwpx_table(rows: list, out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        return _delegate_op("", _delegate.create_table_from_rows, rows, out_path)
+
+    @mcp.tool()
+    def create_document_from_blocks(blocks: list, out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        return _delegate_op("", _delegate.create_document_from_blocks, blocks, out_path)
+
+    @mcp.tool()
+    def create_hwpx_from_markdown(markdown: str, out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        return _delegate_op("", _delegate.create_from_markdown, markdown, out_path)
+
+    @mcp.tool()
+    def add_image(path: str, image_path: str, out_path: str, width_mm: float = 0.0, height_mm: float = 0.0) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.add_picture, path, image_path, out_path, width_mm=(width_mm or None), height_mm=(height_mm or None))
+
+    @mcp.tool()
+    def add_table(path: str, rows: int, cols: int, out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.add_table, path, rows, cols, out_path)
+
+    @mcp.tool()
+    def render_preview(path: str, out_path: str, format: str = "png", width: int = 1280, height: int = 1800) -> Dict[str, Any]:
+        try:
+            path = ensure_hwpx(path)
+        except RuntimeError as exc:
+            return {"available": True, "ok": False, "error": str(exc)}
+        return _render_preview(path, out_path, format=format, width=width, height=height)
+
+    return {name: obj for name, obj in locals().items() if callable(obj) and not name.startswith("_")}

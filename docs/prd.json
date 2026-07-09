@@ -518,6 +518,124 @@
         "Unknown doc_type falls back to 공문; doc_type reported in the result; MCP tool gains doc_type",
         "Tests (importorskip): each type's content present + output valid + fallback; pyflakes clean"
       ]
+    },
+    {
+      "id": "US-038",
+      "title": "DELEGATE 기존 표 merge + 셀음영",
+      "milestone": "M10-Optional-Extensions",
+      "priority": 39,
+      "passes": true,
+      "notes": "python-hwpx 2.24.0 exposes table.merge_cells and table.set_cell_shading; use delegated edit + validate gate.",
+      "acceptanceCriteria": [
+        "merge_table_cells(path, table_index, cell_range, out_path) merges an existing table range and validates output",
+        "set_cell_shading(path, table_index, row, col, fill_color, out_path) applies cell shading and validates output",
+        "New MCP tools return available:false without python-hwpx and structured ok:false errors for invalid table/range/color",
+        "Tests cover merge, shading, invalid inputs, server tools, and validate_hwpx"
+      ]
+    },
+    {
+      "id": "US-039",
+      "title": "DELEGATE complete-control builder — create_document_from_blocks",
+      "milestone": "M10-Optional-Extensions",
+      "priority": 40,
+      "passes": true,
+      "notes": "D6 escape hatch: all content and layout blocks are client-provided; no hidden prose or recipe fallback.",
+      "acceptanceCriteria": [
+        "create_document_from_blocks(blocks, out_path) supports heading, paragraph, bullet_list, numbered_list, table, image, and page_break blocks",
+        "New MCP tool exposes the builder and validates output",
+        "Unknown block types, empty blocks, and malformed tables return structured ok:false errors",
+        "Tests verify block order, text presence, table output, server tool shape, and validate_hwpx"
+      ]
+    },
+    {
+      "id": "US-040",
+      "title": "구조보존 markdown → HWPX supported subset",
+      "milestone": "M10-Optional-Extensions",
+      "priority": 41,
+      "passes": true,
+      "notes": "Route markdown through create_document_from_blocks; support a documented subset, not full CommonMark.",
+      "acceptanceCriteria": [
+        "create_hwpx_from_markdown preserves headings, unordered/ordered lists, paragraphs, and pipe tables as document structure where supported",
+        "Existing simple markdown creation remains valid and text-compatible",
+        "README documents the supported subset and non-goals",
+        "Tests verify heading/list/table structure, server tool output, and validate_hwpx"
+      ]
+    },
+    {
+      "id": "US-041",
+      "title": "render_preview PNG — browser-backed optional preview",
+      "milestone": "M10-Optional-Extensions",
+      "priority": 42,
+      "passes": true,
+      "notes": "Use local HTTP serving for Playwright screenshots; no file:// rendering.",
+      "acceptanceCriteria": [
+        "render_preview(path, out_path, format='png') creates a PNG when Playwright and a browser are available",
+        "The tool returns available:false with a setup hint when render dependencies are unavailable",
+        "Generated PNGs report file size and dimensions when possible",
+        "Tests cover missing dependency behavior and at least one real local PNG proof when the browser is installed"
+      ]
+    },
+    {
+      "id": "US-042",
+      "title": ".hwp 헤드리스 읽기 adapter gate",
+      "milestone": "M10-Optional-Extensions",
+      "priority": 43,
+      "passes": true,
+      "notes": "No local pyhwp/hwp5/rhwp/kordoc substrate is installed yet; do not mislabel COM conversion as headless reading.",
+      "acceptanceCriteria": [
+        "extract_hwp_text(path) exposes a non-COM headless adapter surface",
+        "When no substrate is installed, the tool returns available:false with checked candidate modules and no COM side effects",
+        "If a substrate is later installed, a real PII-free .hwp fixture must pass before marking complete",
+        "Tests cover dependency-missing behavior and preserve existing COM conversion policy tests"
+      ]
+    },
+    {
+      "id": "US-043",
+      "title": "BYO-AI 로컬 하네스 제품 방향 문서화",
+      "milestone": "M11-BYO-AI-Live-Harness",
+      "priority": 44,
+      "passes": true,
+      "acceptanceCriteria": [
+        "README states that Hangeul-mcp is a local MCP document engine, not a server-side LLM/API billing app",
+        "docs/byo-ai-harness.md documents file fill, document generation, live preview/apply, and privacy boundaries",
+        "DECISIONS records the no server-side LLM/API boundary and the FILE vs LIVE split"
+      ]
+    },
+    {
+      "id": "US-044",
+      "title": "Capability manifest for MCP clients",
+      "milestone": "M11-BYO-AI-Live-Harness",
+      "priority": 45,
+      "passes": true,
+      "acceptanceCriteria": [
+        "describe_capabilities returns product, mode=byo_ai_local_harness, server_side_llm=false, runtime, and capability groups",
+        "Capability groups include file_hwpx, delegate_hwpx, render, live_hwp, and hwp_headless",
+        "MCP server exposes describe_capabilities and tests verify the tool shape"
+      ]
+    },
+    {
+      "id": "US-045",
+      "title": "Live cell-fill preview before apply",
+      "milestone": "M11-BYO-AI-Live-Harness",
+      "priority": 46,
+      "passes": true,
+      "acceptanceCriteria": [
+        "preview_cells_to_open_hwp resolves table/row/col targets without dispatching COM or touching an open Hangul window",
+        "apply_cells_to_open_hwp remains the only cell live-apply tool that mutates the open document",
+        "Tests cover pure preview target resolution and server tool registration"
+      ]
+    },
+    {
+      "id": "US-046",
+      "title": "No-API dependency guard",
+      "milestone": "M11-BYO-AI-Live-Harness",
+      "priority": 47,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Project dependencies do not add OpenAI/Anthropic/Gemini/PydanticAI SDKs",
+        "Tests assert no banned LLM API SDK dependency is present",
+        "Docs clarify that user's AI client may still decide what document data it sends to its own model"
+      ]
     }
   ],
   "decisions": {

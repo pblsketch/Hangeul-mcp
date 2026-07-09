@@ -10,6 +10,8 @@
 - **OWN (우리가 직접)** — 양식 인식·서식보존 채우기·inline-blank·병합셀·review→apply. 바이트보존 raw-XML splice.
 - **DELEGATE (python-hwpx 위임 + 우리 툴로 노출)** — 문단/표/이미지/서식 편집, 문서 생성, XSD 검증, repair, render. 얇은 어댑터로 감싸 `hangeul_mcp` 툴로 제공. 위임 결과도 바이트보존/검증 게이트를 통과시킨다.
 - 두 경로 모두 **두뇌·손 분리** 유지: 값·문안 *생성*은 클라이언트 LLM. 서버는 실행 도구.
+- **BYO-AI local harness** — Hangeul-mcp 자체는 AI/API 과금 앱이 아니다. 사용자의 AI 클라이언트가 MCP로 호출하는 로컬 한글 문서 엔진이며, `describe_capabilities`로 file/render/live/headless-HWP 기능 가용성을 먼저 노출한다.
+- **FILE vs LIVE 분리** — HWPX 파일 직접 처리와 열린 한글 창 제어는 같은 UX에서 연결될 수 있지만 구현 경계는 분리한다. live status/preview는 side-effect-free, live apply만 열린 창을 조작한다.
 
 ## 실양식 테스트가 드러낸 것 (근거)
 
@@ -33,9 +35,9 @@
 
 1. **XSD 스키마 검증 통합** ✅ — `validate_hwpx` 툴: 모든 XML well-formed·mimetype·XML 선언 검증. python-hwpx XSD는 설치 시 선택 적용(soft dep). (`validate.py`, US-021)
 2. **dry-run / 백업 / repair** ✅(부분) — `fill(dry_run=True)`·`backup=True`(덮어쓰기 전 `.bak`) 완료. `repair_hwpx`(안 열리는 파일 복구)는 DELEGATE로 보류. (US-019)
-3. **render_preview (HTML/PNG)** 🔲 보류 — 렌더 엔진(헤드리스 HTML/SVG 또는 COM/한컴독스 캡처) 필요. 도구 확보 후 진행. "정적검사≠렌더확인".
+3. **render_preview (HTML/PNG)** ✅ — `render_preview` PNG 도구 추가. HWPX→HTML을 로컬 HTTP 서버로 띄우고 Playwright Chromium으로 screenshot. optional `render` extra 필요. "정적검사≠렌더확인" 보완. (`render.py`, US-041)
 4. **PII 마스킹 게이트(코드화)** ✅ — 주민번호·전화·카드·계좌·이메일 탐지·마스킹. `fill(mask_pii=True)` + `scan_pii` 툴. SKILL 권고 → 실제 게이트. (`pii.py`, US-018)
-5. **`.hwp` 헤드리스 읽기** 🔲 보류(DELEGATE) — pyhwp/hwp-rs/kordoc 미설치. 도구 확보 후 최소 detect+extract.
+5. **`.hwp` 헤드리스 읽기** 🟡 adapter gate 완료 — `extract_hwp_text`는 COM을 쓰지 않고 headless reader 후보를 점검해 substrate 미설치 시 `available:false` 반환. 실제 `.hwp` 추출은 reader 선정·PII 없는 실파일 fixture 확보 후 완료 가능. (`hwp_headless.py`, US-042)
 6. **읽기 확장(저비용)** ✅(부분) — `find_text`·`get_document_outline`·`list_styles` 완료. `get_document_map`·`hwpx_to_html`는 후속. (`read.py`, US-020)
 
 ## Phase C (P2) — 일반 편집 [DELEGATE: python-hwpx substrate]
@@ -45,14 +47,14 @@ python-hwpx를 얇게 감싸 Hangeul-mcp 툴로 노출(재발명 금지). 편집
 
 1. **텍스트/치환** ✅ — `search_and_replace`·`batch_replace`. **OWN 바이트보존**(`locate.replace_literals`, run 분할·셀 경계 가드). python-hwpx 위임 아님. (`edit.py`, US-022)
 2. **문단** ✅(부분) — `add_paragraph` 위임 완료(`delegate.py`, US-024). `add_heading`/`insert`/`delete`/`add_page_break`는 후속.
-3. **표** ✅(부분) — `add_table`(생성) 위임 완료(US-024). merge/split/format·rows·cols·`table_compute`는 후속.
+3. **표** ✅(부분) — `add_table`(생성)·`create_hwpx_table`·기존 표 `merge_table_cells`·`set_cell_shading` 완료. split·행/열 추가삭제·`table_compute`는 후속. (`delegate.py`, US-024/035/038)
 4. **서식** 🔲 후속 — 글자(bold/italic/underline/color/size/font)·문단(정렬/줄간격/들여쓰기)·`create_custom_style` (python-hwpx `ensure_run_style`/`char_properties` 위임).
 5. **객체** ✅(부분) — 이미지 삽입·도장/서명(`add_image`) 위임 완료(US-027). replace·머리말/꼬리말·페이지 설정·목차(TOC)는 후속. 리치 내보내기(`hwpx_to_html`/`hwpx_to_markdown`)는 ✅ 완료(US-023).
 - 수용: ✅ 위임 편집이 python-hwpx 경유 + 우리 `validate_hwpx` 게이트 통과, 회귀 테스트(importorskip). 위임 편집은 재직렬화이므로 바이트동일 아님 — 게이트 통과가 무결성 기준.
 
 ## Phase D (P3) — 문서 생성 [DELEGATE + 우리 레시피]
 
-1. **빌더/변환** ✅(부분) — markdown/text→HWPX 완료(`create_hwpx_from_markdown`, `delegate.py`, US-025). `create_document_from_plan`·리치 markdown 구조 매핑은 후속.
+1. **빌더/변환** ✅(부분) — `create_document_from_blocks` 완전제어 빌더, markdown subset(heading/paragraph/list/pipe table)→HWPX 완료. `create_document_from_plan`·full CommonMark·중첩 목록은 후속. (`blocks.py`, `markdown.py`, US-025/039/040)
 2. **공식문서 레시피** — 기안문·보도자료·계획서·시험지(문제+답안) 템플릿 생성. 우리 템플릿 + 위임 조립.
 3. **mail_merge** ✅ — 대량 생성(우리 fill 엔진 + 레코드 반복, **OWN 바이트보존**). CSV/JSON 파싱은 클라이언트(records 전달). (`mailmerge.py`, US-026)
 - 원칙: 문안 *생성*은 클라이언트 LLM, 서버는 구조 조립·채우기만.
@@ -65,8 +67,15 @@ python-hwpx를 얇게 감싸 Hangeul-mcp 툴로 노출(재발명 금지). 편집
 
 ## 실행 순서 권장
 
-Phase A(차별점) → Phase B(신뢰성) → Phase C(편집, python-hwpx 위임) → Phase D(생성).
+Phase A(차별점) → Phase B(신뢰성) → Phase C(편집, python-hwpx 위임) → Phase D(생성) → Phase E(BYO-AI/live harness).
 A·B는 우리 코어라 먼저, C·D는 위임 어댑터라 병렬화 가능. 각 Phase는 `/ralplan`으로 PRD 분해 후 `/ralph` 구현.
+
+## Phase E (P4) — BYO-AI / live harness
+
+1. **Capability manifest** ✅ — `describe_capabilities`가 서버 자체 LLM 없음, file_hwpx/delegate/render/live/headless-HWP 가용성, optional dependency 요구사항을 반환.
+2. **BYO-AI workflow 문서** ✅ — `docs/byo-ai-harness.md`에 파일 양식 채우기, 새 문서 생성, 열린 한글 live 셀 채우기 흐름을 명시.
+3. **Live preview gate** ✅ — `preview_cells_to_open_hwp`가 COM 호출 없이 target table/row/col을 계산해 apply 전 확인 경로 제공.
+4. **No-API guard** ✅ — dev dependency와 테스트에서 서버가 LLM API SDK에 의존하지 않는다는 경계를 확인.
 
 ## 이미 완료 (v0.1.0)
 

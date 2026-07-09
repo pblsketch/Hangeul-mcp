@@ -21,14 +21,16 @@ classifiers = [
 dependencies = ["mcp>=1.2.0"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "pyflakes>=3"]
 com = ["pywin32>=306; sys_platform == 'win32'"]
 # Delegated breadth (editing/generation/rich export) — soft dependency (D1).
 # The core works without it; delegate tools return available:false when absent.
 delegate = ["python-hwpx>=2.20"]
+render = ["playwright>=1.45"]
 # Live cell-fill of the OPEN Hangul window (Windows + Hangul only) via pyhwpx.
 # Optional; apply_cells_to_open_hwp returns available:false without it.
 live = ["pyhwpx>=1.7; sys_platform == 'win32'"]
+hwp-headless = []
 
 [project.scripts]
 hangeul-mcp = "hangeul_mcp.server:main"

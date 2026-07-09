@@ -86,6 +86,18 @@ def resolve_cell_targets(
     return targets, skipped
 
 
+def preview_cells_to_open(path: str | Path, values: Dict[str, str]) -> Dict:
+    targets, skipped = resolve_cell_targets(path, values)
+    return {
+        "available": True,
+        "live_available": live_available(),
+        "targets": targets,
+        "skipped": skipped,
+        "count": len(targets),
+        "apply_tool": "apply_cells_to_open_hwp",
+    }
+
+
 def apply_cells_to_open(
     path: str | Path,
     values: Dict[str, str],

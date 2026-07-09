@@ -34,3 +34,22 @@
 - **결정**: `apply_cells_to_open`은 우리 `analyze`의 전역 표 인덱스와 pyhwpx `get_into_nth_table`의 컨트롤 순서가 일치한다고 가정한다. 이 가정은 **단일 표 또는 최상위 표만 있는 양식**(강사카드 등)에서 성립한다.
 - **한계**: 중첩 표(nested table)나 병합셀이 섞인 문서에서는 표 순서/셀 주소가 어긋날 수 있다. 이는 **실기기(Claude Desktop) 라이브 검증**으로만 확정 가능하며, 그전까지 라이브 셀 채우기는 **best-effort**로 표기한다.
 - **후속**: 실검증에서 매핑 오차가 확인되면 (a) 최상위 표 서수와 중첩 표 서수를 분리 저장, (b) pyhwpx가 노출하는 컨트롤 식별자로 선택, (c) 병합셀에서 `clear=True` 비활성화를 검토한다.
+
+## D8. `create_document_from_blocks`는 D6의 완전제어 탈출구
+- **결정**: `create_document_from_blocks`는 heading/paragraph/list/table/image/page_break 블록을 **클라이언트가 전부 제공**하는 구조 조립 도구다. 서버는 레시피 chrome이나 숨은 본문을 추가하지 않는다.
+- **이유**: D6의 공식문서 레시피는 의도된 layout chrome 예외지만, 사용자가 고정 라벨까지 완전히 통제해야 하는 경우가 있다. blocks API는 그 경우의 기본 경로다.
+- **경계**: markdown→HWPX도 내부적으로 blocks로 변환한다. full CommonMark가 아니라 문서화된 subset만 지원한다.
+
+## D9. 렌더와 `.hwp` 헤드리스 읽기는 선택 의존성 게이트
+- **결정**: `render_preview`는 Playwright/브라우저가 있을 때만 PNG를 생성하고, 없으면 `available:false`를 반환한다. 렌더는 HTML을 `file://`로 열지 않고 로컬 HTTP 경로로 screenshot한다.
+- **결정**: `extract_hwp_text`는 COM 변환을 headless 읽기로 포장하지 않는다. 현재는 headless reader 후보 모듈을 점검하는 adapter gate이며, 실제 `.hwp` 추출 완료 판정은 비COM substrate와 PII 없는 `.hwp` fixture 검증 이후로 제한한다.
+
+## D10. Hangeul-mcp는 BYO-AI 로컬 문서 하네스다
+- **결정**: 서버는 LLM/API를 호출하지 않는다. 사용자가 이미 구독하는 AI 클라이언트가 문안과 값을 생성하고, Hangeul-mcp는 로컬 HWP/HWPX 문서 작업만 수행한다.
+- **이유**: 별도 API 과금은 공무원·교사·공공기관 사용자의 도입 장벽이다. MCP 서버는 모델이 아니라 문서 능력 확장팩이어야 한다.
+- **경계**: Hangeul-mcp가 외부 API를 호출하지 않는다는 뜻이지, 사용자의 AI 클라이언트가 문서 내용을 모델에 보내지 않는다는 보장은 아니다. 민감 문서는 `scan_pii`와 클라이언트 설정으로 통제한다.
+
+## D11. 파일 모드와 live 모드는 분리한다
+- **결정**: HWPX 파일 모드는 core/headless 경로로 유지하고, 열린 한글 문서 제어는 Windows + 한컴 + optional dependency가 필요한 live adapter로 분리한다.
+- **이유**: 공공기관 타깃에서는 Windows + 한컴이 현실 전제지만, 그 의존성이 HWPX 파일 처리의 안정성과 크로스플랫폼성을 깨면 안 된다.
+- **게이트**: live status/preview 도구는 side-effect-free여야 하며, 실제 apply는 사용자가 의도적으로 호출한 경우에만 열린 한글 창을 조작한다.

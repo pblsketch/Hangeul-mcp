@@ -11,7 +11,19 @@ FIXTURE = Path(__file__).parent / "fixtures" / "sample_form.hwpx"
 def test_four_tools_registered():
     tools = asyncio.run(server.mcp.list_tools())
     names = {t.name for t in tools}
-    assert {"detect_format", "analyze_form", "fill_form", "extract_text"} <= names
+    assert {
+        "detect_format",
+        "analyze_form",
+        "fill_form",
+        "extract_text",
+        "merge_table_cells",
+        "set_cell_shading",
+        "create_document_from_blocks",
+        "render_preview",
+        "extract_hwp_text",
+        "describe_capabilities",
+        "preview_cells_to_open_hwp",
+    } <= names
 
 
 def test_detect_format_tool():

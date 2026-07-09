@@ -8,7 +8,8 @@ keys to table-cell addresses, plus graceful degradation when pyhwpx is absent.
 
 from pathlib import Path
 
-from hangeul_core.hwp.live import apply_cells_to_open, resolve_cell_targets
+from hangeul_core.hwp.live import apply_cells_to_open, preview_cells_to_open, resolve_cell_targets
+from hangeul_mcp import server
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_form.hwpx"
 
@@ -45,3 +46,19 @@ def test_apply_cells_degrades_gracefully_without_substrate():
     assert "available" in res
     if res["available"] is False:
         assert "error" in res
+
+
+def test_preview_cells_to_open_is_pure_and_returns_targets():
+    res = preview_cells_to_open(FIXTURE, {"성명": "홍길동"})
+    assert res["available"] is True
+    assert res["count"] == 1
+    assert res["targets"][0]["label"].replace(" ", "") == "성명"
+    assert res["apply_tool"] == "apply_cells_to_open_hwp"
+
+
+def test_server_preview_rejects_hwp_without_conversion(tmp_path):
+    fake = tmp_path / "form.hwp"
+    fake.write_bytes(b"HWP binary placeholder")
+    res = server.preview_cells_to_open_hwp(str(fake), {"성명": "홍길동"})
+    assert res["ok"] is False
+    assert "only accepts .hwpx" in res["error"]

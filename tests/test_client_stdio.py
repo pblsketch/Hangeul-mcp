@@ -24,7 +24,15 @@ def test_stdio_server_lists_tools_and_calls():
                 await session.initialize()
                 listed = await session.list_tools()
                 names = {t.name for t in listed.tools}
-                assert {"detect_format", "analyze_form", "fill_form", "extract_text"} <= names
+                assert {
+                    "detect_format",
+                    "analyze_form",
+                    "fill_form",
+                    "extract_text",
+                    "create_document_from_blocks",
+                    "render_preview",
+                    "extract_hwp_text",
+                } <= names
                 result = await session.call_tool("detect_format", {"path": str(FIXTURE)})
                 assert result is not None and not result.isError
 
