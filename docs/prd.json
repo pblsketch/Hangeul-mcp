@@ -757,8 +757,8 @@
       "title": "CI extras 레인 dev+delegate+render",
       "milestone": "M13-FileMode-Evidence",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "complete",
       "acceptanceCriteria": [
         "CI job installs .[dev,delegate,render] + playwright chromium and runs pytest on ubuntu",
         "win32-only live/com tests not forced in CI",

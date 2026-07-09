@@ -21,3 +21,20 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Test
         run: pytest -q
+
+  # Extras lane (US-051): runs the delegate/render tests that the core lane
+  # skips via importorskip. Scope is dev+delegate+render only — the live/com
+  # extras are sys_platform=='win32' and are desktop-verified, never forced here.
+  test-extras:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (dev + delegate + render)
+        run: |
+          pip install -e ".[dev,delegate,render]"
+          python -m playwright install --with-deps chromium
+      - name: Test (delegate/render included)
+        run: pytest -q
