@@ -794,8 +794,8 @@
       "title": ".hwp headless substrate 후보 비교 스파이크 + ADR(D12)",
       "milestone": "M15-HWP-Headless-Spike",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "complete",
       "acceptanceCriteria": [
         "candidate table (license/installability/API/fixture) + go/no-go recorded as ADR D12",
         "no viable substrate => adapter gate kept; test_hwp_headless green; COM never disguised as headless (D9)"
@@ -806,12 +806,13 @@
       "title": "(조건부) substrate 어댑터 구현 또는 keep-gate 종결",
       "milestone": "M15-HWP-Headless-Spike",
       "priority": "P2",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "spike-pending",
       "acceptanceCriteria": [
         "IF go + PII-free .hwp fixture: non-COM extraction test (fails without substrate, passes with)",
         "ELSE zero code change; keep-gate rationale in ADR; spike-pending kept"
-      ]
+      ],
+      "statusNote": "keep-gate closure per ADR D12: no viable non-COM substrate (pyhwp AGPL/beta, rhwp/kordoc not pip libs, hwp5 namespace squatted); PII-free .hwp fixture prerequisite unmet; zero code change. olefile/PrvText route deferred to a future story."
     },
     {
       "id": "US-056",

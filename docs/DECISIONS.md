@@ -53,3 +53,19 @@
 - **결정**: HWPX 파일 모드는 core/headless 경로로 유지하고, 열린 한글 문서 제어는 Windows + 한컴 + optional dependency가 필요한 live adapter로 분리한다.
 - **이유**: 공공기관 타깃에서는 Windows + 한컴이 현실 전제지만, 그 의존성이 HWPX 파일 처리의 안정성과 크로스플랫폼성을 깨면 안 된다.
 - **게이트**: live status/preview 도구는 side-effect-free여야 하며, 실제 apply는 사용자가 의도적으로 호출한 경우에만 열린 한글 창을 조작한다.
+
+## D12. `.hwp` 비COM 읽기 substrate — 스파이크 결론: keep-gate (US-054)
+- **결정**: `extract_hwp_text`는 adapter gate(`available:false`)를 **유지**한다. 현재 시점에 채택 가능한 비COM `.hwp` reader substrate가 없다.
+- **후보 비교 (2026-07-10 실측, PyPI 메타데이터 + pip dry-run)**:
+
+| 후보 | PyPI | 라이선스 | 설치성 | API 형태 | 판정 |
+|---|---|---|---|---|---|
+| `pyhwp` | ✅ v0.1b15 | **AGPLv3+** | dry-run 해석 OK (py3.14 런타임 호환은 2015년대 beta라 미보장) | `hwp5txt` CLI + hwp5 파서 모듈 | **no-go**: AGPL은 MIT 프로젝트의 위임 substrate로 부적합(optional이어도 배포·연동 리스크), 10년 무릴리스 beta |
+| `rhwp` | ❌ 없음 | — | pip 불가 | — | **no-go**: pip 설치 경로 부재 |
+| `kordoc` | ❌ 없음 | — | pip 불가 | MCP **서버**이지 import 라이브러리가 아님 | **no-go**: 라이브러리 아님 |
+| `hwp5` | ⚠️ 존재하나 **무관 패키지** (MIT, "hard-work pattern finder") | MIT | 설치되나 .hwp와 무관 | — | **함정**: 네임스페이스 선점 — `find_spec("hwp5")`는 가짜 신호가 될 수 있음. 게이트가 항상 `available:false`라 현재 무해하나, 어댑터 채택 시 이름 검사만으로 활성화 금지 |
+| `olefile` + PrvText/BodyText 직접 파싱 | ✅ v0.47 | BSD | 건강 | OLE compound 스트림 읽기(자체 어댑터 필요) | **유일한 라이선스-안전 경로**(후속 스파이크): `.hwp`는 OLE — `PrvText` 스트림(UTF-16 미리보기 텍스트) 또는 BodyText zlib 해제. 단 OWN 구현이며 PII 없는 실 `.hwp` fixture 확보가 선행 조건 |
+
+- **fixture**: PII 없는 실 `.hwp` fixture 미확보(COM 없이 합성 `.hwp` 생성 곤란). US-055의 구현 전제조건 미충족.
+- **결론**: keep-gate. `extract_hwp_text`는 계속 `available:false` + 후보 점검 결과를 반환하고, COM 변환을 headless로 위장하지 않는다(D9). 후속: olefile/PrvText 경로는 PII 없는 fixture 확보 시 별도 스토리로 재평가(OWN 텍스트 추출로 한정, 구조 파싱은 그 다음).
+- **경계**: 어댑터를 채택하는 날에도 `CANDIDATES` 이름 존재 검사만으로 available을 올리지 않는다 — 실제 추출 스모크가 통과해야 활성화(hwp5 네임스페이스 함정).
