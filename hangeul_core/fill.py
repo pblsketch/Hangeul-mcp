@@ -43,6 +43,7 @@ class FillResult:
     shrunk: List[dict] = dfield(default_factory=list)
     masked: List[dict] = dfield(default_factory=list)
     overflow: List[dict] = dfield(default_factory=list)
+    pii_warnings: List[dict] = dfield(default_factory=list)
     out_path: Optional[str] = None
 
 
@@ -304,14 +305,17 @@ def fill(
     shrunk: List[dict] = []
     masked_out: List[dict] = []
     overflow_out: List[dict] = []
+    pii_out: List[dict] = []
     spacing_clone: Dict[str, Optional[str]] = {}
 
     for key, value in values.items():
         value = value.replace("\r\n", "\n").replace("\r", "\n")  # normalize line breaks
-        if mask_pii:
-            findings = scan_text(value)
-            if findings:
-                masked_out.append({"key": key, "types": sorted({f["type"] for f in findings})})
+        findings = scan_text(value)  # warn-first: flag PII regardless of mask_pii
+        if findings:
+            types = sorted({f["type"] for f in findings})
+            pii_out.append({"key": key, "types": types, "masked": mask_pii})
+            if mask_pii:
+                masked_out.append({"key": key, "types": types})
                 value = mask_value(value)
         ph_name = key[3:] if key.startswith("ph:") else key
         if ph_name in ph_names:
@@ -467,6 +471,7 @@ def fill(
         shrunk=shrunk,
         masked=masked_out,
         overflow=overflow_out,
+        pii_warnings=pii_out,
         out_path=str(out_path) if wrote else None,
     )
 

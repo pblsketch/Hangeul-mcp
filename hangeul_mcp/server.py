@@ -146,6 +146,7 @@ def fill_form(
         "shrunk": result.shrunk,
         "masked": result.masked,
         "overflow": result.overflow,
+        "pii_warnings": result.pii_warnings,
         "out_path": result.out_path,
         "dry_run": dry_run,
     }
