@@ -97,6 +97,8 @@ class Field:
     insert_after: Optional[str] = None
     # checkbox specifics: [{"label": str, "checked": bool}, ...]
     options: Optional[List[dict]] = None
+    # approx max Korean characters that fit the value cell at its font (client sizing hint)
+    capacity_hint: Optional[int] = None
 
 
 @dataclass

@@ -52,6 +52,7 @@ def _field_dict(f) -> Dict[str, Any]:
         "para_bullet": f.para_bullet,
         "char_spacing": f.char_spacing,
         "options": f.options,
+        "capacity_hint": f.capacity_hint,
     }
 
 

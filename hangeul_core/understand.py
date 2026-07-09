@@ -54,9 +54,25 @@ def _value_cell(label: Cell, grid: Dict[Tuple[int, int], Cell]) -> Optional[Cell
     return None
 
 
+def _capacity_hint(value, header: str) -> "int | None":
+    """Approx max Korean characters that fit *value* cell at its font width."""
+    if not value.width:
+        return None
+    from hangeul_core.formfit import DEFAULT_INNER_MARGIN, font_height  # lazy: avoid cycle
+
+    avail = value.width - DEFAULT_INNER_MARGIN
+    fh = font_height(header, value.char_pr)
+    if avail <= 0 or fh <= 0:
+        return 0 if avail <= 0 else None
+    return int(avail / fh)  # Hangul is ~full-width, so this is a safe lower bound
+
+
 def understand(path: str | Path) -> FormSchema:
     """Produce a FormSchema of label -> value-cell fields (empty_cell kind)."""
     result = analyze(path)
+    from hangeul_core.owpml import HwpxPackage
+
+    header = HwpxPackage.open(path).read("Contents/header.xml").decode("utf-8")
     fields = []
     claimed = set()  # value cell field_ids already mapped
 
@@ -77,6 +93,7 @@ def understand(path: str | Path) -> FormSchema:
                     kind=KIND_EMPTY_CELL,
                     para_bullet=value.para_bullet,
                     char_spacing=value.char_spacing,
+                    capacity_hint=_capacity_hint(value, header),
                 )
             )
     return FormSchema(fmt=result.fmt, fields=fields)
