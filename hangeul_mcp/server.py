@@ -376,6 +376,39 @@ def mail_merge(
 
 
 @mcp.tool()
+def emphasize_text(
+    path: str,
+    find: str,
+    out_path: str,
+    bold: bool = False,
+    italic: bool = False,
+    underline: bool = False,
+    color: str = "",
+    size: float = 0.0,
+) -> Dict[str, Any]:
+    """Format every run containing *find* (bold/italic/underline/color/size) → new .hwpx.
+
+    Delegated to python-hwpx; whole-run scope (does not split sub-run substrings).
+    color is a hex like '#FF0000'; size is points. Output validated via
+    validate_hwpx; returns matched_runs. Requires the optional python-hwpx substrate.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"available": True, "error": str(exc)}
+    return {
+        "available": True,
+        **_delegate.emphasize_text(
+            path, find, out_path,
+            bold=bold, italic=italic, underline=underline,
+            color=(color or None), size=(size or None),
+        ),
+    }
+
+
+@mcp.tool()
 def create_hwpx_from_markdown(markdown: str, out_path: str) -> Dict[str, Any]:
     """Build a new HWPX from client-provided markdown/text → new .hwpx (delegated).
 

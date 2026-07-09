@@ -107,6 +107,39 @@ def add_table(
     return _edit_result(out_path)
 
 
+def emphasize_text(
+    path: str | Path,
+    find: str,
+    out_path: str | Path,
+    *,
+    bold: bool = False,
+    italic: bool = False,
+    underline: bool = False,
+    color: Optional[str] = None,
+    size: Optional[float] = None,
+) -> Dict:
+    """Apply formatting to every run whose text contains *find*, then validate.
+
+    Scope is whole-run: a run is styled when its text contains *find* (sub-run
+    substring splitting is not attempted). Styling is applied via a single
+    ensured charPr, so all requested attributes land together. Returns the
+    validation report plus ``matched_runs``.
+    """
+    doc = _doc(path)
+    cid = doc.ensure_run_style(
+        bold=bold, italic=italic, underline=underline, color=color, size=size
+    )
+    matched = 0
+    for run in doc.iter_runs():
+        if find and find in (run.text or ""):
+            run.char_pr_id_ref = cid
+            matched += 1
+    _save(doc, out_path)
+    result = _edit_result(out_path)
+    result["matched_runs"] = matched
+    return result
+
+
 def add_picture(
     path: str | Path,
     image_path: str | Path,
