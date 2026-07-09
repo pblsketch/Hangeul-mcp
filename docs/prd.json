@@ -3,7 +3,7 @@
   "summary": "Korean HWP/HWPX form-fill MCP server. Client-agnostic (Claude Desktop, Codex, Antigravity 2.0). Python. v1 headless fill, v2 COM live-apply via pyhwpx put_field_text. Differentiators: inline-blank fill, merged-cell 2D understanding, review-then-apply.",
   "status": "v0.1.0 released; codex QA passed (all findings fixed)",
   "planApprovedByUser": true,
-  "note": "This run is plan-first. Build loop starts only after user approves PLAN.md and answers the open questions in section 10. All stories passes:false.",
+  "note": "This run is plan-first. Build loop starts only after user approves PLAN.md and answers the open questions in section 10. All stories passes:false. | Stabilization pass (ralplan consensus, .omo/plans/hangeul-mcp-stabilization-ralplan.md): stories US-047..US-060 ARE recorded in this file (BC3); pass count == passes==true.",
   "stories": [
     {
       "id": "US-000",
@@ -16,7 +16,8 @@
         "prd.json exists with concrete task-specific acceptance criteria per story",
         "User has reviewed PLAN.md and answered the 5 open questions (section 10)",
         "Repo location, python-hwpx-vs-own-engine decision, and matching-key decision are confirmed"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-001",
@@ -30,7 +31,8 @@
         "LICENSE (MIT), README.md, .gitignore present",
         "git repo initialized; `pip install -e .` (or uv sync) succeeds with no error",
         "Sample fixtures copied into tests/fixtures (blank + filled 강사카드)"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-002",
@@ -44,7 +46,8 @@
         "XML declaration (standalone=\"yes\") preserved byte-for-byte after repack",
         "Round-trip test: repack of untouched file is byte-identical to original (or documented minimal diff)",
         "test_owpml passes"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-003",
@@ -57,7 +60,8 @@
         "Detects empty cells, bullet paragraphs (heading type=BULLET), and charPr spacing",
         "Golden test on 강사카드(양식).hwpx reproduces the known 표2 field set (성명, 주민등록번호, 학력, 경력×3, 현직, etc.)",
         "test_analyze passes"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-004",
@@ -70,7 +74,8 @@
         "Emits FieldSchema per PLAN.md section 5 with field kind classification",
         "On the 강사카드(양식) fixture, correctly identifies 성명/직위/휴대전화 value cells (not adjacent labels)",
         "test_understand passes"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-005",
@@ -83,7 +88,8 @@
         "Distinguishes inline_blank from empty_cell and bullet_item",
         "Golden test on the 강사카드(양식) narrative rows (학력/경력/현직) passes",
         "test_inline passes"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-006",
@@ -97,7 +103,8 @@
         "Spacing normalization option produces spacing=0 without affecting untouched runs",
         "Round-trip test: filled fields present AND all untouched regions byte-identical AND well-formed AND mimetype/declaration preserved",
         "test_fill passes"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-007",
@@ -110,7 +117,8 @@
         "Exposes tools: detect_format, analyze_form, fill_form, extract_text with JSON schemas",
         "An MCP client smoke test (or mcp dev/inspector) lists the 4 tools and calls fill_form end-to-end on a fixture",
         "Tools are pure (params in -> JSON out), no client-specific assumptions"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-008",
@@ -123,7 +131,8 @@
         "Server starts via the documented stdio command for each client",
         "README documents that only MCP tools are used (max client compatibility)",
         "At least one non-Claude client (Codex or Antigravity) verified to list tools"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-009",
@@ -136,7 +145,9 @@
         "Off-Windows or 한글-not-installed: import/guard returns available:false gracefully (no crash)",
         "Security file-access prompt handling documented (FilePathCheckerModule)",
         "Guarded integration test passes on a machine with 한글 (skips elsewhere)"
-      ]
+      ],
+      "status": "desktop-live-pending",
+      "statusNote": "COM bridge code + headless-gated tests complete; real-desktop COM evidence pending (US-053 / PENDING_DESKTOP_LIVE_QA)."
     },
     {
       "id": "US-010",
@@ -149,7 +160,9 @@
         "apply runs format-preserving preprocessing on values before put_field_text",
         "Returns applied[] and skipped[] with reasons; returns needs_field_registration when no named fields exist",
         "End-to-end demo: analyze -> (LLM draft) -> apply to open 한글 fills the live document one-shot"
-      ]
+      ],
+      "status": "desktop-live-pending",
+      "statusNote": "apply_to_open_hwp code complete; real-desktop put_field_text evidence pending (US-053)."
     },
     {
       "id": "US-011",
@@ -161,7 +174,8 @@
         "skills/SKILL.md guides: analyze_form -> draft -> user review -> fill_form or apply_to_open_hwp",
         "Skill instructs value generation to respect field kind (bullets, inline, checkbox)",
         "Documented usage from Claude Desktop"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-012",
@@ -174,7 +188,8 @@
         ".hwp input policy implemented per user decision (reject-with-guidance or auto-convert)",
         "README quickstart verified; version tag cut",
         "Coverage of core modules documented"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-013",
@@ -190,7 +205,8 @@
         "Values are client-provided only (brain/hand separation): unknown tokens are left byte-untouched and reported in skipped/unfilled",
         "Byte-preservation: every unchanged ZIP entry payload byte-identical (a.read(name)==b.read(name)); mimetype first STORED; section keeps standalone=\"yes\" declaration; section well-formed (ET.fromstring)",
         "Golden test (synthetic hwpx) + regressions: token split across two runs, token in nested table, same token twice; pyflakes clean; all prior 56 tests still green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-014",
@@ -204,7 +220,8 @@
         "fill_form replaces ONLY the highlighted text, leaving hp:markpenBegin/hp:markpenEnd tags intact so the highlight is preserved (assert both new text and markpen tags present)",
         "Existing tests/test_markpen.py (analyze reads highlighted itertext) stays green — the itertext reading is not broken",
         "Byte-preservation + well-formed + mimetype/declaration golden pattern; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-015",
@@ -218,7 +235,8 @@
         "analyze_form JSON includes options with per-option checked state",
         "fill_form value = option label(s) to check: toggles chosen option box □->☑; default exclusive unchecks the others (☑->□); checkbox_exclusive=False leaves others unchanged; unknown option -> skipped, no glyph changed",
         "Byte-preservation + well-formed + mimetype/declaration; regressions: glyph split across runs, re-checking an already-checked option is idempotent; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-016",
@@ -234,7 +252,8 @@
         "Value schema parity with COM apply_to_open_hwp: the same name-keyed values dict works for both headless and COM paths (documented; unit test on key handling)",
         "No named fields -> analyze returns none of this kind gracefully (consistent with COM needs_field_registration)",
         "Byte-preservation + well-formed + mimetype/declaration; regressions: parameterSet-named vs attribute-named field; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-017",
@@ -249,7 +268,8 @@
         "Tier2 (opt-in): fill_form(auto_fit=True) shrinks only the target run's font/spacing via a cloned charPr (reusing the _clone_charpr pattern) stepwise to a documented min floor; reports applied shrink per field; untouched runs stay byte-identical; no zero/negative sizes",
         "auto_fit=False (default) never mutates formatting — pure fill, backward-compatible with all existing fill tests",
         "Byte-preservation + well-formed + mimetype/declaration; golden/regression: overflow fixture flagged, fitting value no-op, auto-fit floor respected; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-018",
@@ -263,7 +283,8 @@
         "fill_form(mask_pii=True) masks PII inside provided values before writing and reports a masked[] list; mask_pii=False (default) is unchanged behavior",
         "New MCP tool scan_pii(path) audits a document's text and returns findings (no mutation)",
         "Tests use synthetic (fake) PII patterns only; no real PII committed; golden + regression; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-019",
@@ -276,7 +297,8 @@
         "fill(backup=True) copies the destination to <out>.bak before overwriting an existing file",
         "fill_form exposes dry_run and backup; defaults preserve current behavior",
         "Golden + regression: dry-run writes nothing, backup created only when overwriting; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-020",
@@ -289,7 +311,8 @@
         "get_document_outline(path) returns a structural summary: sections, tables (rows/cols), field/kind counts, and heading-like paragraphs",
         "list_styles(path) returns charPr/paraPr style ids with key attributes (font height, spacing, bullet)",
         "Three new read-only MCP tools; built on existing analyze/extract; no mutation; golden tests; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-021",
@@ -302,7 +325,8 @@
         "Returns {valid, well_formed, mimetype_ok, declaration_ok, errors[], xsd:{available, valid?}}; a corrupted XML entry yields valid=False with a specific error",
         "If python-hwpx is installed, run its XSD validation and include the result; otherwise xsd.available=False (soft dependency, D1)",
         "New MCP tool validate_hwpx; golden + regression (valid passes, corrupted fails); pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-022",
@@ -317,7 +341,8 @@
         "Byte-preservation: unchanged ZIP entries byte-identical; mimetype first STORED; section keeps standalone declaration; well-formed",
         "Two new MCP tools (search_and_replace, batch_replace); tags/attributes never touched (only <hp:t> text)",
         "Golden + regression (run-split match, multiple pairs, overlapping finds longest wins, no cross-cell bleed); pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-023",
@@ -332,7 +357,9 @@
         "New read-only MCP tools hwpx_to_html and hwpx_to_markdown return the rendered string (or available:false)",
         "pyproject declares an optional extra 'delegate' = python-hwpx; tests use pytest.importorskip('hwpx') so they skip cleanly where the dep is absent (CI stays green)",
         "Golden tests on the real fixture assert the rendered output contains known text (성명); pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-024",
@@ -346,7 +373,9 @@
         "Each delegated edit runs the output through validate_hwpx and includes the report; the edit is only reported success when valid is True",
         "New MCP tools add_paragraph and add_table; available:false when python-hwpx is absent",
         "Tests (importorskip hwpx): new content present in the output AND validate_hwpx valid is True; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-025",
@@ -360,7 +389,9 @@
         "New MCP tool create_hwpx_from_markdown; available:false when python-hwpx is absent",
         "Output passes validate_hwpx (valid True) and contains the provided content",
         "Tests (importorskip hwpx): created file valid + content present; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-026",
@@ -375,7 +406,8 @@
         "Each output is a byte-preserving fill of the template (untouched entries identical) and passes validate_hwpx (valid True)",
         "New MCP tool mail_merge(template_path, records, out_dir, mask_pii=false); records are client-provided",
         "Golden test: N records -> N files, each containing its own values; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-027",
@@ -389,7 +421,9 @@
         "New MCP tool add_image(path, image_path, out_path, width_mm, height_mm); available:false when python-hwpx is absent",
         "Output passes validate_hwpx (valid True) and the document's image count increases by one",
         "Tests (importorskip hwpx) using a tiny synthetic PNG; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-028",
@@ -403,7 +437,8 @@
         "get_table_map(path) exposes analyze cells structured: per table rows/cols and per cell field_id/row/col/spans/text/is_empty",
         "find_cell_by_label(path, label) returns the label cell field_id(s) and the mapped value-cell field_id (via understand)",
         "Three new read-only MCP tools; built on existing analyze/understand/extract; golden tests on the real fixture; pyflakes clean; full suite green"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-029",
@@ -418,7 +453,9 @@
         "Graceful available:false when pyhwpx/Windows is absent (no crash) — unit-tested",
         "New MCP tool apply_cells_to_open_hwp(path, values); apply_to_open_hwp's needs_field_registration response points cell-forms to it; optional 'live' extra (pyhwpx)",
         "LIVE VALIDATION (client-side, PENDING): filling the open 강사카드 cells succeeds live without field registration — to be confirmed in Claude Desktop"
-      ]
+      ],
+      "status": "desktop-live-pending",
+      "statusNote": "live cell fill code + pure resolve tests complete; real-desktop verification pending (D7 nested-table mapping is best-effort)."
     },
     {
       "id": "US-030",
@@ -431,7 +468,8 @@
         "overflow_scale gains a deadband (default 1.05): text within ~5% of the cell width is treated as fitting (no 94-99% micro-shrinks)",
         "fill reports overflow warnings ALWAYS (FillResult.overflow), even without auto_fit, so clients can shorten instead of shrink",
         "Golden + regression; existing formfit tests stay green; pyflakes clean"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-031",
@@ -443,7 +481,8 @@
         "Label derivation: leading text -> left cell -> header cell above -> descriptive fallback from option texts (fixes unidentifiable '선택N')",
         "select_type hint (yes_no|select) exposed via template; option-label cap widened 24->40 for long section titles",
         "Golden + regression; existing checkbox tests stay green; pyflakes clean"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-032",
@@ -455,7 +494,8 @@
         "Empty-cell fields carry capacity_hint = approx max Korean chars = (cell width - inner margin) / font height",
         "Computed in understand (lazy formfit import, no cycle), surfaced in analyze_form _field_dict",
         "Golden tests on the real fixture; pyflakes clean"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-033",
@@ -467,7 +507,8 @@
         "fill scans every value for PII on every run and reports FillResult.pii_warnings ({key, types, masked}) regardless of mask_pii",
         "mask_pii=True marks masked:true and masks the value; off flags but leaves as-is; surfaced in fill_form",
         "Golden + regression; existing PII tests stay green; pyflakes clean"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-034",
@@ -480,7 +521,9 @@
         "emphasize_text(path, find, out, bold/italic/underline/color/size) applies one ensured charPr (ensure_run_style) to every run whose text contains find, saves, and validates",
         "New MCP tool emphasize_text returning matched_runs; available:false when python-hwpx absent",
         "Tests (importorskip): a matched run becomes bold after reopening; color/size output stays valid; no-match is a valid no-op; pyflakes clean"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-035",
@@ -492,7 +535,9 @@
         "create_table_from_rows(rows, out) builds a new HWPX with one table sized to the data (ragged rows padded), fills via set_cell_text, saves, validates",
         "New MCP tool create_hwpx_table(rows, out_path); available:false when python-hwpx absent",
         "Tests (importorskip): content present, correct rows/cols in outline, ragged padded, empty rejected, output valid; pyflakes clean"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-036",
@@ -505,7 +550,9 @@
         "create_official_document(fields, out) lays out a 공문 skeleton from 기관명/수신/참조/제목/본문/날짜/발신명의/담당자 and validates",
         "New MCP tool create_official_document; unknown keys ignored; available:false when python-hwpx absent",
         "Tests (importorskip): content present in order (수신 < 제목 < 본문), unknown keys ignored, output valid; pyflakes clean"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-037",
@@ -517,7 +564,9 @@
         "create_official_document gains a doc_type param dispatching to per-type skeleton builders: 공문, 보도자료(기관명/배포일/담당/연락처/제목/부제/본문/문의), 기안문(제목/기안자/기안일/시행일/수신/목적/내용/붙임)",
         "Unknown doc_type falls back to 공문; doc_type reported in the result; MCP tool gains doc_type",
         "Tests (importorskip): each type's content present + output valid + fallback; pyflakes clean"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-038",
@@ -531,7 +580,9 @@
         "set_cell_shading(path, table_index, row, col, fill_color, out_path) applies cell shading and validates output",
         "New MCP tools return available:false without python-hwpx and structured ok:false errors for invalid table/range/color",
         "Tests cover merge, shading, invalid inputs, server tools, and validate_hwpx"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-039",
@@ -545,7 +596,9 @@
         "New MCP tool exposes the builder and validates output",
         "Unknown block types, empty blocks, and malformed tables return structured ok:false errors",
         "Tests verify block order, text presence, table output, server tool shape, and validate_hwpx"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-040",
@@ -559,7 +612,9 @@
         "Existing simple markdown creation remains valid and text-compatible",
         "README documents the supported subset and non-goals",
         "Tests verify heading/list/table structure, server tool output, and validate_hwpx"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extra 'delegate' (python-hwpx); returns available:false without it; tests importorskip('hwpx')."
     },
     {
       "id": "US-041",
@@ -573,7 +628,9 @@
         "The tool returns available:false with a setup hint when render dependencies are unavailable",
         "Generated PNGs report file size and dimensions when possible",
         "Tests cover missing dependency behavior and at least one real local PNG proof when the browser is installed"
-      ]
+      ],
+      "status": "optional-gated",
+      "statusNote": "requires optional extras 'render' (playwright + chromium); returns available:false without them."
     },
     {
       "id": "US-042",
@@ -587,7 +644,9 @@
         "When no substrate is installed, the tool returns available:false with checked candidate modules and no COM side effects",
         "If a substrate is later installed, a real PII-free .hwp fixture must pass before marking complete",
         "Tests cover dependency-missing behavior and preserve existing COM conversion policy tests"
-      ]
+      ],
+      "status": "spike-pending",
+      "statusNote": "adapter gate delivered and tested; actual non-COM .hwp extraction awaits substrate decision (ADR D12, US-054/US-055)."
     },
     {
       "id": "US-043",
@@ -599,7 +658,8 @@
         "README states that Hangeul-mcp is a local MCP document engine, not a server-side LLM/API billing app",
         "docs/byo-ai-harness.md documents file fill, document generation, live preview/apply, and privacy boundaries",
         "DECISIONS records the no server-side LLM/API boundary and the FILE vs LIVE split"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-044",
@@ -611,7 +671,8 @@
         "describe_capabilities returns product, mode=byo_ai_local_harness, server_side_llm=false, runtime, and capability groups",
         "Capability groups include file_hwpx, delegate_hwpx, render, live_hwp, and hwp_headless",
         "MCP server exposes describe_capabilities and tests verify the tool shape"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-045",
@@ -623,7 +684,8 @@
         "preview_cells_to_open_hwp resolves table/row/col targets without dispatching COM or touching an open Hangul window",
         "apply_cells_to_open_hwp remains the only cell live-apply tool that mutates the open document",
         "Tests cover pure preview target resolution and server tool registration"
-      ]
+      ],
+      "status": "complete"
     },
     {
       "id": "US-046",
@@ -635,6 +697,184 @@
         "Project dependencies do not add OpenAI/Anthropic/Gemini/PydanticAI SDKs",
         "Tests assert no banned LLM API SDK dependency is present",
         "Docs clarify that user's AI client may still decide what document data it sends to its own model"
+      ],
+      "status": "complete"
+    },
+    {
+      "id": "US-047",
+      "title": "prd.json 기계판독 상태 매트릭스 도입",
+      "milestone": "M12-Doc-Runtime-Truth",
+      "priority": "P0",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "every story has status in statusModel.enum; complete implies passes==true; pending statuses carry statusNote",
+        "tests/test_prd_status.py enforces the invariants",
+        "existing story contents unchanged (only status/statusNote added)"
+      ]
+    },
+    {
+      "id": "US-048",
+      "title": "README 카운트 동기화 + 파싱대상 특정 드리프트 가드",
+      "milestone": "M12-Doc-Runtime-Truth",
+      "priority": "P0",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "README 'NN tools' (repo-tree) dynamically equals len(mcp.list_tools()) via tests/test_maintainability.py",
+        "README status line 'NN개 — MM pass' dynamically equals prd story count and passes==true count",
+        "both occurrences parsed by labeled regexes; test-count guard stays soft (documented regeneration)"
+      ]
+    },
+    {
+      "id": "US-049",
+      "title": "HANDOFF.md 대체 + 상태 매트릭스 SSOT",
+      "milestone": "M12-Doc-Runtime-Truth",
+      "priority": "P0",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "HANDOFF.md rewritten to current baseline with 4-state matrix SSOT",
+        "stale tokens ('56 passed', '6툴', 'Phase A~D 전부') grep 0 hits",
+        "README/ROADMAP/HANDOFF counts mutually consistent"
+      ]
+    },
+    {
+      "id": "US-050",
+      "title": "파일모드 e2e 증거팩 드라이버",
+      "milestone": "M13-FileMode-Evidence",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "scripts/e2e_evidence.py runs capabilities->analyze->scan_pii->fill(dry)->fill->verify->validate->render chain on sample_form.hwpx",
+        "evidence under gitignored build/evidence/; regeneration documented",
+        "dry_run writes nothing; real fill byte-preserves untouched entries; render available:false recorded honestly when absent"
+      ]
+    },
+    {
+      "id": "US-051",
+      "title": "CI extras 레인 dev+delegate+render",
+      "milestone": "M13-FileMode-Evidence",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "CI job installs .[dev,delegate,render] + playwright chromium and runs pytest on ubuntu",
+        "win32-only live/com tests not forced in CI",
+        "local-extras baseline vs CI core lane distinction documented"
+      ]
+    },
+    {
+      "id": "US-052",
+      "title": "라이브 QA 준비 — fixture/runbook + 순수부 테스트",
+      "milestone": "M14-Live-Desktop-QA",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "PII-free live fixture + values mapping + runbook (hwp_status -> preview -> apply)",
+        "preview pure computation, hwp_status side-effect-free, apply available:false without substrate — all unit-tested"
+      ]
+    },
+    {
+      "id": "US-053",
+      "title": "live apply 실기기 검증 또는 명시적 PENDING",
+      "milestone": "M14-Live-Desktop-QA",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "desktop evidence captured OR PENDING_DESKTOP_LIVE_QA.md exists with observed hwp_status output",
+        "US-029 not promoted without desktop evidence; D7 best-effort re-affirmed"
+      ]
+    },
+    {
+      "id": "US-054",
+      "title": ".hwp headless substrate 후보 비교 스파이크 + ADR(D12)",
+      "milestone": "M15-HWP-Headless-Spike",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "candidate table (license/installability/API/fixture) + go/no-go recorded as ADR D12",
+        "no viable substrate => adapter gate kept; test_hwp_headless green; COM never disguised as headless (D9)"
+      ]
+    },
+    {
+      "id": "US-055",
+      "title": "(조건부) substrate 어댑터 구현 또는 keep-gate 종결",
+      "milestone": "M15-HWP-Headless-Spike",
+      "priority": "P2",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "IF go + PII-free .hwp fixture: non-COM extraction test (fails without substrate, passes with)",
+        "ELSE zero code change; keep-gate rationale in ADR; spike-pending kept"
+      ]
+    },
+    {
+      "id": "US-056",
+      "title": "상류 delegate API-표면 스파이크 (ADR D13 + surface test)",
+      "milestone": "M16-Breadth",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "ADR D13: supported={header/footer, page-setup, split_merged_cell}, unsupported={row/col add-remove, TOC}",
+        "tests/test_delegate_api_surface.py: existence of supported methods = hard assert; absence of unsupported = soft tripwire only (BC1, never red on upstream additions)",
+        "pyproject delegate floor python-hwpx>=2.24,<3; no tools added in this story"
+      ]
+    },
+    {
+      "id": "US-057",
+      "title": "머리말/꼬리말 delegate 툴 (set_header/set_footer)",
+      "milestone": "M16-Breadth",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "MCP tools wrap set_header_text/set_footer_text with validate gate",
+        "BC2: saved package re-opened and header/footer XML asserted to contain the text",
+        "absent python-hwpx -> available:false; missing method -> structured 'requires python-hwpx>=2.24'"
+      ]
+    },
+    {
+      "id": "US-058",
+      "title": "페이지 설정 delegate 툴 (size/margins/columns)",
+      "milestone": "M16-Breadth",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "MCP tools wrap set_page_size/set_page_margins/set_columns (page number only if API-verified) with validate gate",
+        "BC2: saved package re-opened; section XML properties asserted changed (validate_hwpx alone insufficient)",
+        "invalid args -> structured ok:false"
+      ]
+    },
+    {
+      "id": "US-059",
+      "title": "병합셀 분할 delegate 툴 (split_merged_cell)",
+      "milestone": "M16-Breadth",
+      "priority": "P1",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "G1: test asserts the input actually contains a merged cell (loud precondition; vacuous pass impossible)",
+        "after split, cell map shows unmerged region; validate_hwpx.valid==True",
+        "absent/old python-hwpx -> structured fallback"
+      ]
+    },
+    {
+      "id": "US-060",
+      "title": "표 행/열·TOC spike-pending 재분류 ADR",
+      "milestone": "M16-Breadth",
+      "priority": "P2",
+      "passes": false,
+      "status": "planned",
+      "acceptanceCriteria": [
+        "ADR records python-hwpx non-support (row/col add-remove, TOC) + OWN feasibility verdict with D1/byte-preservation constraint",
+        "no acceptance commitments to unsupported behaviors; zero delegate code for these"
       ]
     }
   ],
@@ -645,5 +885,22 @@
     "package_name": "hangeul-mcp",
     "pypi": "deferred to v1.0",
     "git_remote": "pblsketch/Hangeul-mcp (private)"
+  },
+  "statusModel": {
+    "enum": [
+      "complete",
+      "optional-gated",
+      "desktop-live-pending",
+      "spike-pending",
+      "planned"
+    ],
+    "rules": [
+      "status==complete requires passes==true",
+      "passes==false forbids status==complete",
+      "desktop-live-pending / spike-pending require statusNote explaining the missing evidence",
+      "planned = accepted stabilization-pass story not yet executed (US-047..US-060)"
+    ],
+    "passCountDefinition": "pass count in docs (README status line) == number of stories with passes==true (BC3/Minor-1; independent of status field)",
+    "countsAreMovingOutputs": "story/pass counts move as stories land; README drift guard (tests/test_maintainability.py) compares dynamically (BC3)"
   }
 }
