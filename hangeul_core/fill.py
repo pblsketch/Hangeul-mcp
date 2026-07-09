@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple
 from hangeul_core.analyze import _section_names, analyze
 from hangeul_core.checkbox import detect_checkbox, toggle_checkbox
 from hangeul_core.formfield import form_field_names, replace_form_fields
-from hangeul_core.formfit import clone_charpr_scaled, overflow_scale
+from hangeul_core.formfit import clone_charpr_scaled, overflow_ratio, overflow_scale
 from hangeul_core.inline import MARKERS
 from hangeul_core.locate import detect_placeholders, replace_placeholders
 from hangeul_core.markpen import markpen_regions, replace_markpen
@@ -42,6 +42,7 @@ class FillResult:
     skipped: List[dict] = dfield(default_factory=list)
     shrunk: List[dict] = dfield(default_factory=list)
     masked: List[dict] = dfield(default_factory=list)
+    overflow: List[dict] = dfield(default_factory=list)
     out_path: Optional[str] = None
 
 
@@ -302,6 +303,7 @@ def fill(
     skipped: List[dict] = []
     shrunk: List[dict] = []
     masked_out: List[dict] = []
+    overflow_out: List[dict] = []
     spacing_clone: Dict[str, Optional[str]] = {}
 
     for key, value in values.items():
@@ -367,6 +369,12 @@ def fill(
                         r'(<hp:run\b[^>]*charPrIDRef=")' + re.escape(cell.char_pr) + r'(")',
                         r"\g<1>" + new_id + r"\g<2>",
                         pblock,
+                    )
+            if cell.width:  # warn-first: report overflow regardless of auto_fit
+                _r = overflow_ratio(value, cell, header)
+                if _r is not None and _r > 1.0:
+                    overflow_out.append(
+                        {"field_id": fld.field_id, "label": fld.label, "ratio": round(_r, 2)}
                     )
             if auto_fit and cell.width:
                 scale = overflow_scale(value, cell, header, floor=auto_fit_floor)
@@ -458,6 +466,7 @@ def fill(
         skipped=skipped,
         shrunk=shrunk,
         masked=masked_out,
+        overflow=overflow_out,
         out_path=str(out_path) if wrote else None,
     )
 

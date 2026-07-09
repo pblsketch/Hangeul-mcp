@@ -144,6 +144,7 @@ def fill_form(
         "skipped": result.skipped,
         "shrunk": result.shrunk,
         "masked": result.masked,
+        "overflow": result.overflow,
         "out_path": result.out_path,
         "dry_run": dry_run,
     }

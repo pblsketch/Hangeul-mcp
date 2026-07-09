@@ -101,22 +101,37 @@ def analyze_formfit(
         if cell is None or not cell.width:
             continue
         checked += 1
-        avail = cell.width - inner_margin
-        fh = font_height(header, cell.char_pr)
-        widest = max((estimate_width(ln, fh) for ln in value.split("\n")), default=0.0)
-        ratio = (widest / avail) if avail > 0 else float("inf")
-        if ratio > 1.0:
+        ratio = overflow_ratio(value, cell, header, inner_margin=inner_margin)
+        if ratio is not None and ratio > 1.0:
+            avail = cell.width - inner_margin
             warnings.append(
                 {
                     "field_id": cell.field_id,
                     "label": fld.label,
-                    "estimated_width": round(widest),
+                    "estimated_width": round(avail * ratio),
                     "available_width": avail,
                     "ratio": round(ratio, 2),
                     "overflow": True,
                 }
             )
     return {"warnings": warnings, "checked": checked}
+
+
+def overflow_ratio(
+    value: str, cell, header: str, *, inner_margin: int = DEFAULT_INNER_MARGIN
+) -> Optional[float]:
+    """Estimated width / available width for *value* in *cell* (None if no width).
+
+    ``cellSz width`` already reflects colSpan (merged cells), so this is span-aware.
+    """
+    if not cell.width:
+        return None
+    avail = cell.width - inner_margin
+    if avail <= 0:
+        return float("inf")
+    fh = font_height(header, cell.char_pr)
+    widest = max((estimate_width(ln, fh) for ln in value.split("\n")), default=0.0)
+    return widest / avail
 
 
 def overflow_scale(
@@ -126,22 +141,17 @@ def overflow_scale(
     *,
     inner_margin: int = DEFAULT_INNER_MARGIN,
     floor: float = 0.6,
+    deadband: float = 1.05,
 ) -> Optional[float]:
-    """Shrink factor needed to fit *value* in *cell*, or None if it already fits.
+    """Shrink factor needed to fit *value* in *cell*, or None if it fits.
 
-    Bounded below by *floor* (never shrink past it). Returns a value in
-    ``[floor, 1.0)`` when the estimate overflows.
+    A *deadband* (default 1.05) avoids ugly micro-shrinks: text within ~5% of the
+    cell width is treated as fitting. Result is bounded below by *floor*.
     """
-    if not cell.width:
+    ratio = overflow_ratio(value, cell, header, inner_margin=inner_margin)
+    if ratio is None or ratio <= deadband:
         return None
-    avail = cell.width - inner_margin
-    if avail <= 0:
-        return None
-    fh = font_height(header, cell.char_pr)
-    widest = max((estimate_width(ln, fh) for ln in value.split("\n")), default=0.0)
-    if widest <= avail:
-        return None
-    return max(floor, avail / widest)
+    return max(floor, 1.0 / ratio)
 
 
 def clone_charpr_scaled(header: str, char_pr: str, scale: float) -> Tuple[str, Optional[str]]:
