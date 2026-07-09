@@ -30,8 +30,19 @@ from hangeul_core.understand import understand
 
 
 def live_available() -> bool:
-    """True only where a live COM fill could work: Windows + pyhwpx importable."""
-    return sys.platform == "win32" and importlib.util.find_spec("pyhwpx") is not None
+    """True only where a live COM fill could actually work.
+
+    Requires Windows and a *fully importable* pyhwpx (its transitive deps like
+    numpy must be present) — a bare ``find_spec`` can be True while ``import
+    pyhwpx`` fails, so we attempt the real guarded import.
+    """
+    if sys.platform != "win32" or importlib.util.find_spec("pyhwpx") is None:
+        return False
+    try:
+        importlib.import_module("pyhwpx")  # transitive deps (numpy) must import too
+        return True
+    except Exception:
+        return False
 
 
 def resolve_cell_targets(

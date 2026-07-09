@@ -33,6 +33,13 @@ def test_add_picture_valid_and_image_count_increases(tmp_path):
     assert _img_count(out) == before + 1
 
 
+def test_server_add_image_bad_path_returns_structured_error(tmp_path):
+    # a delegated op failure (missing image) must be a structured result, not a crash
+    out = tmp_path / "o.hwpx"
+    res = server.add_image(str(FIXTURE), str(tmp_path / "nope.png"), str(out))
+    assert res["available"] is True and res.get("ok") is False and "error" in res
+
+
 def test_server_add_image_tool(tmp_path):
     img = tmp_path / "sign.png"
     img.write_bytes(_PNG)

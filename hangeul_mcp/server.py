@@ -271,6 +271,22 @@ def list_styles(path: str) -> Dict[str, Any]:
     return _list_styles(path)
 
 
+def _delegate_op(extra_key: str, fn, *args, **kwargs) -> Dict[str, Any]:
+    """Run a delegated op, turning exceptions into structured tool results.
+
+    ``fn`` returns either a dict (spread into the result) or a scalar (placed
+    under ``extra_key``). Substrate-present-but-failed ops report
+    ``available:true, ok:false`` instead of raising.
+    """
+    try:
+        out = fn(*args, **kwargs)
+        if isinstance(out, dict):
+            return {"available": True, **out}
+        return {"available": True, extra_key: out}
+    except Exception as exc:  # narrow at the tool boundary; keep available:true
+        return {"available": True, "ok": False, "error": str(exc)}
+
+
 @mcp.tool()
 def hwpx_to_html(path: str) -> Dict[str, Any]:
     """Render an HWPX document to HTML (read-only, delegated to python-hwpx).
@@ -284,7 +300,7 @@ def hwpx_to_html(path: str) -> Dict[str, Any]:
         path = ensure_hwpx(path)
     except RuntimeError as exc:
         return {"available": True, "error": str(exc)}
-    return {"available": True, "html": _delegate.to_html(path)}
+    return _delegate_op("html", _delegate.to_html, path)
 
 
 @mcp.tool()
@@ -300,7 +316,7 @@ def hwpx_to_markdown(path: str) -> Dict[str, Any]:
         path = ensure_hwpx(path)
     except RuntimeError as exc:
         return {"available": True, "error": str(exc)}
-    return {"available": True, "markdown": _delegate.to_markdown(path)}
+    return _delegate_op("markdown", _delegate.to_markdown, path)
 
 
 @mcp.tool()
@@ -351,7 +367,7 @@ def add_paragraph(path: str, text: str, out_path: str, section_index: int = -1) 
     except RuntimeError as exc:
         return {"available": True, "error": str(exc)}
     idx = None if section_index < 0 else section_index
-    return {"available": True, **_delegate.add_paragraph(path, text, out_path, section_index=idx)}
+    return _delegate_op("", _delegate.add_paragraph, path, text, out_path, section_index=idx)
 
 
 @mcp.tool()
@@ -398,14 +414,11 @@ def emphasize_text(
         path = ensure_hwpx(path)
     except RuntimeError as exc:
         return {"available": True, "error": str(exc)}
-    return {
-        "available": True,
-        **_delegate.emphasize_text(
-            path, find, out_path,
-            bold=bold, italic=italic, underline=underline,
-            color=(color or None), size=(size or None),
-        ),
-    }
+    return _delegate_op(
+        "", _delegate.emphasize_text, path, find, out_path,
+        bold=bold, italic=italic, underline=underline,
+        color=(color or None), size=(size or None),
+    )
 
 
 @mcp.tool()
@@ -422,10 +435,9 @@ def create_official_document(
     """
     if not _delegate.hwpx_available():
         return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
-    return {
-        "available": True,
-        **_delegate.create_official_document(dict(fields), out_path, doc_type=doc_type),
-    }
+    return _delegate_op(
+        "", _delegate.create_official_document, dict(fields), out_path, doc_type=doc_type
+    )
 
 
 @mcp.tool()
@@ -438,7 +450,7 @@ def create_hwpx_table(rows: list, out_path: str) -> Dict[str, Any]:
     """
     if not _delegate.hwpx_available():
         return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
-    return {"available": True, **_delegate.create_table_from_rows(rows, out_path)}
+    return _delegate_op("", _delegate.create_table_from_rows, rows, out_path)
 
 
 @mcp.tool()
@@ -451,7 +463,7 @@ def create_hwpx_from_markdown(markdown: str, out_path: str) -> Dict[str, Any]:
     """
     if not _delegate.hwpx_available():
         return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
-    return {"available": True, **_delegate.create_from_markdown(markdown, out_path)}
+    return _delegate_op("", _delegate.create_from_markdown, markdown, out_path)
 
 
 @mcp.tool()
@@ -474,16 +486,10 @@ def add_image(
         path = ensure_hwpx(path)
     except RuntimeError as exc:
         return {"available": True, "error": str(exc)}
-    return {
-        "available": True,
-        **_delegate.add_picture(
-            path,
-            image_path,
-            out_path,
-            width_mm=(width_mm or None),
-            height_mm=(height_mm or None),
-        ),
-    }
+    return _delegate_op(
+        "", _delegate.add_picture, path, image_path, out_path,
+        width_mm=(width_mm or None), height_mm=(height_mm or None),
+    )
 
 
 @mcp.tool()
@@ -499,7 +505,7 @@ def add_table(path: str, rows: int, cols: int, out_path: str) -> Dict[str, Any]:
         path = ensure_hwpx(path)
     except RuntimeError as exc:
         return {"available": True, "error": str(exc)}
-    return {"available": True, **_delegate.add_table(path, rows, cols, out_path)}
+    return _delegate_op("", _delegate.add_table, path, rows, cols, out_path)
 
 
 @mcp.tool()
