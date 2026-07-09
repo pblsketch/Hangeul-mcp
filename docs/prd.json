@@ -506,6 +506,18 @@
         "New MCP tool create_official_document; unknown keys ignored; available:false when python-hwpx absent",
         "Tests (importorskip): content present in order (수신 < 제목 < 본문), unknown keys ignored, output valid; pyflakes clean"
       ]
+    },
+    {
+      "id": "US-037",
+      "title": "DELEGATE 레시피 확장 — 보도자료 + 기안문 (doc_type)",
+      "milestone": "M9-PhaseD",
+      "priority": 38,
+      "passes": true,
+      "acceptanceCriteria": [
+        "create_official_document gains a doc_type param dispatching to per-type skeleton builders: 공문, 보도자료(기관명/배포일/담당/연락처/제목/부제/본문/문의), 기안문(제목/기안자/기안일/시행일/수신/목적/내용/붙임)",
+        "Unknown doc_type falls back to 공문; doc_type reported in the result; MCP tool gains doc_type",
+        "Tests (importorskip): each type's content present + output valid + fallback; pyflakes clean"
+      ]
     }
   ],
   "decisions": {
