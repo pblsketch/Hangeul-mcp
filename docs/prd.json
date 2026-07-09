@@ -481,6 +481,31 @@
         "New MCP tool emphasize_text returning matched_runs; available:false when python-hwpx absent",
         "Tests (importorskip): a matched run becomes bold after reopening; color/size output stays valid; no-match is a valid no-op; pyflakes clean"
       ]
+    },
+    {
+      "id": "US-035",
+      "title": "DELEGATE 표 생성 — 2D 데이터로 채운 표 (create_hwpx_table)",
+      "milestone": "M8-PhaseC-D",
+      "priority": 36,
+      "passes": true,
+      "acceptanceCriteria": [
+        "create_table_from_rows(rows, out) builds a new HWPX with one table sized to the data (ragged rows padded), fills via set_cell_text, saves, validates",
+        "New MCP tool create_hwpx_table(rows, out_path); available:false when python-hwpx absent",
+        "Tests (importorskip): content present, correct rows/cols in outline, ragged padded, empty rejected, output valid; pyflakes clean"
+      ]
+    },
+    {
+      "id": "US-036",
+      "title": "DELEGATE 공문 레시피 — create_official_document",
+      "milestone": "M9-PhaseD",
+      "priority": 37,
+      "passes": true,
+      "notes": "두뇌·손 분리: 문안은 클라이언트, 서버는 표준 공문 스켈레톤 조립만. 추가 문서유형(보도자료/기안문)은 후속.",
+      "acceptanceCriteria": [
+        "create_official_document(fields, out) lays out a 공문 skeleton from 기관명/수신/참조/제목/본문/날짜/발신명의/담당자 and validates",
+        "New MCP tool create_official_document; unknown keys ignored; available:false when python-hwpx absent",
+        "Tests (importorskip): content present in order (수신 < 제목 < 본문), unknown keys ignored, output valid; pyflakes clean"
+      ]
     }
   ],
   "decisions": {
