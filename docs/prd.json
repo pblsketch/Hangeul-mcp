@@ -404,6 +404,21 @@
         "find_cell_by_label(path, label) returns the label cell field_id(s) and the mapped value-cell field_id (via understand)",
         "Three new read-only MCP tools; built on existing analyze/understand/extract; golden tests on the real fixture; pyflakes clean; full suite green"
       ]
+    },
+    {
+      "id": "US-029",
+      "title": "라이브 셀 채우기 — 누름틀 없이 열린 한글 문서의 셀을 직접 채우기",
+      "milestone": "M3-live",
+      "priority": 30,
+      "passes": false,
+      "notes": "Headline capability (live fill of the OPEN window) can ONLY be validated in an interactive Windows session with Hangul (i.e. Claude Desktop). Confirmed via probe: this agent runs in non-interactive Session 0 and cannot drive/attach to the user's Session-1 Hangul. Unit-testable parts (target resolution + graceful degradation) pass; live behavior is pending user validation in Claude Desktop.",
+      "acceptanceCriteria": [
+        "resolve_cell_targets(path, values) maps each value key (field_id or label) to a table-cell address (table/row/col) using analyze/understand — PURE, unit-tested",
+        "apply_cells_to_open attaches to the RUNNING Hangul instance via pyhwpx (Running Object Table, on_quit=False so the window is NOT closed), navigates with get_into_nth_table + goto_addr, optionally clears the cell, and inserts the value — for cell-based (empty_cell) forms with no 누름틀",
+        "Graceful available:false when pyhwpx/Windows is absent (no crash) — unit-tested",
+        "New MCP tool apply_cells_to_open_hwp(path, values); apply_to_open_hwp's needs_field_registration response points cell-forms to it; optional 'live' extra (pyhwpx)",
+        "LIVE VALIDATION (client-side, PENDING): filling the open 강사카드 cells succeeds live without field registration — to be confirmed in Claude Desktop"
+      ]
     }
   ],
   "decisions": {

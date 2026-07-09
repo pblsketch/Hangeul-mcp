@@ -26,6 +26,9 @@ com = ["pywin32>=306; sys_platform == 'win32'"]
 # Delegated breadth (editing/generation/rich export) — soft dependency (D1).
 # The core works without it; delegate tools return available:false when absent.
 delegate = ["python-hwpx>=2.20"]
+# Live cell-fill of the OPEN Hangul window (Windows + Hangul only) via pyhwpx.
+# Optional; apply_cells_to_open_hwp returns available:false without it.
+live = ["pyhwpx>=1.7; sys_platform == 'win32'"]
 
 [project.scripts]
 hangeul-mcp = "hangeul_mcp.server:main"

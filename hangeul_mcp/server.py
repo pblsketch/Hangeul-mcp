@@ -23,6 +23,7 @@ from hangeul_core.formfit import analyze_formfit as _analyze_formfit
 from hangeul_core.extract import extract_text as _extract_text
 from hangeul_core.fill import fill as _fill
 from hangeul_core.hwp import HwpBridge, normalize_field_values
+from hangeul_core.hwp.live import apply_cells_to_open as _apply_cells_to_open
 from hangeul_core.inline import detect_inline
 from hangeul_core.locate import detect_placeholders
 from hangeul_core.mailmerge import mail_merge as _mail_merge
@@ -474,10 +475,34 @@ def apply_to_open_hwp(values: Dict[str, str], visible: bool = True) -> Dict[str,
             "available": True,
             "connected": True,
             "needs_field_registration": True,
-            "note": "no named fields (누름틀) in the open document; register fields first",
+            "note": "no named fields (누름틀); for a cell-based form call "
+            "apply_cells_to_open_hwp(path, values) to fill the open document's cells live",
         }
     result = bridge.put_field_text(normalize_field_values(values))
     return {"available": True, "connected": True, "field_count": len(fields), **result}
+
+
+@mcp.tool()
+def apply_cells_to_open_hwp(
+    path: str,
+    values: Dict[str, str],
+    visible: bool = True,
+    clear: bool = True,
+) -> Dict[str, Any]:
+    """Fill the currently OPEN Hangul document's CELLS live — no 누름틀 needed.
+
+    For cell-based forms (label:value tables like 강사카드) that have no named
+    fields. ``path`` is the file that is open (used only to resolve cell
+    addresses via analyze); the fill happens live in the running Hangul window,
+    which is NOT closed. ``values`` keys are field_id or label. Requires Windows
+    + Hangul + the optional pyhwpx substrate (extra 'live'); otherwise returns
+    available:false. Returns applied[]/skipped[]/count.
+    """
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"available": True, "error": str(exc)}
+    return _apply_cells_to_open(path, values, visible=visible, clear=clear)
 
 
 def main() -> None:
