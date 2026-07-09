@@ -25,6 +25,7 @@ from hangeul_core.fill import fill as _fill
 from hangeul_core.hwp import HwpBridge, normalize_field_values
 from hangeul_core.inline import detect_inline
 from hangeul_core.locate import detect_placeholders
+from hangeul_core.mailmerge import mail_merge as _mail_merge
 from hangeul_core.markpen import detect_markpen
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.pii import scan_text as _scan_pii
@@ -305,6 +306,27 @@ def add_paragraph(path: str, text: str, out_path: str, section_index: int = -1) 
         return {"available": True, "error": str(exc)}
     idx = None if section_index < 0 else section_index
     return {"available": True, **_delegate.add_paragraph(path, text, out_path, section_index=idx)}
+
+
+@mcp.tool()
+def mail_merge(
+    template_path: str,
+    records: list,
+    out_dir: str,
+    mask_pii: bool = False,
+) -> Dict[str, Any]:
+    """Bulk-fill one template for many records → numbered .hwpx files (byte-preserving).
+
+    ``records`` is a list of value maps (same keys as fill_form: field_id/label/
+    placeholder/checkbox/markpen/누름틀). Each output keeps the template formatting
+    exactly (only merged fields change). Records are client-provided. Returns a
+    per-record summary and the output directory.
+    """
+    try:
+        template_path = ensure_hwpx(template_path)
+    except RuntimeError as exc:
+        return {"error": str(exc), "count": 0}
+    return _mail_merge(template_path, list(records), out_dir, mask_pii=mask_pii)
 
 
 @mcp.tool()
