@@ -343,6 +343,38 @@ def create_hwpx_from_markdown(markdown: str, out_path: str) -> Dict[str, Any]:
 
 
 @mcp.tool()
+def add_image(
+    path: str,
+    image_path: str,
+    out_path: str,
+    width_mm: float = 0.0,
+    height_mm: float = 0.0,
+) -> Dict[str, Any]:
+    """Insert an image (도장/서명/그림) into an HWPX document → new .hwpx (delegated).
+
+    Reads the image from ``image_path`` (png/jpg/…). Optional width_mm/height_mm
+    (0 = keep intrinsic). Output validated via validate_hwpx. Requires the
+    optional python-hwpx substrate.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    try:
+        path = ensure_hwpx(path)
+    except RuntimeError as exc:
+        return {"available": True, "error": str(exc)}
+    return {
+        "available": True,
+        **_delegate.add_picture(
+            path,
+            image_path,
+            out_path,
+            width_mm=(width_mm or None),
+            height_mm=(height_mm or None),
+        ),
+    }
+
+
+@mcp.tool()
 def add_table(path: str, rows: int, cols: int, out_path: str) -> Dict[str, Any]:
     """Append a rows×cols table to an HWPX document → new .hwpx (delegated).
 

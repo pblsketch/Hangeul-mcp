@@ -107,6 +107,29 @@ def add_table(
     return _edit_result(out_path)
 
 
+def add_picture(
+    path: str | Path,
+    image_path: str | Path,
+    out_path: str | Path,
+    *,
+    width_mm: Optional[float] = None,
+    height_mm: Optional[float] = None,
+) -> Dict:
+    """Insert an image (도장/서명/그림) from *image_path*, save, and validate."""
+    img = Path(image_path)
+    data = img.read_bytes()
+    fmt = (img.suffix.lstrip(".").lower() or "png")
+    doc = _doc(path)
+    kwargs: Dict = {}
+    if width_mm is not None:
+        kwargs["width_mm"] = width_mm
+    if height_mm is not None:
+        kwargs["height_mm"] = height_mm
+    doc.add_picture(data, fmt, **kwargs)
+    _save(doc, out_path)
+    return _edit_result(out_path)
+
+
 # -- generation (delegated assembly; content is client-provided) -------------
 def create_from_markdown(markdown: str, out_path: str | Path) -> Dict:
     """Build a new HWPX from client-provided markdown/text (one paragraph per line).
