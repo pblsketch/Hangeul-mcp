@@ -409,16 +409,23 @@ def emphasize_text(
 
 
 @mcp.tool()
-def create_official_document(fields: Dict[str, str], out_path: str) -> Dict[str, Any]:
-    """Assemble a 공문-style official document from fields → new .hwpx (delegated).
+def create_official_document(
+    fields: Dict[str, str], out_path: str, doc_type: str = "공문"
+) -> Dict[str, Any]:
+    """Assemble an official document from fields → new .hwpx (delegated).
 
-    Recognized keys: 기관명, 수신, 참조, 제목, 본문(줄바꿈=문단), 날짜, 발신명의, 담당자.
-    Content is client-provided; the server lays out the standard skeleton and
+    doc_type: 공문(기관명/수신/참조/제목/본문/날짜/발신명의/담당자),
+    보도자료(기관명/배포일/담당/연락처/제목/부제/본문/문의),
+    기안문(제목/기안자/기안일/시행일/수신/목적/내용/붙임). Unknown doc_type falls back
+    to 공문. Content is client-provided; the server lays out the skeleton and
     validates. Requires the optional python-hwpx substrate.
     """
     if not _delegate.hwpx_available():
         return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
-    return {"available": True, **_delegate.create_official_document(dict(fields), out_path)}
+    return {
+        "available": True,
+        **_delegate.create_official_document(dict(fields), out_path, doc_type=doc_type),
+    }
 
 
 @mcp.tool()

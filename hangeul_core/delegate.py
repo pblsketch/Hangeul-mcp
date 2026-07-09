@@ -218,19 +218,86 @@ def _official_lines(fields: Dict[str, str]) -> list:
     return lines
 
 
-def create_official_document(fields: Dict[str, str], out_path: str | Path) -> Dict:
-    """Assemble a 공문-style official document from client-provided *fields*.
+def _press_lines(fields: Dict[str, str]) -> list:
+    """보도자료(press release) skeleton."""
+    def g(key: str) -> str:
+        return (fields.get(key) or "").strip()
 
-    Recognized keys: 기관명, 수신, 참조, 제목, 본문(줄바꿈=문단), 날짜, 발신명의, 담당자.
-    Content is client-authored (brain/hand separation); this only lays out the
-    standard skeleton and validates the output. Unknown keys are ignored.
+    lines: list = []
+    if g("기관명"):
+        lines.append(g("기관명"))
+    lines.append("보도자료")
+    if g("배포일"):
+        lines.append(f"배포일  {g('배포일')}")
+    if g("담당"):
+        contact = f" ({g('연락처')})" if g("연락처") else ""
+        lines.append(f"담당  {g('담당')}{contact}")
+    lines.append("")
+    if g("제목"):
+        lines.append(g("제목"))  # headline
+    if g("부제"):
+        lines.append(g("부제"))
+    lines.append("")
+    for para in g("본문").split("\n"):
+        lines.append(para)
+    lines.append("")
+    if g("문의"):
+        lines.append(f"문의  {g('문의')}")
+    return lines
+
+
+def _draft_lines(fields: Dict[str, str]) -> list:
+    """기안문(internal draft/proposal) skeleton."""
+    def g(key: str) -> str:
+        return (fields.get(key) or "").strip()
+
+    lines: list = []
+    if g("제목"):
+        lines.append(f"제목  {g('제목')}")
+    lines.append("")
+    for key in ("기안자", "기안일", "시행일", "수신"):
+        if g(key):
+            lines.append(f"{key}  {g(key)}")
+    lines.append("")
+    if g("목적"):
+        lines.append("1. 목적")
+        lines.append(f"   {g('목적')}")
+    if g("내용"):
+        lines.append("2. 내용")
+        for para in g("내용").split("\n"):
+            lines.append(f"   {para}")
+    if g("붙임"):
+        lines.append("")
+        lines.append(f"붙임  {g('붙임')}")
+    return lines
+
+
+_RECIPE_BUILDERS = {
+    "공문": _official_lines,
+    "보도자료": _press_lines,
+    "기안문": _draft_lines,
+}
+
+
+def create_official_document(
+    fields: Dict[str, str], out_path: str | Path, doc_type: str = "공문"
+) -> Dict:
+    """Assemble an official document from client-provided *fields* by *doc_type*.
+
+    doc_type: 공문(기관명/수신/참조/제목/본문/날짜/발신명의/담당자),
+    보도자료(기관명/배포일/담당/연락처/제목/부제/본문/문의),
+    기안문(제목/기안자/기안일/시행일/수신/목적/내용/붙임). Unknown doc_type falls
+    back to 공문. Content is client-authored (brain/hand separation); this only lays
+    out the skeleton and validates the output.
     """
-    lines = _official_lines(fields)
+    builder = _RECIPE_BUILDERS.get(doc_type, _official_lines)
+    lines = builder(fields)
     doc = _module().HwpxDocument.new()
     for text in lines:
         doc.add_paragraph(text)
     _save(doc, out_path)
     result = _edit_result(out_path)
+    result["doc_type"] = doc_type if doc_type in _RECIPE_BUILDERS else "공문"
     result["lines"] = len(lines)
     return result
 

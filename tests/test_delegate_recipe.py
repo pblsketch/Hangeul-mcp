@@ -49,3 +49,50 @@ def test_server_official_document_tool(tmp_path):
     res = server.create_official_document({"제목": "테스트 공문", "본문": "본문 내용"}, str(out))
     assert res["available"] is True and res["ok"] is True
     assert "테스트 공문" in _all_text(out)
+
+
+def test_press_release_recipe(tmp_path):
+    out = tmp_path / "press.hwpx"
+    fields = {
+        "기관명": "한국교육연구소",
+        "배포일": "2026. 8. 1.(즉시)",
+        "담당": "김담당",
+        "연락처": "02-000-0000",
+        "제목": "여름 독서토론 캠프 성료",
+        "부제": "청소년 200명 참가",
+        "본문": "지난 7월 캠프가 성황리에 마무리되었다.",
+        "문의": "교육팀",
+    }
+    res = _delegate_create(out, fields, "보도자료")
+    assert res["ok"] is True and res["doc_type"] == "보도자료"
+    text = _all_text(out)
+    for v in ("보도자료", "여름 독서토론 캠프 성료", "청소년 200명 참가", "성황리에"):
+        assert v in text
+
+
+def test_draft_recipe(tmp_path):
+    out = tmp_path / "draft.hwpx"
+    fields = {
+        "제목": "특강 개설 계획",
+        "기안자": "홍길동",
+        "기안일": "2026. 7. 20.",
+        "목적": "청소년 독서 역량 강화",
+        "내용": "8월 중 특강 4회 개설\n강사 섭외 및 홍보",
+        "붙임": "세부일정 1부",
+    }
+    res = _delegate_create(out, fields, "기안문")
+    assert res["ok"] is True and res["doc_type"] == "기안문"
+    text = _all_text(out)
+    for v in ("특강 개설 계획", "1. 목적", "청소년 독서 역량 강화", "2. 내용", "강사 섭외", "붙임"):
+        assert v in text
+
+
+def test_unknown_doc_type_falls_back_to_gongmun(tmp_path):
+    out = tmp_path / "x.hwpx"
+    res = _delegate_create(out, {"제목": "제목"}, "존재하지않는유형")
+    assert res["ok"] is True and res["doc_type"] == "공문"
+
+
+def _delegate_create(out, fields, doc_type):
+    from hangeul_core.delegate import create_official_document
+    return create_official_document(fields, out, doc_type=doc_type)
