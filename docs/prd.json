@@ -718,8 +718,8 @@
       "title": "README 카운트 동기화 + 파싱대상 특정 드리프트 가드",
       "milestone": "M12-Doc-Runtime-Truth",
       "priority": "P0",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "complete",
       "acceptanceCriteria": [
         "README 'NN tools' (repo-tree) dynamically equals len(mcp.list_tools()) via tests/test_maintainability.py",
         "README status line 'NN개 — MM pass' dynamically equals prd story count and passes==true count",

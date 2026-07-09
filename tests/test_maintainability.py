@@ -1,7 +1,21 @@
+import asyncio
+import json
+import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# README count-drift guards (US-048). Two labeled occurrences are guarded,
+# each unique in README.md:
+#   1. repo-tree line  "... FastMCP stdio 서버 (NN tools)"      -> len(mcp.list_tools())
+#   2. status line     "마일스톤·유저 스토리(NN개 — MM pass ..." -> prd story/pass counts
+# Test-count wording ("NNN collected") is a SOFT guard by design: parametrize/
+# skip variance makes a hard assert brittle. To resync it, run
+#   python -m pytest -q --collect-only | tail -1
+# and update the README "collected" figures in the same commit.
+_TOOLS_RE = re.compile(r"\((\d+)\s*tools\)")
+_STORIES_RE = re.compile(r"(\d+)개 — (\d+) pass")
 
 
 def pure_loc(path: str) -> int:
@@ -29,6 +43,31 @@ def test_byo_ai_harness_modules_remain_small():
     ]
     oversized = {path: pure_loc(path) for path in modules if pure_loc(path) > 250}
     assert oversized == {}
+
+
+def test_readme_tool_count_matches_runtime():
+    from hangeul_mcp import server
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    matches = _TOOLS_RE.findall(readme)
+    assert len(matches) == 1, "README must state the tool count exactly once as '(NN tools)'"
+    runtime = len(asyncio.run(server.mcp.list_tools()))
+    assert int(matches[0]) == runtime, (
+        f"README says {matches[0]} tools but runtime registers {runtime}; "
+        "update README in the same commit that adds/removes tools"
+    )
+
+
+def test_readme_story_counts_match_prd():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    matches = _STORIES_RE.findall(readme)
+    assert len(matches) == 1, "README must state story counts exactly once as 'NN개 — MM pass'"
+    stories = json.loads((ROOT / "docs" / "prd.json").read_text(encoding="utf-8"))["stories"]
+    total, passing = int(matches[0][0]), int(matches[0][1])
+    assert total == len(stories), f"README says {total} stories, prd.json has {len(stories)}"
+    # pass count definition: passes==true (BC3 / Minor-1), independent of status field
+    actual_pass = sum(1 for s in stories if s["passes"] is True)
+    assert passing == actual_pass, f"README says {passing} pass, prd.json has {actual_pass}"
 
 
 def test_feature_implementation_workflow_is_documented():
