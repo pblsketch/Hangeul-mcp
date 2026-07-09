@@ -390,6 +390,20 @@
         "Output passes validate_hwpx (valid True) and the document's image count increases by one",
         "Tests (importorskip hwpx) using a tiny synthetic PNG; pyflakes clean; full suite green"
       ]
+    },
+    {
+      "id": "US-028",
+      "title": "OWN 갭 마감 — verify_fill / get_table_map / find_cell_by_label",
+      "milestone": "M6-PhaseB",
+      "priority": 29,
+      "passes": true,
+      "notes": "Closes the remaining gap-analysis §A items in our core area, exposing existing analyze/understand as MCP tools + a verification helper. Read-only, OWN, no deps.",
+      "acceptanceCriteria": [
+        "verify_fill(path, expected) confirms each expected value actually appears in the document text; returns verified + present[] + missing[] (whitespace-insensitive)",
+        "get_table_map(path) exposes analyze cells structured: per table rows/cols and per cell field_id/row/col/spans/text/is_empty",
+        "find_cell_by_label(path, label) returns the label cell field_id(s) and the mapped value-cell field_id (via understand)",
+        "Three new read-only MCP tools; built on existing analyze/understand/extract; golden tests on the real fixture; pyflakes clean; full suite green"
+      ]
     }
   ],
   "decisions": {
