@@ -409,6 +409,19 @@ def emphasize_text(
 
 
 @mcp.tool()
+def create_hwpx_table(rows: list, out_path: str) -> Dict[str, Any]:
+    """Build a new HWPX with one table filled from *rows* (2D data) → new .hwpx.
+
+    ``rows`` is a list of lists of cell strings (ragged rows are padded). Content
+    is client-provided; this assembles the table and validates the output.
+    Requires the optional python-hwpx substrate.
+    """
+    if not _delegate.hwpx_available():
+        return {"available": False, "error": "python-hwpx not installed (extra 'delegate')"}
+    return {"available": True, **_delegate.create_table_from_rows(rows, out_path)}
+
+
+@mcp.tool()
 def create_hwpx_from_markdown(markdown: str, out_path: str) -> Dict[str, Any]:
     """Build a new HWPX from client-provided markdown/text → new .hwpx (delegated).
 

@@ -164,6 +164,31 @@ def add_picture(
 
 
 # -- generation (delegated assembly; content is client-provided) -------------
+def create_table_from_rows(rows, out_path: str | Path) -> Dict:
+    """Build a new HWPX containing one table filled from *rows* (2D data).
+
+    ``rows`` is a list of lists of cell strings (ragged rows are padded). The
+    content is client-provided (brain/hand separation); this only assembles the
+    table structure. Output is validated via our gate.
+    """
+    rows = [list(r) for r in rows]
+    nrows = len(rows)
+    ncols = max((len(r) for r in rows), default=0)
+    if nrows == 0 or ncols == 0:
+        return {"error": "rows must be a non-empty 2D list", "ok": False}
+    doc = _module().HwpxDocument.new()
+    table = doc.add_table(nrows, ncols)
+    for r, row in enumerate(rows):
+        for c in range(ncols):
+            val = row[c] if c < len(row) else ""
+            table.set_cell_text(r, c, "" if val is None else str(val))
+    _save(doc, out_path)
+    result = _edit_result(out_path)
+    result["rows"] = nrows
+    result["cols"] = ncols
+    return result
+
+
 def create_from_markdown(markdown: str, out_path: str | Path) -> Dict:
     """Build a new HWPX from client-provided markdown/text (one paragraph per line).
 
