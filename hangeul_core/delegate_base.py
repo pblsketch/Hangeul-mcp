@@ -26,6 +26,20 @@ def doc(path: str | Path):
     return module().HwpxDocument.open(str(path))
 
 
+def require_method(obj, name: str):
+    """Feature-detect a python-hwpx method (BC1/D13).
+
+    An older installed python-hwpx would otherwise surface as a bare
+    AttributeError swallowed into ok:false; this names the actual fix.
+    """
+    fn = getattr(obj, name, None)
+    if not callable(fn):
+        raise RuntimeError(
+            f"requires python-hwpx>=2.24 ('{name}' missing in installed version)"
+        )
+    return fn
+
+
 def save(doc_obj, out_path: str | Path) -> None:
     saver = getattr(doc_obj, "save_to_path", None)
     if callable(saver):

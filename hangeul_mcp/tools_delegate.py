@@ -102,6 +102,20 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
         return error or _delegate_op("", _delegate.emphasize_text, path, find, out_path, bold=bold, italic=italic, underline=underline, color=(color or None), size=(size or None))
 
     @mcp.tool()
+    def set_header(path: str, text: str, out_path: str, page_type: str = "BOTH") -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.set_header, path, text, out_path, page_type=page_type)
+
+    @mcp.tool()
+    def set_footer(path: str, text: str, out_path: str, page_type: str = "BOTH") -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.set_footer, path, text, out_path, page_type=page_type)
+
+    @mcp.tool()
     def create_official_document(fields: Dict[str, str], out_path: str, doc_type: str = "공문") -> Dict[str, Any]:
         if not _delegate.hwpx_available():
             return _unavailable()

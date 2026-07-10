@@ -8,6 +8,8 @@ from hangeul_core.delegate_edit import (
     emphasize_text,
     merge_table_cells,
     set_cell_shading,
+    set_footer,
+    set_header,
 )
 from hangeul_core.delegate_generate import (
     create_document_from_blocks,
@@ -28,6 +30,8 @@ __all__ = [
     "hwpx_available",
     "merge_table_cells",
     "set_cell_shading",
+    "set_footer",
+    "set_header",
     "to_html",
     "to_markdown",
     "to_text_rich",

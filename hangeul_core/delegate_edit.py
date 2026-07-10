@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional
 
-from hangeul_core.delegate_base import doc, edit_result, save
+from hangeul_core.delegate_base import doc, edit_result, require_method, save
 
 
 def add_paragraph(
@@ -107,6 +107,33 @@ def emphasize_text(
     result = edit_result(out_path)
     result["matched_runs"] = matched
     return result
+
+
+def set_header(
+    path: str | Path,
+    text: str,
+    out_path: str | Path,
+    *,
+    page_type: str = "BOTH",
+) -> Dict:
+    """Set header text (text comes from the client — D10 brain/hand split)."""
+    doc_obj = doc(path)
+    require_method(doc_obj, "set_header_text")(text, page_type=page_type)
+    save(doc_obj, out_path)
+    return edit_result(out_path)
+
+
+def set_footer(
+    path: str | Path,
+    text: str,
+    out_path: str | Path,
+    *,
+    page_type: str = "BOTH",
+) -> Dict:
+    doc_obj = doc(path)
+    require_method(doc_obj, "set_footer_text")(text, page_type=page_type)
+    save(doc_obj, out_path)
+    return edit_result(out_path)
 
 
 def add_picture(

@@ -832,13 +832,14 @@
       "title": "머리말/꼬리말 delegate 툴 (set_header/set_footer)",
       "milestone": "M16-Breadth",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "optional-gated",
       "acceptanceCriteria": [
         "MCP tools wrap set_header_text/set_footer_text with validate gate",
         "BC2: saved package re-opened and header/footer XML asserted to contain the text",
         "absent python-hwpx -> available:false; missing method -> structured 'requires python-hwpx>=2.24'"
-      ]
+      ],
+      "statusNote": "requires optional extra 'delegate' (python-hwpx>=2.24); available:false without it."
     },
     {
       "id": "US-058",
