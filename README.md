@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml)
 
-**상태: v0.1.0 + Phase A~D 핵심 + 선택 확장 1차 + BYO-AI 하네스 1차** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 선택 확장으로 기존 표 merge/셀음영, `create_document_from_blocks`, 구조보존 markdown subset, `render_preview` PNG, `.hwp` headless adapter gate 추가. BYO-AI 하네스로 `describe_capabilities`와 `preview_cells_to_open_hwp` 추가. 테스트 214 passed / 1 skipped(python-hwpx `delegate` + Playwright render path 포함; 미설치 시 위임/렌더/라이브 테스트는 skip 또는 `available:false`) · 독립 codex QA 2회([`v0.1.0`](docs/qa-codex-v0.1.0.md) · [`Phase A~D`](docs/qa-codex-phaseA-D.md)) — High/Medium/Low 지적 **전부 수정·문서화**.
+**상태: v0.1.0 + Phase A~D 핵심 + 선택 확장 1차 + BYO-AI 하네스 1차 + 안정화 패스(US-047~060)** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 선택 확장으로 기존 표 merge/셀음영, `create_document_from_blocks`, 구조보존 markdown subset, `render_preview` PNG, `.hwp` headless adapter gate 추가. BYO-AI 하네스로 `describe_capabilities`와 `preview_cells_to_open_hwp` 추가. 테스트 214 passed / 1 skipped(python-hwpx `delegate` + Playwright render path 포함; 미설치 시 위임/렌더/라이브 테스트는 skip 또는 `available:false`) · 독립 codex QA 2회([`v0.1.0`](docs/qa-codex-v0.1.0.md) · [`Phase A~D`](docs/qa-codex-phaseA-D.md)) — High/Medium/Low 지적 **전부 수정·문서화**.
 
 ---
 
@@ -144,11 +144,12 @@ python -m pytest tests/test_com.py -q          # 라이브 연결 테스트
 - **v1 (헤드리스)** ✅ 완료 — analyze/understand/inline/fill + MCP 서버 + `.hwp` 자동변환.
 - **Phase A (P0) 양식 인식·채우기 심화** ✅ 완료 — 형광펜(markpen) · 체크박스(☑/□) · `{placeholder}` 전역치환 · 누름틀 헤드리스 fill · form-fit/쪽수 드리프트 가드.
 - **Phase B (P1) 신뢰성·검증·읽기** ✅ 완료 — PII 마스킹·경고 · dry-run/백업 · 읽기 확장(find_text/outline/styles/table_map/verify_fill) · `validate_hwpx`(실제 패키지검증·`standalone` 강제) · `render_preview` PNG(optional render).
-- **Phase C (P2) 편집** ✅ 핵심+선택 일부 완료 — 텍스트 치환(OWN 바이트보존) · 문단/표 생성/기존 표 merge/셀음영/이미지/리치서식(python-hwpx 위임 + validate 게이트). split·행/열 추가삭제·table_compute는 후속.
+- **Phase C (P2) 편집** ✅ 핵심+선택 일부 완료 — 텍스트 치환(OWN 바이트보존) · 문단/표 생성/기존 표 merge/셀음영/**병합셀 분할**/이미지/리치서식(python-hwpx 위임 + validate 게이트). 행/열 추가삭제·table_compute는 spike-pending(D14).
 - **Phase D (P3) 생성** ✅ 핵심+선택 일부 완료 — 구조보존 markdown subset→HWPX · `create_document_from_blocks` · 표 생성 · 공문/보도자료/기안문 레시피 · mail_merge(OWN).
 - **codex QA(Phase A~D)** ✅ 반영 — High/Medium/Low 지적 전부 수정 또는 명문화(D6 레시피 chrome, D7 라이브 표 매핑).
-- **v2 COM 라이브** 🟡 코드 완료, **실기기 검증 대기** — `apply_to_open_hwp`(누름틀) · `apply_cells_to_open_hwp`(누름틀 없이 셀). Claude Desktop에서 검증 필요.
-- 후속(선택): `.hwp` 실제 헤드리스 reader substrate 선정·실파일 추출, 표 split/행열 편집/table_compute, 머리말/꼬리말·TOC·페이지 설정 확장 — [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- **안정화 패스(US-047~060)** ✅ 완료 — prd.json 기계판독 상태 매트릭스 + README/HANDOFF 카운트 드리프트 가드(테스트 강제) · 파일모드 e2e 증거팩([`scripts/e2e_evidence.py`](scripts/e2e_evidence.py)) · CI extras 레인(delegate+render) · 라이브 QA runbook · `.hwp` substrate 스파이크(D12 keep-gate) · delegate API-표면 계약(D13, python-hwpx `>=2.24,<3`) · **머리말/꼬리말·페이지 설정(크기/여백/단/쪽번호)·병합셀 분할 툴 7종 추가**(35→42 tools) · 행/열·TOC 재분류(D14).
+- **v2 COM 라이브** 🟡 코드 완료, **실기기 검증 대기** — [`PENDING_DESKTOP_LIVE_QA.md`](PENDING_DESKTOP_LIVE_QA.md)가 상태의 진실. 검증 절차: [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md) · 수동 인수 시나리오: [`docs/test-scenarios.md`](docs/test-scenarios.md).
+- 후속(선택): `.hwp` 헤드리스 읽기(D12 keep-gate — olefile/PrvText 경로가 유일한 라이선스-안전 후보), 표 행/열 편집·table_compute·TOC(D14 spike-pending) — [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 마일스톤·유저 스토리(61개 — 60 pass + 라이브/스파이크 pending, [`상태 매트릭스`](docs/prd.json)): [`docs/prd.json`](docs/prd.json) · 설계 결정: [`docs/DECISIONS.md`](docs/DECISIONS.md) · QA 리포트: [`docs/qa-codex-phaseA-D.md`](docs/qa-codex-phaseA-D.md) · 아키텍처: [`docs/architecture.md`](docs/architecture.md).
 
@@ -184,9 +185,10 @@ Hangeul-mcp/
 │  └─ hwp/live.py           #   (v2) 누름틀 없이 열린 셀 라이브 채우기 (pyhwpx, optional)
 ├─ hangeul_mcp/server.py    # FastMCP stdio 서버 (42 tools)
 ├─ skills/SKILL.md          # 검토→반영 Agent Skill
+├─ scripts/e2e_evidence.py  # 파일모드 e2e 증거팩 드라이버 (build/evidence/, gitignored)
 ├─ tests/                   # 215 collected + fixtures (PII 없는 빈 양식)
-├─ docs/                    # PLAN · DECISIONS · architecture · clients/ · qa-codex · research
-└─ .github/workflows/ci.yml # CI (ubuntu, py3.11–3.13)
+├─ docs/                    # DECISIONS(ADR D1~D14) · architecture · clients/ · qa-codex · live-qa-runbook · test-scenarios
+└─ .github/workflows/ci.yml # CI (ubuntu: 코어 py3.11–3.13 + extras 레인 delegate/render)
 ```
 
 ## 관련 오픈소스
