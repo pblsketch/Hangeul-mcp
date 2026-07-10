@@ -12,8 +12,22 @@ happens only when :meth:`connect` is called explicitly.
 
 from __future__ import annotations
 
+import os
 import sys
+from pathlib import Path
 from typing import Dict, List
+
+
+def same_doc(active_fullname: str, path: str | Path) -> bool:
+    """True when an attached instance's active document IS the requested file
+    (normcase/normpath so Windows separator/case differences don't mismatch)."""
+    if not active_fullname:
+        return False
+
+    def canon(p: str | Path) -> str:
+        return os.path.normcase(os.path.normpath(os.path.abspath(str(p))))
+
+    return canon(active_fullname) == canon(path)
 
 
 def normalize_field_values(values: Dict[str, str]) -> Dict[str, str]:

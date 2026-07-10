@@ -19,6 +19,7 @@ KIND_NARRATIVE = "narrative"
 KIND_PLACEHOLDER = "placeholder"  # {token} template variable (section-wide)
 KIND_MARKPEN = "markpen"          # 형광펜-highlighted example value
 KIND_FORMFIELD = "form_field"     # 누름틀 named field control
+KIND_BODY_PARA = "body_para"      # body paragraph outside any table (marker-led or plain)
 
 
 def normalize_label(text: str) -> str:

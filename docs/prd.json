@@ -953,6 +953,22 @@
         "실기기 증거(2026-07-11): 은행명/계좌번호(한 셀)·프로그램명·강의주제·학력·경력 applied 5건, read-back에 원문 중복 없음"
       ],
       "statusNote": "인라인 라이브는 셀 전체 텍스트를 재작성하므로 셀 내 리치서식이 평탄화된다 — 서식 보존이 필요하면 파일 모드(fill_form) 사용."
+    },
+    {
+      "id": "US-066",
+      "title": "표 밖 본문 문단 채우기 — 구조적 열거 + 동적 마커 감지(파일 바이트보존 + 라이브)",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P0",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "hangeul_core/body.py: 표에 속하지 않은 본문 문단을 구조적으로 열거(field_id b{n}, 현재텍스트 template, 마커 접두부). 마커 감지는 유니코드 So/Sm/Po/Pd 범주 기반(□○―※ 하드코딩 금지) — 양식별 스타일에 동적 적응. 채울 대상 판단은 클라이언트 LLM 몫",
+        "파일 모드: fill()이 b{n} 키를 마커 보존 바이트보존 splice로 교체(<hp:t> 텍스트만, 표 래퍼 문단은 스킵). 실측: 정부 보고서 양식에서 section0.xml만 변경, 미대상 문단 불변",
+        "라이브: hangeul_core/hwp/live_body.py가 문서순서 정렬(우리 body 순번 == HWP list-0 leaf 문단, 래퍼는 멀티라인이라 자동 스킵)로 열린 창의 문단 텍스트를 마커 뒤부터 교체",
+        "analyze_form이 body_para 필드를 노출; 런타임 툴 수 43 유지(신규 MCP 툴 없음, 기존 툴 확장)",
+        "실기기 증거(2026-07-11): open_in_hwp→preview(body_targets)→apply, b1(날짜 전체교체)·b2/b3/b4(□○― 마커 보존) applied 4건, read-back 정확"
+      ],
+      "statusNote": "본문 라이브는 문단 전체 텍스트를 재작성하므로 문단 내 리치서식이 평탄화된다 — 서식 보존은 파일 모드. 표를 감싼 래퍼 문단은 셀 경로가 담당하므로 body에서 스킵."
     }
   ],
   "decisions": {

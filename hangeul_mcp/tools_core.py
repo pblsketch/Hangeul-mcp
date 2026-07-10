@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
+from hangeul_core.body import detect_body_fields
 from hangeul_core.capabilities import describe_capabilities as _describe_capabilities
 from hangeul_core.checkbox import detect_checkbox
 from hangeul_core.convert import ensure_hwpx
@@ -65,6 +66,7 @@ def register_core_tools(mcp) -> Dict[str, Any]:
             + detect_markpen(path)
             + detect_checkbox(path)
             + detect_form_fields(path)
+            + detect_body_fields(path)
         )
         return {"format": "hwpx", "fields": [_field_dict(f) for f in fields]}
 

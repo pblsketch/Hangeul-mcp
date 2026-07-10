@@ -41,6 +41,8 @@ def test_byo_ai_harness_modules_remain_small():
         "hangeul_core/render.py",
         "hangeul_core/hwp/live.py",
         "hangeul_core/hwp/live_inline.py",
+        "hangeul_core/hwp/live_body.py",
+        "hangeul_core/body.py",
         "hangeul_core/delegate_base.py",
         "hangeul_core/delegate_edit.py",
         "hangeul_core/delegate_generate.py",

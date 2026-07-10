@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from hangeul_core.analyze import _section_names, analyze
+from hangeul_core.body import body_field_index, replace_body_paragraph
 from hangeul_core.checkbox import detect_checkbox, toggle_checkbox
 from hangeul_core.formfield import form_field_names, replace_form_fields
 from hangeul_core.formfit import clone_charpr_scaled, overflow_ratio, overflow_scale
@@ -282,6 +283,12 @@ def fill(
     ff_names = set(form_field_names(path))
     ff_values: Dict[str, str] = {}
 
+    # Body paragraphs (outside any table): addressed by field_id "b{n}". Routed
+    # to a per-section paragraph-replace pass after the cell fills.
+    b_index = body_field_index(path)
+    body_edits: Dict[str, Dict[int, str]] = {}
+    body_keys: Dict[Tuple[str, int], str] = {}
+
     pkg = HwpxPackage.open(path)
     header = pkg.read("Contents/header.xml").decode("utf-8")
     header_changed = False
@@ -328,6 +335,11 @@ def fill(
         ff_name = key[6:] if key.startswith("field:") else key
         if ff_name in ff_names:
             ff_values[ff_name] = value.replace("\n", " ")  # single-line field text
+            continue
+        if key in b_index:  # body paragraph outside any table
+            sname, local = b_index[key]
+            body_edits.setdefault(sname, {})[local] = value.replace("\n", " ")
+            body_keys[(sname, local)] = key
             continue
         fld = by_id.get(key) or by_label.get(label_key(key))
         if fld is None:
@@ -460,6 +472,22 @@ def fill(
         for name in ph_values:
             if name not in applied_all:
                 skipped.append({"key": name, "reason": "placeholder token not found"})
+
+    # Body-paragraph pass: replace text of addressed body paragraphs (outside
+    # tables), preserving the marker prefix. Applied after cell fills; body and
+    # cell paragraphs never overlap, so ordinals stay valid on the edited string.
+    if body_edits:
+        for sname, omap in body_edits.items():
+            text = section_text(sname)
+            newtext, applied_ord = replace_body_paragraph(text, omap)
+            if applied_ord:
+                sections[sname] = newtext
+            for local, val in omap.items():
+                key = body_keys[(sname, local)]
+                if local in applied_ord:
+                    filled.append({"field_id": key, "label": key, "value": val})
+                else:
+                    skipped.append({"key": key, "reason": "body paragraph not located"})
 
     for name, text in sections.items():
         pkg.replace(name, text.encode("utf-8"))

@@ -12,7 +12,6 @@ direct value inserts; inline blanks ride the file-fill mirror in
 from __future__ import annotations
 
 import importlib.util
-import os
 import sys
 import time
 from pathlib import Path
@@ -23,8 +22,11 @@ from hangeul_core.hwp.com import (
     list_rot_instances,
     load_pyhwpx,
     restore_dialogs,
+    same_doc as _same_doc,
     suppress_dialogs,
 )
+from hangeul_core.body import resolve_body_targets
+from hangeul_core.hwp.live_body import apply_body_targets
 from hangeul_core.hwp.live_inline import apply_text_targets, compute_cell_text_replacements
 from hangeul_core.schema import label_key
 from hangeul_core.understand import understand
@@ -87,18 +89,6 @@ def resolve_cell_targets(
     return targets, skipped
 
 
-def _same_doc(active_fullname: str, path: str | Path) -> bool:
-    """True when the attached instance's active document IS the requested file
-    (normcase/normpath so Windows separator/case differences don't mismatch)."""
-    if not active_fullname:
-        return False
-
-    def canon(p: str | Path) -> str:
-        return os.path.normcase(os.path.normpath(os.path.abspath(str(p))))
-
-    return canon(active_fullname) == canon(path)
-
-
 def open_in_hwp(path: str | Path, *, visible: bool = True) -> Dict:
     """Open *path* in a CONTROLLABLE (automation-created) Hangul window.
 
@@ -143,29 +133,33 @@ def open_in_hwp(path: str | Path, *, visible: bool = True) -> Dict:
     }
 
 
-def _resolve_all_targets(
-    path: str | Path, values: Dict[str, str]
-) -> Tuple[List[dict], List[dict], List[dict]]:
-    """Resolve values to ``(direct_targets, text_targets, skipped)`` — empty_cell
-    labels become direct value targets; everything else (inline blanks,
-    checkboxes, ...) rides the file-fill mirror."""
+def _resolve_all_targets(path: str | Path, values: Dict[str, str]):
+    """Resolve to ``(direct, text, body, skipped)``: empty_cell → direct value
+    targets; body field_ids (``b{n}``) → body paragraphs; the rest (inline
+    blanks, checkboxes) ride the file-fill mirror."""
     targets, unresolved = resolve_cell_targets(path, values)
     leftover = {u["key"]: values[u["key"]] for u in unresolved if u["key"] in values}
     if not leftover:
-        return targets, [], unresolved
-    text_targets, skipped = compute_cell_text_replacements(path, leftover)
-    return targets, text_targets, skipped
+        return targets, [], [], unresolved
+    body_targets = resolve_body_targets(path, leftover)  # body field_ids (b{n})
+    body_ids = {t["field_id"] for t in body_targets}
+    inline_leftover = {k: v for k, v in leftover.items() if k not in body_ids}
+    text_targets, skipped = (
+        compute_cell_text_replacements(path, inline_leftover) if inline_leftover else ([], [])
+    )
+    return targets, text_targets, body_targets, skipped
 
 
 def preview_cells_to_open(path: str | Path, values: Dict[str, str]) -> Dict:
-    targets, text_targets, skipped = _resolve_all_targets(path, values)
+    targets, text_targets, body_targets, skipped = _resolve_all_targets(path, values)
     return {
         "available": True,
         "live_available": live_available(),
         "targets": targets,
         "text_targets": text_targets,
+        "body_targets": body_targets,
         "skipped": skipped,
-        "count": len(targets) + len(text_targets),
+        "count": len(targets) + len(text_targets) + len(body_targets),
         "apply_tool": "apply_cells_to_open_hwp",
     }
 
@@ -191,7 +185,7 @@ def apply_cells_to_open(
     if err:
         return err
 
-    targets, text_targets, skipped = _resolve_all_targets(path, values)
+    targets, text_targets, body_targets, skipped = _resolve_all_targets(path, values)
 
     started = time.monotonic()
     cold_start = not list_rot_instances()  # no instance -> this call launches Hangul
@@ -202,7 +196,7 @@ def apply_cells_to_open(
     previous_mode = suppress_dialogs(hwp)
     try:
         return _apply_cells_connected(
-            hwp, path, targets, text_targets, skipped, clear=clear,
+            hwp, path, targets, text_targets, body_targets, skipped, clear=clear,
             open_if_needed=open_if_needed, cold_start=cold_start, started=started,
         )
     finally:
@@ -214,6 +208,7 @@ def _apply_cells_connected(
     path: str | Path,
     targets: List[dict],
     text_targets: List[dict],
+    body_targets: List[dict],
     skipped: List[dict],
     *,
     clear: bool,
@@ -268,6 +263,7 @@ def _apply_cells_connected(
             skipped.append({"key": t["label"], "reason": f"live error: {exc}"})
 
     apply_text_targets(hwp, text_targets, applied, skipped)
+    apply_body_targets(hwp, path, body_targets, applied, skipped)
 
     return {
         "available": True,
