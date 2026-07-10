@@ -782,12 +782,13 @@
       "title": "live apply 실기기 검증 또는 명시적 PENDING",
       "milestone": "M14-Live-Desktop-QA",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "desktop-live-pending",
       "acceptanceCriteria": [
         "desktop evidence captured OR PENDING_DESKTOP_LIVE_QA.md exists with observed hwp_status output",
         "US-029 not promoted without desktop evidence; D7 best-effort re-affirmed"
-      ]
+      ],
+      "statusNote": "explicit pending closure: headless session — hwp_status available:true/connected:false observed; live apply evidence not obtainable; PENDING_DESKTOP_LIVE_QA.md is the status truth; US-029 NOT promoted."
     },
     {
       "id": "US-054",
