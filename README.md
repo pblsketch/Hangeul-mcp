@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml)
 
-**상태: v0.1.0 + Phase A~D 핵심 + 선택 확장 1차 + BYO-AI 하네스 1차** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 선택 확장으로 기존 표 merge/셀음영, `create_document_from_blocks`, 구조보존 markdown subset, `render_preview` PNG, `.hwp` headless adapter gate 추가. BYO-AI 하네스로 `describe_capabilities`와 `preview_cells_to_open_hwp` 추가. 테스트 213 passed / 1 skipped(python-hwpx `delegate` + Playwright render path 포함; 미설치 시 위임/렌더/라이브 테스트는 skip 또는 `available:false`) · 독립 codex QA 2회([`v0.1.0`](docs/qa-codex-v0.1.0.md) · [`Phase A~D`](docs/qa-codex-phaseA-D.md)) — High/Medium/Low 지적 **전부 수정·문서화**.
+**상태: v0.1.0 + Phase A~D 핵심 + 선택 확장 1차 + BYO-AI 하네스 1차** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 선택 확장으로 기존 표 merge/셀음영, `create_document_from_blocks`, 구조보존 markdown subset, `render_preview` PNG, `.hwp` headless adapter gate 추가. BYO-AI 하네스로 `describe_capabilities`와 `preview_cells_to_open_hwp` 추가. 테스트 214 passed / 1 skipped(python-hwpx `delegate` + Playwright render path 포함; 미설치 시 위임/렌더/라이브 테스트는 skip 또는 `available:false`) · 독립 codex QA 2회([`v0.1.0`](docs/qa-codex-v0.1.0.md) · [`Phase A~D`](docs/qa-codex-phaseA-D.md)) — High/Medium/Low 지적 **전부 수정·문서화**.
 
 ---
 
@@ -95,7 +95,7 @@ pip install git+https://github.com/pblsketch/Hangeul-mcp   # 콘솔명령: hange
 # 로컬 개발
 git clone https://github.com/pblsketch/Hangeul-mcp && cd Hangeul-mcp
 pip install -e ".[dev]"
-pytest -q                     # 코어만 설치 시 위임/렌더 테스트는 skip · extras 설치 로컬 기준 213 passed / 1 skipped
+pytest -q                     # 코어만 설치 시 위임/렌더 테스트는 skip · extras 설치 로컬 기준 214 passed / 1 skipped
 # 편집·생성·리치 내보내기(위임) 사용:
 pip install -e ".[delegate]"  # python-hwpx (optional; 미설치 시 해당 툴은 available:false)
 # PNG preview:
@@ -184,7 +184,7 @@ Hangeul-mcp/
 │  └─ hwp/live.py           #   (v2) 누름틀 없이 열린 셀 라이브 채우기 (pyhwpx, optional)
 ├─ hangeul_mcp/server.py    # FastMCP stdio 서버 (42 tools)
 ├─ skills/SKILL.md          # 검토→반영 Agent Skill
-├─ tests/                   # 214 collected + fixtures (PII 없는 빈 양식)
+├─ tests/                   # 215 collected + fixtures (PII 없는 빈 양식)
 ├─ docs/                    # PLAN · DECISIONS · architecture · clients/ · qa-codex · research
 └─ .github/workflows/ci.yml # CI (ubuntu, py3.11–3.13)
 ```

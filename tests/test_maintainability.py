@@ -58,6 +58,19 @@ def test_readme_tool_count_matches_runtime():
     )
 
 
+def test_handoff_tool_count_matches_runtime():
+    from hangeul_mcp import server
+
+    handoff = (ROOT / "HANDOFF.md").read_text(encoding="utf-8")
+    m = re.search(r"런타임 MCP 툴: \*\*(\d+)\*\*", handoff)
+    assert m, "HANDOFF.md must state the runtime tool count as '런타임 MCP 툴: **NN**'"
+    runtime = len(asyncio.run(server.mcp.list_tools()))
+    assert int(m.group(1)) == runtime, (
+        f"HANDOFF says {m.group(1)} tools but runtime registers {runtime}; "
+        "update HANDOFF in the same commit that adds/removes tools"
+    )
+
+
 def test_readme_story_counts_match_prd():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     matches = _STORIES_RE.findall(readme)
