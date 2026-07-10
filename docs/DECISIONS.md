@@ -78,3 +78,11 @@
 - **계약 테스트**: `tests/test_delegate_api_surface.py` — 지원 메서드 **존재는 hard assert**(위임 툴의 실계약), 미지원 메서드 **부재는 soft tripwire**(BC1: 상류가 추가하는 날 suite를 red로 만들지 않고 "US-060 재검토" 경고만 발생 — 상류 개선은 호재이지 실패가 아니다).
 - **버전 게이트**: 위임 함수는 `getattr` feature-detect로 메서드 부재 시 `AttributeError` 대신 `requires python-hwpx>=2.24` 구조화 메시지를 반환한다(2.20 설치 환경에서 원인 은폐 방지).
 - **귀결**: 머리말/꼬리말(US-057)·페이지 설정(US-058)·병합셀 분할(US-059)은 delegate로 제공. 행/열 추가삭제·TOC는 D14(US-060) 재분류를 따른다.
+
+## D14. 표 행/열 추가·삭제와 TOC는 이번 패스 미제공 — spike-pending OWN 리서치 (US-060)
+- **결정**: 표 **행/열 추가·삭제**와 **TOC 생성**은 delegate로 제공 불가(D13 실측: python-hwpx 2.24에 API 부재)이며, 이번 안정화 패스에서는 **미제공**한다. 두 기능 모두 어떤 스토리에도 "동작 반영" acceptance를 커밋하지 않는다.
+- **OWN 구현 타당성 판정**:
+  - **행/열 추가·삭제 — implement-later(조건부)**: raw-XML `<hp:tr>`/`<hp:tc>` splice는 기술적으로 우리 엔진 역량 안에 있으나, 표 구조 변형은 grid 정합(cellAddr 재번호·span 재계산·borderFill 참조)의 파손 위험이 셀 내용 치환과 차원이 다르다. 착수 조건: (a) 전용 그리드-정합 검증 스위트 선행, (b) `validate_hwpx`+실제 한글 열람 스모크, (c) 기존 바이트보존 테스트 무손상. 조건 미충족 시 keep-out이 정직한 결론.
+  - **TOC — keep-out(페이지번호 정확 TOC) / implement-later(제목 목록 변형)**: 페이지번호 있는 TOC는 렌더러 없이 정확할 수 없어(형식만 갖춘 오답 생성 위험) keep-out. `add_control`/`add_bookmark` 기반 "제목 목록(페이지번호 없음)" 변형만이 정직한 후보이며, 그것도 OWN 리서치 스토리로만 착수한다.
+- **불변식 제약(명시)**: 어느 경로든 바이트보존 테스트 약화 금지, D1(재발명 금지) 위반 금지. 제약과 충돌하면 미제공이 결론이다.
+- **재검토 트리거**: `tests/test_delegate_api_surface.py`의 soft tripwire가 상류 API 추가를 경고하면 이 ADR을 재평가한다(BC1 — CI를 red로 만들지 않는다).

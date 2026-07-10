@@ -874,12 +874,13 @@
       "title": "표 행/열·TOC spike-pending 재분류 ADR",
       "milestone": "M16-Breadth",
       "priority": "P2",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "spike-pending",
       "acceptanceCriteria": [
         "ADR records python-hwpx non-support (row/col add-remove, TOC) + OWN feasibility verdict with D1/byte-preservation constraint",
         "no acceptance commitments to unsupported behaviors; zero delegate code for these"
-      ]
+      ],
+      "statusNote": "features stay unprovided: python-hwpx 2.24 lacks row/col & TOC APIs (D13); OWN feasibility verdict in ADR D14 (row/col implement-later conditional, page-numbered TOC keep-out); surface tripwire re-triggers review."
     }
   ],
   "decisions": {

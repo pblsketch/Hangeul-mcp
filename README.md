@@ -150,7 +150,7 @@ python -m pytest tests/test_com.py -q          # 라이브 연결 테스트
 - **v2 COM 라이브** 🟡 코드 완료, **실기기 검증 대기** — `apply_to_open_hwp`(누름틀) · `apply_cells_to_open_hwp`(누름틀 없이 셀). Claude Desktop에서 검증 필요.
 - 후속(선택): `.hwp` 실제 헤드리스 reader substrate 선정·실파일 추출, 표 split/행열 편집/table_compute, 머리말/꼬리말·TOC·페이지 설정 확장 — [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-마일스톤·유저 스토리(61개 — 58 pass + 라이브/스파이크 pending, [`상태 매트릭스`](docs/prd.json)): [`docs/prd.json`](docs/prd.json) · 설계 결정: [`docs/DECISIONS.md`](docs/DECISIONS.md) · QA 리포트: [`docs/qa-codex-phaseA-D.md`](docs/qa-codex-phaseA-D.md) · 아키텍처: [`docs/architecture.md`](docs/architecture.md).
+마일스톤·유저 스토리(61개 — 59 pass + 라이브/스파이크 pending, [`상태 매트릭스`](docs/prd.json)): [`docs/prd.json`](docs/prd.json) · 설계 결정: [`docs/DECISIONS.md`](docs/DECISIONS.md) · QA 리포트: [`docs/qa-codex-phaseA-D.md`](docs/qa-codex-phaseA-D.md) · 아키텍처: [`docs/architecture.md`](docs/architecture.md).
 
 ## 리포 구조
 
