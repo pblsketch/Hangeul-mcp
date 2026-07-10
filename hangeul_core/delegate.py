@@ -14,6 +14,7 @@ from hangeul_core.delegate_edit import (
     set_page_margins,
     set_page_number,
     set_page_size,
+    split_merged_cell,
 )
 from hangeul_core.delegate_generate import (
     create_document_from_blocks,
@@ -40,6 +41,7 @@ __all__ = [
     "set_page_margins",
     "set_page_number",
     "set_page_size",
+    "split_merged_cell",
     "to_html",
     "to_markdown",
     "to_text_rich",

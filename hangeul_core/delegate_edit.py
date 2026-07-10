@@ -136,6 +136,38 @@ def set_footer(
     return edit_result(out_path)
 
 
+def split_merged_cell(
+    path: str | Path,
+    table_index: int,
+    row: int,
+    col: int,
+    out_path: str | Path,
+) -> Dict:
+    """Un-merge a previously merged cell (python-hwpx split_merged_cell).
+
+    Only merged cells can be split — arbitrary cell splitting is NOT exposed by
+    python-hwpx 2.24 and stays a documented non-goal (ADR D13). A non-merged
+    target surfaces as ok:false with the upstream error.
+    """
+    doc_obj = doc(path)
+    table = _table_at(doc_obj, int(table_index))
+    grid = require_method(table, "get_cell_map")()
+    if not (0 <= int(row) < len(grid)) or not (0 <= int(col) < len(grid[int(row)])):
+        return {"ok": False, "error": f"cell ({row},{col}) out of range for table {table_index}"}
+    pos = grid[int(row)][int(col)]
+    # upstream split_merged_cell is a silent no-op on non-merged cells — reject
+    # explicitly so callers never get a vacuous ok:true (G1 spirit).
+    if pos.row_span <= 1 and pos.col_span <= 1:
+        return {"ok": False, "error": f"cell ({row},{col}) is not merged; only merged cells can be split (ADR D13)"}
+    require_method(table, "split_merged_cell")(int(row), int(col))
+    save(doc_obj, out_path)
+    result = edit_result(out_path)
+    result["table_index"] = table_index
+    result["row"] = row
+    result["col"] = col
+    return result
+
+
 def set_page_size(
     path: str | Path,
     out_path: str | Path,

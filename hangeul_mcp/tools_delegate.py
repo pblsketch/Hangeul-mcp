@@ -116,6 +116,13 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
         return error or _delegate_op("", _delegate.set_footer, path, text, out_path, page_type=page_type)
 
     @mcp.tool()
+    def split_merged_cell(path: str, table_index: int, row: int, col: int, out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.split_merged_cell, path, table_index, row, col, out_path)
+
+    @mcp.tool()
     def set_page_size(path: str, out_path: str, width: int = 0, height: int = 0, orientation: str = "") -> Dict[str, Any]:
         if not _delegate.hwpx_available():
             return _unavailable()

@@ -860,13 +860,14 @@
       "title": "병합셀 분할 delegate 툴 (split_merged_cell)",
       "milestone": "M16-Breadth",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "optional-gated",
       "acceptanceCriteria": [
         "G1: test asserts the input actually contains a merged cell (loud precondition; vacuous pass impossible)",
         "after split, cell map shows unmerged region; validate_hwpx.valid==True",
         "absent/old python-hwpx -> structured fallback"
-      ]
+      ],
+      "statusNote": "requires optional extra 'delegate' (python-hwpx>=2.24); split of MERGED cells only (D13)."
     },
     {
       "id": "US-060",
