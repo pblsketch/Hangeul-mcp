@@ -136,6 +136,74 @@ def set_footer(
     return edit_result(out_path)
 
 
+def set_page_size(
+    path: str | Path,
+    out_path: str | Path,
+    *,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    orientation: Optional[str] = None,
+) -> Dict:
+    """Page size in HWPUNITs (1/7200 inch); observable in section <hp:pagePr>."""
+    if (width is not None and width <= 0) or (height is not None and height <= 0):
+        return {"ok": False, "error": "width/height must be positive HWPUNITs (1/7200 inch)"}
+    if width is None and height is None and orientation is None:
+        return {"ok": False, "error": "nothing to change: pass width/height/orientation"}
+    doc_obj = doc(path)
+    require_method(doc_obj, "set_page_size")(width=width, height=height, orientation=orientation)
+    save(doc_obj, out_path)
+    return edit_result(out_path)
+
+
+def set_page_margins(
+    path: str | Path,
+    out_path: str | Path,
+    *,
+    left: Optional[int] = None,
+    right: Optional[int] = None,
+    top: Optional[int] = None,
+    bottom: Optional[int] = None,
+    header: Optional[int] = None,
+    footer: Optional[int] = None,
+    gutter: Optional[int] = None,
+) -> Dict:
+    """Margins in HWPUNITs; observable in section <hp:margin> attributes."""
+    values = {"left": left, "right": right, "top": top, "bottom": bottom,
+              "header": header, "footer": footer, "gutter": gutter}
+    if all(v is None for v in values.values()):
+        return {"ok": False, "error": "nothing to change: pass at least one margin"}
+    negative = [k for k, v in values.items() if v is not None and v < 0]
+    if negative:
+        return {"ok": False, "error": f"margins must be >= 0 HWPUNITs: {negative}"}
+    doc_obj = doc(path)
+    require_method(doc_obj, "set_page_margins")(**values)
+    save(doc_obj, out_path)
+    return edit_result(out_path)
+
+
+def set_columns(path: str | Path, out_path: str | Path, col_count: int = 2) -> Dict:
+    """Multi-column layout; observable as <hp:colPr colCount="N">."""
+    if int(col_count) < 1:
+        return {"ok": False, "error": "col_count must be >= 1"}
+    doc_obj = doc(path)
+    require_method(doc_obj, "set_columns")(int(col_count))
+    save(doc_obj, out_path)
+    return edit_result(out_path)
+
+
+def set_page_number(
+    path: str | Path,
+    out_path: str | Path,
+    *,
+    position: str = "BOTTOM_CENTER",
+) -> Dict:
+    """Page-number field; observable as <hp:pageNum pos="...">."""
+    doc_obj = doc(path)
+    require_method(doc_obj, "set_page_number")(position=position)
+    save(doc_obj, out_path)
+    return edit_result(out_path)
+
+
 def add_picture(
     path: str | Path,
     image_path: str | Path,

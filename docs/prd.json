@@ -846,13 +846,14 @@
       "title": "페이지 설정 delegate 툴 (size/margins/columns)",
       "milestone": "M16-Breadth",
       "priority": "P1",
-      "passes": false,
-      "status": "planned",
+      "passes": true,
+      "status": "optional-gated",
       "acceptanceCriteria": [
         "MCP tools wrap set_page_size/set_page_margins/set_columns (page number only if API-verified) with validate gate",
         "BC2: saved package re-opened; section XML properties asserted changed (validate_hwpx alone insufficient)",
         "invalid args -> structured ok:false"
-      ]
+      ],
+      "statusNote": "requires optional extra 'delegate' (python-hwpx>=2.24); available:false without it."
     },
     {
       "id": "US-059",

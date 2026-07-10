@@ -116,6 +116,40 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
         return error or _delegate_op("", _delegate.set_footer, path, text, out_path, page_type=page_type)
 
     @mcp.tool()
+    def set_page_size(path: str, out_path: str, width: int = 0, height: int = 0, orientation: str = "") -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.set_page_size, path, out_path,
+                                     width=(width or None), height=(height or None),
+                                     orientation=(orientation or None))
+
+    @mcp.tool()
+    def set_page_margins(path: str, out_path: str, left: int = -1, right: int = -1, top: int = -1, bottom: int = -1, header: int = -1, footer: int = -1, gutter: int = -1) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        unset = lambda v: None if v < 0 else v  # noqa: E731 - -1 sentinel means "leave unchanged"
+        return error or _delegate_op("", _delegate.set_page_margins, path, out_path,
+                                     left=unset(left), right=unset(right), top=unset(top),
+                                     bottom=unset(bottom), header=unset(header),
+                                     footer=unset(footer), gutter=unset(gutter))
+
+    @mcp.tool()
+    def set_columns(path: str, out_path: str, col_count: int = 2) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.set_columns, path, out_path, col_count)
+
+    @mcp.tool()
+    def set_page_number(path: str, out_path: str, position: str = "BOTTOM_CENTER") -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        path, error = _hwpx_path(path)
+        return error or _delegate_op("", _delegate.set_page_number, path, out_path, position=position)
+
+    @mcp.tool()
     def create_official_document(fields: Dict[str, str], out_path: str, doc_type: str = "공문") -> Dict[str, Any]:
         if not _delegate.hwpx_available():
             return _unavailable()
