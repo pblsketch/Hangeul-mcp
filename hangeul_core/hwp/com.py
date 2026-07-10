@@ -25,6 +25,45 @@ def normalize_field_values(values: Dict[str, str]) -> Dict[str, str]:
     return {k: (v.replace("\r\n", "\n").replace("\n", "\r\n")) for k, v in values.items()}
 
 
+def load_pyhwpx():
+    """Guarded pyhwpx access shared by the live entry points.
+
+    Returns ``(Hwp, None)`` when live COM is possible here, else
+    ``(None, structured_error)`` — one source of truth for the fallback shape.
+    """
+    if sys.platform != "win32":
+        return None, {"available": False, "error": "live COM needs Windows + Hangul"}
+    try:
+        from pyhwpx import Hwp  # optional; pulls pywin32/numpy/pandas
+    except Exception as exc:  # ImportError or dependency error
+        return None, {"available": False, "error": f"pyhwpx not installed (extra 'live'): {exc}"}
+    return Hwp, None
+
+
+# Hangul modal auto-answer while a live call runs: OK-only notices get OK,
+# yes/no prompts (e.g. "already open — open read-only?") get NO so the call
+# returns a structured error instead of hanging on an invisible dialog.
+# Same mask pyhwpx uses around its own open/save paths.
+_DIALOG_GUARD_MODE = 0x2FFF1
+
+
+def suppress_dialogs(hwp):
+    """Enable auto-answer for modal dialogs; returns the previous mode (or None)."""
+    try:
+        return hwp.SetMessageBoxMode(_DIALOG_GUARD_MODE)
+    except Exception:
+        return None
+
+
+def restore_dialogs(hwp, previous_mode) -> None:
+    if previous_mode is None:
+        return
+    try:
+        hwp.SetMessageBoxMode(previous_mode)
+    except Exception:
+        pass
+
+
 def list_rot_instances() -> List[dict]:
     """Enumerate running HwpObject automation instances (side-effect-free).
 

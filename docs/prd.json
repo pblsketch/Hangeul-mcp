@@ -924,6 +924,35 @@
         "실기기 증거(2026-07-10): open_in_hwp opened:true → 타 문서 활성 상태 apply 자동 open 폴백 applied 1건 → fresh 연결 read-back '홍길동'"
       ],
       "statusNote": "손으로 연 한글 창은 COM ROT 미등록으로 attach 불가(실측) — 라이브 대상은 자동화 인스턴스가 연 창. 관측/증거는 PENDING_DESKTOP_LIVE_QA.md."
+    },
+    {
+      "id": "US-064",
+      "title": "라이브 콜드 스타트 안내 + 모달 대화상자 자동응답 가드",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P1",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "open_in_hwp/apply_cells_to_open_hwp 응답에 cold_start(첫 호출이 한글을 기동하는지)와 elapsed_seconds가 포함된다",
+        "라이브 호출 동안 SetMessageBoxMode(0x2FFF1)로 모달 대화상자를 자동응답하고, finally에서 이전 모드를 복원한다 — 보이지 않는 대화상자에 매달려 무한 대기하지 않음",
+        "hwp_status.first_call_hint + open_in_hwp/apply_cells 툴 설명에 콜드 스타트 경고가 있고 tests/test_live_guidance.py가 강제한다"
+      ],
+      "statusNote": "근거: Claude Desktop에서 첫 open_in_hwp가 한글 콜드 스타트로 수십 초 걸려 '멈춘 것처럼' 보임(2026-07-11)."
+    },
+    {
+      "id": "US-065",
+      "title": "인라인 빈칸(콜론/마커/체크박스) 라이브 채우기 — 파일-필 미러 + 셀 텍스트 대체",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P1",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "hangeul_core/hwp/live_inline.py: compute_cell_text_replacements가 파일 fill 엔진을 임시 산출에 돌려 셀별 최종 텍스트를 diff, 변경 셀을 (table,row,col,lines,labels) 텍스트 타깃으로 반환(PURE, 헤드리스 테스트)",
+        "apply_text_targets가 셀 내용 리스트를 MoveListBegin→MoveSelListEnd로 전체 선택 후 Delete(셀-객체 블록 Delete는 원문 잔존, 실측 2026-07-11)하고 문단 단위로 재작성",
+        "preview/apply가 direct(empty_cell) 타깃과 text(inline) 타깃을 함께 반환; 툴 설명에 인라인 값은 리치서식 평탄화(파일 모드가 바이트보존 골드패스) 경계 명시",
+        "실기기 증거(2026-07-11): 은행명/계좌번호(한 셀)·프로그램명·강의주제·학력·경력 applied 5건, read-back에 원문 중복 없음"
+      ],
+      "statusNote": "인라인 라이브는 셀 전체 텍스트를 재작성하므로 셀 내 리치서식이 평탄화된다 — 서식 보존이 필요하면 파일 모드(fill_form) 사용."
     }
   ],
   "decisions": {

@@ -47,6 +47,17 @@ def test_open_in_hwp_description_states_attach_boundary():
     assert "open_if_needed" in apply_cells or "opens it" in apply_cells
 
 
+def test_live_tools_state_cold_start_and_inline_boundary():
+    tools = {t.name: (t.description or "") for t in asyncio.run(server.mcp.list_tools())}
+    assert "cold start" in tools["open_in_hwp"].lower()
+    apply_cells = tools["apply_cells_to_open_hwp"].lower()
+    assert "cold start" in apply_cells and "inline" in apply_cells
+    st = server.hwp_status()
+    assert "cold start" in st.get("first_call_hint", ""), (
+        "status must warn that the first live call may launch Hangul"
+    )
+
+
 def test_capabilities_live_note_states_boundaries():
     caps = server.describe_capabilities()
     live = next(c for c in caps["capabilities"] if c["name"] == "live_hwp")

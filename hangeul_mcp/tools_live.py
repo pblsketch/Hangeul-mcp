@@ -28,6 +28,11 @@ def register_live_tools(mcp) -> Dict[str, Any]:
             "windows the user opened by hand never register there and cannot be attached — "
             "use open_in_hwp(path) to open the document in a controllable window first"
         )
+        st["first_call_hint"] = (
+            "if instances is empty, the first open_in_hwp/apply call LAUNCHES Hangul — "
+            "cold start can take tens of seconds (responses carry cold_start/elapsed_seconds); "
+            "later calls take a few seconds"
+        )
         if not st.get("connected"):
             st["note"] = (
                 "connected:false is the normal idle state: hwp_status is side-effect-free "
@@ -48,7 +53,10 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         Hand-opened Hangul windows cannot be attached (they never register in the
         COM ROT), so open the document with this tool instead, then fill it live
         with apply_cells_to_open_hwp / apply_to_open_hwp. Leaves the window open;
-        saves and closes nothing.
+        saves and closes nothing. If Hangul is not running, this call launches it
+        — cold start can take tens of seconds (see cold_start/elapsed_seconds in
+        the response); later calls take a few seconds. Modal dialogs are
+        auto-answered during the call so it cannot hang on an invisible prompt.
         """
         p = Path(path)
         if p.suffix.lower() not in (".hwp", ".hwpx"):
@@ -111,11 +119,16 @@ def register_live_tools(mcp) -> Dict[str, Any]:
     ) -> Dict[str, Any]:
         """Fill label:value CELLS of the OPEN Hangul window live (no 누름틀 required).
 
-        Value insertion only — no formatting/styling. Attaches to the running
-        automation instance on call (optional 'live' extra: pyhwpx) and verifies
-        its active document is *path*; if not, opens it there (open_if_needed,
-        default) — hand-opened windows are not attachable. Preview first with
-        preview_cells_to_open_hwp.
+        Handles empty label:value cells AND inline blanks (colon "은행명:",
+        marker "∘ 프로그램명", checkboxes) — inline values are mirrored through
+        the file fill engine and applied as a full-cell text replacement, which
+        flattens intra-cell rich formatting (file mode stays the byte-preserving
+        gold path). Value insertion only — no formatting/styling. Attaches to
+        the running automation instance on call (optional 'live' extra: pyhwpx)
+        and verifies its active document is *path*; if not, opens it there
+        (open_if_needed, default) — hand-opened windows are not attachable.
+        Cold start (Hangul not running) can take tens of seconds. Preview first
+        with preview_cells_to_open_hwp.
         """
         try:
             path = ensure_hwpx(path)

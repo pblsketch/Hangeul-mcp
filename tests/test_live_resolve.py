@@ -39,13 +39,16 @@ def test_resolve_targets_unknown_key_skipped():
     assert targets == [] and skipped and skipped[0]["reason"] == "no matching cell field"
 
 
-def test_apply_cells_degrades_gracefully_without_substrate():
-    # In headless/CI (no pyhwpx or non-Windows) this must not raise; it reports
-    # available:false rather than crashing.
+def test_apply_cells_degrades_gracefully_without_substrate(monkeypatch):
+    # Simulate absent pyhwpx deterministically. With the live extra installed,
+    # a real call would attach to Hangul (auto-open fallback) — unit tests must
+    # never drive COM, so the absent branch is forced instead.
+    import sys
+
+    monkeypatch.setitem(sys.modules, "pyhwpx", None)
     res = apply_cells_to_open(FIXTURE, {"성명": "홍길동"})
-    assert "available" in res
-    if res["available"] is False:
-        assert "error" in res
+    assert res["available"] is False
+    assert "error" in res
 
 
 def test_preview_cells_to_open_is_pure_and_returns_targets():
