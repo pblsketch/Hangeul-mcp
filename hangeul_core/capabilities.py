@@ -109,7 +109,13 @@ def describe_capabilities() -> Dict[str, Any]:
                     "apply_cells_to_open_hwp",
                 ],
                 requires=["Windows", "Hangul", "pywin32", "pyhwpx"],
-                note="Open Hangul document control is optional and never required for file-mode HWPX work.",
+                note=(
+                    "Open Hangul document control is optional and never required for file-mode "
+                    "HWPX work. Live tools INSERT VALUES only (누름틀/cells) — formatting/styling "
+                    "edits are file-mode delegate operations. hwp_status and preview are "
+                    "side-effect-free; hwp_status connected:false is the normal idle state, "
+                    "not a failure."
+                ),
             ),
             _capability(
                 "hwp_headless",

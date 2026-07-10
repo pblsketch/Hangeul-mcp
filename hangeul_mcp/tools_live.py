@@ -12,10 +12,33 @@ from hangeul_core.hwp.live import preview_cells_to_open as _preview_cells_to_ope
 def register_live_tools(mcp) -> Dict[str, Any]:
     @mcp.tool()
     def hwp_status() -> Dict[str, Any]:
-        return HwpBridge().status()
+        """Live COM availability probe — side-effect-free, never launches or attaches to Hangul.
+
+        connected:false is the NORMAL idle state (no attach is attempted here);
+        it does NOT mean the open document is unreachable. Live fill tools
+        attach on call.
+        """
+        st = HwpBridge().status()
+        if not st.get("connected"):
+            st["note"] = (
+                "connected:false is the normal idle state: hwp_status is side-effect-free "
+                "and never attaches to Hangul. It does NOT mean the open document is unreachable."
+            )
+            st["next"] = (
+                "file mode works with any absolute path (analyze_form / extract_text / fill_form); "
+                "live cell fill: preview_cells_to_open_hwp (pure preview), then "
+                "apply_cells_to_open_hwp (attaches to the running Hangul on call)"
+            )
+        return st
 
     @mcp.tool()
     def apply_to_open_hwp(values: Dict[str, str], visible: bool = True) -> Dict[str, Any]:
+        """One-shot VALUE fill of named form fields (누름틀) in the OPEN Hangul window.
+
+        Value insertion only — formatting/styling edits are not supported live;
+        use the file-mode delegate tools (set_header, emphasize_text, ...) and
+        produce a new file instead. Attaches to the running Hangul on call.
+        """
         bridge = HwpBridge()
         if not bridge.available():
             return {"available": False, "error": "COM bridge needs Windows + pywin32 + Hangul"}
@@ -36,6 +59,11 @@ def register_live_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def preview_cells_to_open_hwp(path: str, values: Dict[str, str]) -> Dict[str, Any]:
+        """Compute live cell-fill targets WITHOUT COM (pure, side-effect-free preview).
+
+        Run this before apply_cells_to_open_hwp to confirm which table/row/col
+        each value would land in.
+        """
         p = Path(path)
         if p.suffix.lower() == ".hwp":
             return {
@@ -49,6 +77,12 @@ def register_live_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def apply_cells_to_open_hwp(path: str, values: Dict[str, str], visible: bool = True, clear: bool = True) -> Dict[str, Any]:
+        """Fill label:value CELLS of the OPEN Hangul window live (no 누름틀 required).
+
+        Value insertion only — no formatting/styling. Attaches to the running
+        Hangul on call (optional 'live' extra: pyhwpx). Preview first with
+        preview_cells_to_open_hwp.
+        """
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:

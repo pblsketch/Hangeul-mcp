@@ -882,6 +882,20 @@
         "no acceptance commitments to unsupported behaviors; zero delegate code for these"
       ],
       "statusNote": "features stay unprovided: python-hwpx 2.24 lacks row/col & TOC APIs (D13); OWN feasibility verdict in ADR D14 (row/col implement-later conditional, page-numbered TOC keep-out); surface tripwire re-triggers review."
+    },
+    {
+      "id": "US-061",
+      "title": "BYO-AI 오독 방지 — live status/경계 안내를 서버 응답에 내장",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P1",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "hwp_status idle response carries note (side-effect-free semantics) + next (tool guidance) fields",
+        "live tool descriptions state the value-only / no-formatting boundary",
+        "describe_capabilities live note states value-only boundary and connected:false semantics",
+        "tests/test_live_guidance.py enforces all three; full suite green"
+      ]
     }
   ],
   "decisions": {
