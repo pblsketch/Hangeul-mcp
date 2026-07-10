@@ -136,7 +136,10 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
         if not _delegate.hwpx_available():
             return _unavailable()
         path, error = _hwpx_path(path)
-        unset = lambda v: None if v < 0 else v  # noqa: E731 - -1 sentinel means "leave unchanged"
+
+        def unset(v: int):  # -1 sentinel means "leave unchanged"
+            return None if v < 0 else v
+
         return error or _delegate_op("", _delegate.set_page_margins, path, out_path,
                                      left=unset(left), right=unset(right), top=unset(top),
                                      bottom=unset(bottom), header=unset(header),

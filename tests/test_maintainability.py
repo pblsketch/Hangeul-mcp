@@ -3,6 +3,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,29 +47,23 @@ def test_byo_ai_harness_modules_remain_small():
     assert oversized == {}
 
 
-def test_readme_tool_count_matches_runtime():
+@pytest.mark.parametrize(
+    ("doc_name", "pattern"),
+    [
+        ("README.md", _TOOLS_RE),
+        ("HANDOFF.md", re.compile(r"런타임 MCP 툴: \*\*(\d+)\*\*")),
+    ],
+)
+def test_doc_tool_count_matches_runtime(doc_name, pattern):
     from hangeul_mcp import server
 
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    matches = _TOOLS_RE.findall(readme)
-    assert len(matches) == 1, "README must state the tool count exactly once as '(NN tools)'"
+    text = (ROOT / doc_name).read_text(encoding="utf-8")
+    matches = pattern.findall(text)
+    assert len(matches) == 1, f"{doc_name} must state the tool count exactly once ({pattern.pattern})"
     runtime = len(asyncio.run(server.mcp.list_tools()))
     assert int(matches[0]) == runtime, (
-        f"README says {matches[0]} tools but runtime registers {runtime}; "
-        "update README in the same commit that adds/removes tools"
-    )
-
-
-def test_handoff_tool_count_matches_runtime():
-    from hangeul_mcp import server
-
-    handoff = (ROOT / "HANDOFF.md").read_text(encoding="utf-8")
-    m = re.search(r"런타임 MCP 툴: \*\*(\d+)\*\*", handoff)
-    assert m, "HANDOFF.md must state the runtime tool count as '런타임 MCP 툴: **NN**'"
-    runtime = len(asyncio.run(server.mcp.list_tools()))
-    assert int(m.group(1)) == runtime, (
-        f"HANDOFF says {m.group(1)} tools but runtime registers {runtime}; "
-        "update HANDOFF in the same commit that adds/removes tools"
+        f"{doc_name} says {matches[0]} tools but runtime registers {runtime}; "
+        "update it in the same commit that adds/removes tools"
     )
 
 
