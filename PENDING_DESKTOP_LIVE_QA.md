@@ -16,6 +16,51 @@ targets                            -> 성명 → t2.r2.c3, 직위 → t2.r2.c2
 - `live_available:false` = pyhwpx(extra `live`) 미설치 — 이 세션에서는 apply가 구조화 폴백으로만 동작.
 - pure 타깃 해석은 COM 없이 정확히 동작(위 targets). 라이브 apply만 미검증으로 남는다.
 
+## 실기기 라이브 관측 (2026-07-10 오후, 데스크톱 세션 — Hwp 창 열린 상태)
+
+실제 사용 중 라이브 실패 리포트("라이브로 입력이 안 돼")를 계기로 이 머신에서 실측한 결과.
+
+**1) 사용자가 손으로 연 한글 창에는 어떤 COM 클라이언트도 붙지 못한다 (전제 반증)**
+
+- 열린 창: `Hwp.exe`(sample_form1.hwpx) + 자식 `HwpApi.exe`(부모=Hwp, 창 없음).
+- ROT 열거 결과 `!HwpObject.*` 모니커는 **1개뿐이며 빈 문서(FullName='')를 가진 HwpApi 인스턴스** — 사용자가 연 창 자체는 ROT에 미등록.
+- 따라서 `apply_to_open_hwp`(EnsureDispatch)와 `apply_cells_to_open_hwp`(pyhwpx ROT 스캔) 모두
+  **빈 자동화 인스턴스에 `connected:true`로 붙는다** → 각각 `needs_field_registration`,
+  `table not found live`로 귀결. connected:true가 "사용자의 창"을 의미하지 않음(오해 유발 지점).
+
+**2) 자동화 인스턴스가 연 visible 창에서는 전체 경로 성공 (핵심 경로 실증)**
+
+```json
+open(사본)                     -> ok, active = sample_form1_live.hwpx (visible 창)
+preview_cells_to_open_hwp     -> {"live_available": true, "count": 1, targets: 성명 → t2.r2.c3}
+apply_cells_to_open_hwp       -> {"available": true, "connected": true, "applied": 1, "skipped": [], "count": 1}
+read-back (별도 fresh 연결)    -> t2(=get_into_nth_table(1)) r2c3 셀 텍스트 == "홍길동"
+```
+
+- D7 매핑: analyze 전역 표 인덱스(t2) == pyhwpx 컨트롤 순서(index 1) — 표 7개짜리 이 문서에서 일치 확인(1건).
+- 창은 닫히지 않고 미저장 상태 유지(Ctrl+Z 가능) — 라이브 UX 요건 충족.
+
+**3) `live` extra 함정: pyhwpx 1.7.2는 numpy/pandas/pyperclip/pillow를 의존성으로 선언하지 않는다**
+
+- pyhwpx 설치됨 + import 실패(ModuleNotFoundError 연쇄) → `live_available:false`로 위장됨.
+- 이 머신에서는 4개 수동 설치로 해소(pytest 217 passed로 회귀 확인). **pyproject `live` extra에 명시 필요.**
+
+**귀결(구현 반영됨 — US-062/US-063, 2026-07-10)**: "열려 있는 창에 붙는다"는 전제는 이 머신에서
+불가로 관측되어, 라이브 UX를 **서버(자동화 인스턴스)가 문서를 열고 그 창에서 채우는 흐름**으로
+재정의해 구현했다:
+
+- `open_in_hwp(path)` 툴 신설(라이브 진입점, 저장·닫기 없음)
+- `apply_cells_to_open_hwp`가 활성 문서==path 검증, 불일치 시 `open_if_needed`(기본 true) 자동 open
+  — 무관 문서 오염 방지. 거절 시 `active_document` 포함 구조화 응답
+- `hwp_status`가 ROT `instances`(모니커/문서수/활성문서)와 `attach_boundary`를 노출
+- `live` extra가 pyhwpx 미선언 의존성(numpy/pandas/pyperclip/pillow)을 명시
+
+**재정의 경로 실기기 증거(2026-07-10)**: `open_in_hwp(사본A)` → opened:true, active==A ·
+타 문서 활성 상태에서 `apply_cells_to_open_hwp(사본B, {성명:홍길동})` → 자동 open + applied 1건 ·
+fresh 연결 read-back == "홍길동". US-029(원래 시나리오: 사용자가 연 창) 승격 여부는 아래 미확보
+증거와 함께 별도 판단한다 — 사용자가 연 창 자체는 접근 불가가 결론이므로, runbook 절차는
+`open_in_hwp` 기반으로 수행한다.
+
 ## 미확보 증거 (이 문서를 닫는 조건)
 
 [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md) 절차로 다음을 캡처하면 이 문서를 삭제하고

@@ -25,6 +25,49 @@ def normalize_field_values(values: Dict[str, str]) -> Dict[str, str]:
     return {k: (v.replace("\r\n", "\n").replace("\n", "\r\n")) for k, v in values.items()}
 
 
+def list_rot_instances() -> List[dict]:
+    """Enumerate running HwpObject automation instances (side-effect-free).
+
+    Reads the COM Running Object Table and inspects only objects Hangul already
+    registered there — it never creates an instance. Hand-opened Hangul windows
+    do NOT register in the ROT (observed 2026-07-10, PENDING_DESKTOP_LIVE_QA.md),
+    so this listing shows exactly what live tools could attach to.
+    Returns [] off-Windows or without pywin32.
+    """
+    if sys.platform != "win32":
+        return []
+    try:
+        import pythoncom
+        import win32com.client as win32
+    except Exception:
+        return []
+    instances: List[dict] = []
+    try:
+        pythoncom.CoInitialize()
+        context = pythoncom.CreateBindCtx(0)
+        rot = pythoncom.GetRunningObjectTable()
+        for moniker in rot.EnumRunning():
+            try:
+                name = moniker.GetDisplayName(context, moniker)
+            except Exception:
+                continue
+            if "HwpObject" not in name:
+                continue
+            entry: dict = {"moniker": name}
+            try:
+                obj = rot.GetObject(moniker)
+                hwp = win32.Dispatch(obj.QueryInterface(pythoncom.IID_IDispatch))
+                docs = hwp.XHwpDocuments
+                entry["open_documents"] = int(docs.Count)
+                entry["active_document"] = str(docs.Active_XHwpDocument.FullName or "")
+            except Exception as exc:
+                entry["inspect_error"] = str(exc)
+            instances.append(entry)
+    except Exception:
+        pass  # ROT unavailable -> report what was gathered so far
+    return instances
+
+
 class HwpBridge:
     """Thin wrapper over the Hancom HwpObject automation interface."""
 

@@ -30,6 +30,23 @@ def test_live_tool_descriptions_state_value_only_boundary():
     assert "connected:false" in status_desc or "side-effect" in status_desc.lower()
 
 
+def test_hwp_status_exposes_rot_instances_and_attach_boundary():
+    st = server.hwp_status()
+    assert isinstance(st.get("instances"), list), "instances must always be a list (empty off-Windows)"
+    boundary = st.get("attach_boundary", "")
+    assert "open_in_hwp" in boundary and "attach" in boundary, (
+        "status must explain that hand-opened windows are not attachable and name open_in_hwp"
+    )
+
+
+def test_open_in_hwp_description_states_attach_boundary():
+    tools = {t.name: (t.description or "") for t in asyncio.run(server.mcp.list_tools())}
+    desc = tools["open_in_hwp"].lower()
+    assert "hand-opened" in desc and "attach" in desc
+    apply_cells = tools["apply_cells_to_open_hwp"].lower()
+    assert "open_if_needed" in apply_cells or "opens it" in apply_cells
+
+
 def test_capabilities_live_note_states_boundaries():
     caps = server.describe_capabilities()
     live = next(c for c in caps["capabilities"] if c["name"] == "live_hwp")

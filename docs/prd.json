@@ -896,6 +896,34 @@
         "describe_capabilities live note states value-only boundary and connected:false semantics",
         "tests/test_live_guidance.py enforces all three; full suite green"
       ]
+    },
+    {
+      "id": "US-062",
+      "title": "live extra가 pyhwpx 미선언 전이 의존성(numpy/pandas/pyperclip/pillow)을 명시",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P0",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "pyproject [project.optional-dependencies].live가 pyhwpx+numpy+pandas+pyperclip+pillow(win32 마커)를 선언하고 이유 주석을 갖는다",
+        "tests/test_maintainability.py 가드가 5개 선언 존재를 강제한다",
+        "근거: 2026-07-10 실기기에서 pyhwpx 설치-but-import실패가 live_available:false로 위장됨(PENDING_DESKTOP_LIVE_QA.md)"
+      ]
+    },
+    {
+      "id": "US-063",
+      "title": "라이브 UX 재정의 — open_in_hwp 진입점 + apply 활성문서 검증/자동 open 폴백 + hwp_status 인스턴스 노출",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P0",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "open_in_hwp(path): 자동화 인스턴스로 .hwp/.hwpx를 visible 창에 열고 opened/active_document 반환(저장·닫기 없음); 파일부재/비Windows/pyhwpx부재는 구조화 폴백",
+        "apply_cells_to_open_hwp가 attach 후 활성 문서==path를 검증: 불일치 시 open_if_needed(기본 true)면 자동 open 후 채움(opened:true), false면 active_document 포함 구조화 거절 — 무관 문서 오염 방지",
+        "hwp_status가 ROT instances(모니커/문서수/활성문서, inspect-only)와 attach_boundary(손으로 연 창 attach 불가, open_in_hwp 안내)를 노출; tests/test_live_guidance.py·test_live_open.py가 헤드리스 계약을 강제",
+        "실기기 증거(2026-07-10): open_in_hwp opened:true → 타 문서 활성 상태 apply 자동 open 폴백 applied 1건 → fresh 연결 read-back '홍길동'"
+      ],
+      "statusNote": "손으로 연 한글 창은 COM ROT 미등록으로 attach 불가(실측) — 라이브 대상은 자동화 인스턴스가 연 창. 관측/증거는 PENDING_DESKTOP_LIVE_QA.md."
     }
   ],
   "decisions": {

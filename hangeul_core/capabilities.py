@@ -104,6 +104,7 @@ def describe_capabilities() -> Dict[str, Any]:
                 HwpBridge.available() or live_available(),
                 [
                     "hwp_status",
+                    "open_in_hwp",
                     "apply_to_open_hwp",
                     "preview_cells_to_open_hwp",
                     "apply_cells_to_open_hwp",
@@ -114,7 +115,8 @@ def describe_capabilities() -> Dict[str, Any]:
                     "HWPX work. Live tools INSERT VALUES only (누름틀/cells) — formatting/styling "
                     "edits are file-mode delegate operations. hwp_status and preview are "
                     "side-effect-free; hwp_status connected:false is the normal idle state, "
-                    "not a failure."
+                    "not a failure. Hand-opened Hangul windows are not attachable (never in the "
+                    "COM ROT) — open documents via open_in_hwp for live fill."
                 ),
             ),
             _capability(

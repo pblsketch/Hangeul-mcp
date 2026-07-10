@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -77,6 +78,15 @@ def test_readme_story_counts_match_prd():
     # pass count definition: passes==true (BC3 / Minor-1), independent of status field
     actual_pass = sum(1 for s in stories if s["passes"] is True)
     assert passing == actual_pass, f"README says {passing} pass, prd.json has {actual_pass}"
+
+
+def test_live_extra_declares_pyhwpx_transitive_deps():
+    # pyhwpx 1.7 imports numpy/pandas/pyperclip/PIL without declaring them;
+    # missing ones make live_available() silently false (observed 2026-07-10).
+    data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    live = " ".join(data["project"]["optional-dependencies"]["live"])
+    for dep in ("pyhwpx", "numpy", "pandas", "pyperclip", "pillow"):
+        assert dep in live, f"'live' extra must declare {dep}"
 
 
 def test_feature_implementation_workflow_is_documented():

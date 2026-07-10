@@ -1,172 +1,262 @@
 # 테스트 시나리오 — Hangeul-mcp 수동 인수 테스트
 
-> 자동 스위트(`pytest -q`, 214 passed/1 skipped)가 코드 레벨을 검증한다면, 이 문서는
-> **MCP 클라이언트(Claude Desktop/Codex 등)에서 실제 사용자가 겪는 흐름**과
-> **자동화가 불가능한 데스크톱 라이브 경로**를 사람 손으로 검증하기 위한 시나리오다.
-> 각 시나리오는 전제 → 단계 → 기대 결과(관측 가능) → 증거 캡처 순으로 기술한다.
+## 이 문서는 무엇인가
 
-## 0. 공통 준비
+자동 테스트(`pytest -q`, 223 passed / 1 skipped)는 **코드가 맞는지**를 검사합니다.
+이 문서는 자동 테스트가 확인할 수 없는 두 가지를 **사람이 직접** 확인하기 위한 절차입니다.
 
-### 설치 매트릭스 (시나리오 그룹별 요구 extra)
+1. **실제 MCP 클라이언트(Claude Desktop, Codex 등)에서 사용자가 겪는 흐름** — 툴이 잘 호출되고 결과 파일이 실제로 올바른가
+2. **데스크톱 라이브 경로** — 열려 있는 한글 창에 값을 넣는 기능(자동화 불가, 그룹 D)
 
-| 프로파일 | 설치 | 검증 대상 그룹 |
-|---|---|---|
-| P0 코어 | `pip install -e ".[dev]"` | A(파일 모드), E(폴백) |
-| P1 위임 | P0 + `pip install -e ".[delegate]"` | B(위임 편집/생성) |
-| P2 렌더 | P1 + `pip install -e ".[render]"` + `python -m playwright install chromium` | C(렌더) |
-| P3 라이브 | P2 + `pip install -e ".[live]"` (Windows + 한글 필수) | D(라이브) |
+모든 시나리오는 같은 형식입니다: **왜 하나 → 순서 → 이렇게 되면 성공 → 남길 증거**.
 
-### 공통 규칙
-
-- 입력은 항상 `tests/fixtures/sample_form.hwpx`(PII 없는 빈 강사카드)의 **사본**을 사용한다. 원본 fixture를 덮어쓰지 않는다.
-- 실측된 fixture 필드(시나리오에서 그대로 사용):
-  - empty_cell: `소속` `직위` `성명` `주민등록번호` `근무처` `휴대전화` `전자우편` `강의일시`
-  - inline_blank: `은행명:` `계좌번호:`(같은 셀 내 콜론 2개), `∘ 프로그램명` `∘ 강의주제` `∘ 학 력` `∘ 경 력`(마커)
-  - checkbox: `개인정보 수집·이용 동의`(예/아니요), `사진·영상 촬영 및 활용 동의`(예/아니요)
-- MCP 클라이언트에서 실행 시: 클라이언트에 자연어로 지시하고("이 양식 분석해서 성명=홍길동으로 채워줘"), 클라이언트가 실제로 어떤 툴을 호출했는지 확인한다. 직접 호출로 재현할 때는 아래 표기된 툴/인자를 쓴다.
-- **판정 원칙**: "에러가 없다"가 아니라 **관측 가능한 결과**(반환 JSON 필드, 산출 파일, XML 속성)로 판정한다.
+처음이라면 **A(기본) → E(에러 처리) 순서**로 하고, 해당 기능을 설치했다면 B(편집/생성) → C(미리보기) → D(라이브)를 추가하세요.
 
 ---
 
-## A. 파일 모드 핵심 (P0)
+## 0. 시작 전 준비
 
-### TS-A1. capability 자기소개
-- 단계: `describe_capabilities()`
-- 기대: `server_side_llm: false` · `capabilities[]`에 file_hwpx(available:true), delegate/render/live는 **설치 상태와 일치하는** available 값 · `mode: "byo_ai_local_harness"`
-- 증거: 반환 JSON 저장
+### 0-1. 설치한 만큼 테스트할 수 있다
 
-### TS-A2. 양식 인식
-- 단계: `analyze_form(사본경로)`
-- 기대: 필드 21개 내외 — empty_cell 8 · inline_blank 10 · checkbox 3(옵션 목록 포함). `성명`의 field_id가 `t2.r2.c3` 형식의 셀 주소
-- 증거: kind별 개수, 필드 목록
+Hangeul-mcp는 선택 기능(extra)을 설치해야 켜지는 부분이 있습니다.
+자기 환경이 어느 프로파일인지 먼저 확인하세요.
 
-### TS-A3. 채우기 — 세 kind 동시
-- 단계: `fill_form(사본, values, out.hwpx)`
+| 프로파일 | 설치 명령 | 할 수 있는 테스트 그룹 |
+|---|---|---|
+| P0 기본 | `pip install -e ".[dev]"` | A(파일 채우기), E(에러 처리) |
+| P1 편집 | P0 + `pip install -e ".[delegate]"` | + B(편집/문서 생성) |
+| P2 렌더 | P1 + `pip install -e ".[render]"` + `python -m playwright install chromium` | + C(PNG 미리보기) |
+| P3 라이브 | P2 + `pip install -e ".[live]"` ※ Windows + 한글(한컴오피스) 설치 필수 | + D(라이브) |
+
+> 설치 안 한 기능을 호출하면 **에러로 죽는 게 아니라** `available: false`라고 정중히 답해야 정상입니다. (그 자체가 TS-B1, TS-C1의 검증 포인트)
+
+### 0-2. 테스트용 파일
+
+- 입력은 항상 `tests/fixtures/sample_form.hwpx` — **개인정보가 없는 빈 강사카드 양식**입니다.
+- **반드시 사본을 만들어 사용**하세요. 원본 fixture는 절대 덮어쓰지 않습니다.
+- 이 양식 안에 실제로 들어 있는 빈칸(시나리오에서 그대로 사용):
+
+| 빈칸 종류 | 뜻 | 이 양식에 있는 것 |
+|---|---|---|
+| `empty_cell` | 라벨 옆의 빈 셀 | 소속 · 직위 · 성명 · 주민등록번호 · 근무처 · 휴대전화 · 전자우편 · 강의일시 |
+| `inline_blank` | 문장/셀 **중간**의 빈칸 | `은행명:` `계좌번호:` (한 셀에 콜론 2개) · `∘ 프로그램명` `∘ 강의주제` `∘ 학 력` `∘ 경 력` (∘ 마커 뒤) |
+| `checkbox` | ☑/□ 선택 항목 | 개인정보 수집·이용 동의(예/아니요) · 사진·영상 촬영 및 활용 동의(예/아니요) |
+
+### 0-3. 툴을 호출하는 두 가지 방법
+
+- **클라이언트 경유(권장)**: Claude Desktop 등에 자연어로 지시합니다. 예: *"이 양식 분석해서 성명=홍길동으로 채워줘"*. 그리고 클라이언트가 **실제로 어떤 툴을 호출했는지** 확인합니다.
+- **직접 호출(재현용)**: 시나리오에 적힌 툴 이름과 인자를 그대로 씁니다.
+
+### 0-4. 성공/실패 판정 원칙
+
+**"에러가 안 났다" ≠ 성공.** 항상 눈으로 볼 수 있는 결과로 판정합니다:
+반환 JSON의 필드 값, 실제로 생긴(또는 안 생긴) 파일, 한글에서 열었을 때 보이는 내용.
+
+### 0-5. 자주 나오는 용어
+
+| 용어 | 뜻 |
+|---|---|
+| 누름틀 | 한글의 입력 필드(양식 필드). 이름을 붙여 값을 넣을 수 있는 칸 |
+| 바이트보존 | 채운 부분이 든 XML 말고는 파일 내용물을 1바이트도 안 바꾸는 것 (이 서버의 핵심 약속) |
+| PII | 주민번호·전화번호 같은 개인정보 |
+| dry-run | 실제로 파일을 쓰지 않고 "쓰면 이렇게 된다"만 계산해 보는 모드 |
+| D6, D7 | 설계 결정 기록([DECISIONS.md](DECISIONS.md))의 번호. D6=서버는 문안을 지어내지 않음, D7=라이브 표 매핑은 단순한 표에서만 보장 |
+
+---
+
+## A. 파일 모드 — 양식 채우기 기본기 (P0)
+
+이 서버의 핵심 기능. 양식을 인식하고, 서식을 깨지 않고 채우고, 검증하는 흐름입니다.
+
+### TS-A1. 서버가 자기 능력을 정직하게 보고하는가
+- **왜**: AI 클라이언트는 이 응답을 보고 무엇이 가능한지 판단합니다. 여기가 틀리면 이후 전부 어긋납니다.
+- **순서**: `describe_capabilities()` 호출
+- **성공**:
+  - `server_side_llm: false` (서버가 LLM을 직접 호출하지 않는다는 선언)
+  - `mode: "byo_ai_local_harness"`
+  - `capabilities[]`에서 file_hwpx는 `available: true`, delegate/render/live는 **내 설치 상태와 일치**
+- **증거**: 반환 JSON 저장
+
+### TS-A2. 양식을 제대로 인식하는가
+- **왜**: 채우기의 전제. 빈칸을 못 찾으면 채울 수도 없습니다.
+- **순서**: `analyze_form(사본경로)` 호출
+- **성공**:
+  - 필드 21개 내외 — empty_cell 8 · inline_blank 10 · checkbox 3(선택지 목록 포함)
+  - `성명` 필드의 field_id가 `t2.r2.c3` 같은 셀 주소 형식
+- **증거**: kind별 개수, 필드 목록
+
+### TS-A3. 세 종류 빈칸을 한 번에 채우는가 (핵심 시나리오)
+- **왜**: 빈 셀 + 문장 중간 빈칸 + 체크박스를 동시에, 정확한 위치에 채우는 것이 이 서버의 차별점입니다.
+- **순서**: `fill_form(사본, values, out.hwpx)` — values:
   ```json
   {"성명": "홍길동", "직위": "교사", "은행명": "농협", "계좌번호": "123-456",
    "프로그램명": "AI 활용 연수", "개인정보 수집·이용 동의": "예"}
   ```
-- 기대: `filled` 6건, `skipped` 0건 · out.hwpx가 한글(또는 hwpx_to_html)에서 열리고 각 값이 **정확한 위치**에 있음: 성명 셀, `은행명: 농협 계좌번호: 123-456`(콜론 뒤 삽입), `∘ AI 활용 연수`(마커 뒤·마커 중복 없음), 동의 항목 `예`에 ☑ + `아니요`는 □ 유지(exclusive)
-- 증거: 반환 JSON + 열람 스크린샷(또는 `verify_fill` 결과)
+- **성공**: 반환이 `filled` 6건 / `skipped` 0건이고, out.hwpx를 열었을 때(한글 또는 `hwpx_to_html`):
+  - 성명 셀에 `홍길동`
+  - `은행명: 농협  계좌번호: 123-456` — 각 콜론 **뒤에** 삽입
+  - `∘ AI 활용 연수` — 마커 뒤에 삽입, `∘`가 중복되지 않음
+  - 동의 항목: `예`가 ☑, `아니요`는 □ 그대로 (하나만 선택됨)
+- **증거**: 반환 JSON + 열람 스크린샷(또는 `verify_fill` 결과)
 
-### TS-A4. dry-run은 쓰지 않는다
-- 단계: TS-A3와 동일하되 `dry_run=true`, out 경로는 **존재하지 않는 새 이름**
-- 기대: 반환 `filled`는 동일하게 계산되지만 **out 파일이 생성되지 않음**, `out_path: null`
-- 증거: 파일 부재 확인(ls)
+### TS-A4. dry-run은 정말 파일을 안 쓰는가
+- **왜**: "미리보기만"이라고 해놓고 파일을 쓰면 사용자를 속이는 것입니다.
+- **순서**: TS-A3와 동일하되 `dry_run=true`, out 경로는 **아직 존재하지 않는 새 이름**으로
+- **성공**: `filled` 계산 결과는 TS-A3와 동일한데, **out 파일이 생기지 않고** 반환의 `out_path`가 `null`
+- **증거**: 파일이 없음을 확인(디렉터리 목록)
 
-### TS-A5. 검증 체인
-- 단계: TS-A3의 out에 대해 `verify_fill(out, 같은 values)` → `validate_hwpx(out)`
-- 기대: verify `present`에 6개 키 전부, `missing: []` · validate `valid: true` (xsd는 python-hwpx 설치 시 함께 보고)
-- 증거: 두 JSON
+### TS-A5. 채운 값이 정말 들어갔는지 기계로 검증되는가
+- **왜**: 스크린샷 눈검사 없이도 반영 여부를 확인할 수 있어야 합니다.
+- **순서**: TS-A3의 out에 대해 `verify_fill(out, 같은 values)` → `validate_hwpx(out)`
+- **성공**: verify의 `present`에 6개 키 전부, `missing: []` / validate가 `valid: true` (python-hwpx 설치 시 XSD 결과도 함께)
+- **증거**: 두 JSON
 
-### TS-A6. 바이트보존 확인 (스모크)
-- 단계: `python scripts/e2e_evidence.py`
-- 기대: `{"ok": true, "failures": []}` · `build/evidence/06_byte_preservation.json`의 changed_entries가 `Contents/section*.xml`뿐
-- 증거: build/evidence/ 산출물 일체
+### TS-A6. 바꾼 곳 말고는 1바이트도 안 건드렸는가
+- **왜**: 바이트보존은 이 서버의 핵심 약속입니다.
+- **순서**: `python scripts/e2e_evidence.py` 실행
+- **성공**: `{"ok": true, "failures": []}` 이고, `build/evidence/06_byte_preservation.json`에서 변경된 엔트리가 `Contents/section*.xml`**뿐**
+- **증거**: `build/evidence/` 산출물 일체
 
-### TS-A7. PII 경고와 마스킹
-- 단계: ① `fill_form(사본, {"주민등록번호": "900101-1234567"}, out1)` — mask 없이
-  ② 같은 값으로 `mask_pii=true`, out2 ③ `scan_pii(out1)` / `scan_pii(out2)`
-- 기대: ① `pii_warnings`에 rrn 유형 경고(**mask 여부와 무관하게 항상 경고**) ② `masked` 1건, out2의 값은 `900101-*******` 형태 ③ out1은 count≥1, out2는 rrn 미검출
-- 증거: 세 JSON
+### TS-A7. 개인정보를 경고하고, 요청 시 가려 주는가
+- **왜**: 주민번호 같은 값이 경고 없이 문서에 박히면 안 됩니다.
+- **순서**:
+  1. `fill_form(사본, {"주민등록번호": "900101-1234567"}, out1)` — 마스킹 없이
+  2. 같은 값으로 `mask_pii=true` → out2
+  3. `scan_pii(out1)`과 `scan_pii(out2)`
+- **성공**:
+  1. 반환의 `pii_warnings`에 주민번호(rrn) 경고 — **마스킹 여부와 무관하게 경고는 항상 나옴**
+  2. `masked` 1건, out2의 값이 `900101-*******` 형태
+  3. out1에서는 rrn이 검출(count≥1)되고, out2에서는 검출되지 않음
+- **증거**: 세 JSON
 
-### TS-A8. 셀 넘침 경고
-- 단계: `analyze_formfit(사본, {"성명": "매우 긴 이름을 일부러 넣어 셀 폭을 초과시키는 문자열"})`
-- 기대: 해당 셀에 대한 overflow 경고(ratio>1.0). **휴리스틱 추정치**이므로 경고 존재만 판정(픽셀 정확도 아님)
-- 증거: warnings JSON
+### TS-A8. 긴 값을 넣으면 "셀이 넘칠 것"이라고 미리 경고하는가
+- **왜**: 셀이 넘치면 쪽수가 밀려 양식이 망가집니다. 사전에 경고해야 합니다.
+- **순서**: `analyze_formfit(사본, {"성명": "매우 긴 이름을 일부러 넣어 셀 폭을 초과시키는 문자열"})`
+- **성공**: 해당 셀에 overflow 경고(ratio > 1.0)가 나옴. ※ 렌더러 없는 **추정치**이므로 "경고가 존재하는가"만 판정하고 픽셀 정확도는 따지지 않습니다.
+- **증거**: warnings JSON
 
-### TS-A9. mail_merge 대량 생성
-- 단계: `mail_merge(사본, [{"성명":"A"},{"성명":"B"},{"성명":"C"}], out_dir)`
-- 기대: 번호 매긴 hwpx 3개 생성, 각각 verify_fill로 해당 성명 present
-- 증거: 산출 파일 목록 + 1건 verify
+### TS-A9. 같은 양식으로 여러 명 분량을 한 번에 만드는가
+- **왜**: 명단만 주면 인원수만큼 문서가 나와야 실무에서 쓸 수 있습니다.
+- **순서**: `mail_merge(사본, [{"성명":"A"},{"성명":"B"},{"성명":"C"}], out_dir)`
+- **성공**: 번호가 매겨진 hwpx 3개가 생기고, 각 파일을 `verify_fill`하면 해당 성명이 present
+- **증거**: 산출 파일 목록 + 최소 1건의 verify 결과
 
 ---
 
-## B. 위임 편집/생성 (P1 — python-hwpx ≥2.24)
+## B. 위임 편집/생성 (P1 — python-hwpx ≥ 2.24 필요)
 
-### TS-B1. 미설치 폴백 (P0 환경에서 먼저)
-- 단계: P0 프로파일에서 `hwpx_to_html(사본)` 호출
-- 기대: 크래시 없이 `{"available": false, "error": "...extra 'delegate'..."}`
-- 증거: 반환 JSON
+편집·생성 기능은 python-hwpx 라이브러리에 맡기고(위임) 결과를 검증 게이트로 확인합니다.
 
-### TS-B2. 머리말/꼬리말
-- 단계: `set_header(사본, "2026 연수 운영", out)` → `set_footer(out, "교육청", out2)`
-- 기대: 두 호출 모두 `ok:true` · out2를 한글로 열면 머리말/꼬리말 표시(또는 패키지 XML에 텍스트 존재)
-- 증거: 열람 스크린샷 또는 XML grep
+### TS-B1. 미설치 상태에서 정중하게 거절하는가 (P0 환경에서 먼저!)
+- **왜**: 설치 안 된 기능은 크래시가 아니라 "왜 안 되는지 + 어떻게 켜는지"를 알려줘야 합니다.
+- **순서**: **P0 프로파일에서** `hwpx_to_html(사본)` 호출
+- **성공**: 크래시 없이 `{"available": false, "error": "...extra 'delegate'..."}` 형태의 안내 반환
+- **증거**: 반환 JSON
 
-### TS-B3. 페이지 설정
-- 단계: `set_page_margins(사본, out, left=8504, right=8504)`(≈30mm) → `set_page_number(out, out2)`
-- 기대: `ok:true` · out2 열람 시 여백 변화 + 하단 중앙 쪽번호. 음수 여백(`left=-1`이 아닌 core 직접 호출 시 음수)은 `ok:false` + 파일 미생성
-- 증거: 열람 스크린샷, 에러 JSON
+### TS-B2. 머리말/꼬리말이 실제로 붙는가
+- **순서**: `set_header(사본, "2026 연수 운영", out)` → `set_footer(out, "교육청", out2)`
+- **성공**: 두 호출 모두 `ok: true` 이고, out2를 한글로 열면 머리말/꼬리말이 보임(또는 패키지 XML 안에 해당 텍스트 존재)
+- **증거**: 열람 스크린샷 또는 XML 검색 결과
 
-### TS-B4. 병합셀 분할 — 비병합 거부 포함
-- 단계: ① `create_hwpx_table([[...3x3...]], base)` → `merge_table_cells(base, 0, "A1:B2", merged)` → `split_merged_cell(merged, 0, 0, 0, out)`
-  ② 비병합 표에 `split_merged_cell(base, 0, 0, 0, x)`
-- 기대: ① `ok:true`, 열람 시 병합 해제 ② **`ok:false` + "not merged" 에러**(조용한 no-op 금지 — 이 거부가 우리 래퍼의 추가 가치)
-- 증거: 두 JSON
+### TS-B3. 페이지 여백/쪽번호가 바뀌고, 이상한 값은 거부되는가
+- **순서**: `set_page_margins(사본, out, left=8504, right=8504)` — 8504 HWPUNIT ≈ 30mm → `set_page_number(out, out2)`
+- **성공**:
+  - `ok: true`, out2를 열면 좌우 여백이 넓어지고 하단 중앙에 쪽번호
+  - 여백에 **음수**를 주면 `ok: false`가 반환되고 **파일이 만들어지지 않음**
+- **증거**: 열람 스크린샷, 에러 JSON
 
-### TS-B5. 문서 생성 레시피
-- 단계: `create_official_document({"제목":"연수 안내","수신":"각급학교장","본문":"..."}, out, doc_type="공문")`
-- 기대: `ok:true` · 열람 시 공문 골격 + **본문 내용은 전부 내가 준 값**(서버가 문안을 지어내지 않음 — D6 경계 확인)
-- 증거: 열람 스크린샷
+### TS-B4. 병합 해제는 되고, 병합 안 된 셀은 거부하는가
+- **왜**: 병합 안 된 셀에 "분할했다"고 조용히 거짓 응답하면 안 됩니다. 이 거부가 우리 래퍼의 추가 가치입니다.
+- **순서**:
+  1. `create_hwpx_table`로 3×3 표 생성 → `merge_table_cells(base, 0, "A1:B2", merged)` → `split_merged_cell(merged, 0, 0, 0, out)`
+  2. 병합하지 않은 표에 `split_merged_cell(base, 0, 0, 0, x)`
+- **성공**: ① `ok: true`, 열람 시 병합이 풀려 있음 ② **`ok: false` + "not merged" 에러** (조용한 무시 금지)
+- **증거**: 두 JSON
+
+### TS-B5. 공문 생성 시 서버가 문안을 지어내지 않는가 (D6 경계)
+- **순서**: `create_official_document({"제목":"연수 안내","수신":"각급학교장","본문":"..."}, out, doc_type="공문")`
+- **성공**: `ok: true`, 열람 시 공문 골격이 갖춰져 있고 **본문 내용은 전부 내가 준 값 그대로** — 서버가 한 글자도 창작하지 않음
+- **증거**: 열람 스크린샷
 
 ---
 
 ## C. 렌더 (P2)
 
-### TS-C1. PNG 미리보기
-- 단계: `render_preview(TS-A3의 out, preview.png)`
-- 기대: P2 환경 — `ok:true` + PNG 시그니처/치수(기본 1280×1800), 채운 값이 이미지에 보임. P0/P1 환경 — `available:false`(이것이 **정상 관측**이며 실패가 아님)
-- 증거: preview.png 또는 폴백 JSON
+### TS-C1. 채운 결과가 PNG 미리보기로 보이는가
+- **왜**: 한글이 없는 환경에서도 결과를 눈으로 확인할 수 있어야 합니다.
+- **순서**: `render_preview(TS-A3의 out, preview.png)`
+- **성공**:
+  - **P2 환경**: `ok: true` + PNG 파일 생성(기본 1280×1800), 채운 값이 이미지에 보임
+  - **P0/P1 환경**: `available: false` 반환 — 이것도 **정상 관측**이지 실패가 아님
+- **증거**: preview.png 또는 폴백 JSON
 
 ---
 
 ## D. 라이브 데스크톱 (P3 — Windows + 한글, 수동 전용)
 
-> 자동화 불가 영역. 완료 시 [PENDING_DESKTOP_LIVE_QA.md](../PENDING_DESKTOP_LIVE_QA.md)를 닫는 증거가 된다.
-> 절차 상세는 [live-qa-runbook.md](live-qa-runbook.md).
+> 열려 있는 한글 창에 값을 넣는 기능. 자동화가 불가능해서 이 문서의 존재 이유이기도 합니다.
+> 여기서 얻은 증거가 [PENDING_DESKTOP_LIVE_QA.md](../PENDING_DESKTOP_LIVE_QA.md)를 닫습니다.
+> 상세 절차: [live-qa-runbook.md](live-qa-runbook.md)
+>
+> **중요(2026-07-10 실측)**: 마우스로 더블클릭해 연 한글 창에는 어떤 도구도 붙을 수 없습니다
+> (COM 등록부에 안 올라감). 라이브 검사는 반드시 `open_in_hwp`로 연 창을 대상으로 하세요.
 
-### TS-D1. 부작용 없음 확인 (한글을 켜기 전에)
-- 단계: 한글이 **실행되지 않은 상태**에서 `hwp_status()` → `preview_cells_to_open_hwp(사본, {"성명":"홍길동","직위":"교사"})`
-- 기대: 두 호출 후에도 **한글 프로세스가 뜨지 않음**(작업관리자 확인) · status `connected:false` · preview `count:2`, targets = 성명→t2.r2.c3, 직위→t2.r2.c2
-- 증거: 반환 JSON + 프로세스 목록
+### TS-D1. "미리보기"가 정말 아무 부작용이 없는가 (한글을 켜기 전에!)
+- **왜**: preview 계열 툴은 한글 창을 띄우지도, 건드리지도 않아야 합니다.
+- **순서**: 한글이 **실행되지 않은 상태**에서 `hwp_status()` → `preview_cells_to_open_hwp(사본, {"성명":"홍길동","직위":"교사"})`
+- **성공**:
+  - 두 호출 후에도 **한글 프로세스가 없음** (작업관리자로 확인)
+  - status: `connected: false`
+  - preview: `count: 2`, 대상 = 성명→`t2.r2.c3`, 직위→`t2.r2.c2`
+- **증거**: 반환 JSON + 프로세스 목록
 
-### TS-D2. 라이브 셀 채우기 (핵심 미검증 경로)
-- 전제: 한글에서 fixture **사본**을 열어둔 상태
-- 단계: `hwp_status()` → `preview_cells_to_open_hwp(...)` → `apply_cells_to_open_hwp(사본경로, {"성명":"홍길동","직위":"교사"})`
-- 기대: status `connected:true`(버전·문서 수 포함) · apply `applied` 2건 == preview `count` · **열린 창에서 성명/직위 셀에 값이 즉시 보이고 창이 닫히지 않음** · 저장 전 Ctrl+Z로 복구 가능
-- 증거: status/apply JSON 전문, 채워진 창 스크린샷 → **이 증거로 US-029 승격 + PENDING 문서 삭제**
+### TS-D2. 열린 한글 창의 셀이 실제로 채워지는가 (⭐ 핵심 경로)
+- **준비**: `open_in_hwp(사본경로)`로 fixture **사본**을 연 상태 — 손으로 연 창은 attach 대상이 아님(위 실측 참고)
+- **순서**: `hwp_status()`(`instances`의 활성 문서가 사본인지 확인) → `preview_cells_to_open_hwp(...)` → `apply_cells_to_open_hwp(사본경로, {"성명":"홍길동","직위":"교사"})`
+- **성공**:
+  - status의 `instances`에 사본을 활성 문서로 가진 인스턴스가 보임
+  - apply의 `applied` 2건 == preview의 `count`
+  - **열린 창에서 성명/직위 셀에 값이 즉시 보이고, 창이 닫히지 않음**
+  - 저장 전이라면 Ctrl+Z로 되돌리기 가능
+- **증거**: status/apply JSON 전문 + 채워진 창 스크린샷 → **이 증거로 US-029 승격 + PENDING 문서 삭제**
 
-### TS-D3. D7 경계 — 중첩 표 문서
-- 전제: 중첩 표가 있는 임의 양식(PII 없는 것)을 열어둠
-- 단계: preview로 target 확인 → 의심스러우면 `clear=false`로 apply
-- 기대: preview target과 실제 삽입 위치가 일치하면 pass. **불일치가 관찰되면 그 자체가 유효한 결과** — D7에 기록된 best-effort 한계의 실증이므로 문서/스크린샷으로 캡처해 이슈화
-- 증거: 불일치 시 before/after 스크린샷
+### TS-D3. 복잡한 문서에서 한계가 정직하게 드러나는가 (D7 경계)
+- **왜**: 라이브 셀 매핑은 단순한 표에서만 보장됩니다(D7). 중첩 표에서 틀어지는지 직접 확인합니다.
+- **준비**: 중첩 표가 있는 임의 양식(개인정보 없는 것)을 열어 둠
+- **순서**: preview로 대상 위치 확인 → 의심스러우면 `clear=false`로 apply
+- **성공 판정이 특이함**: preview가 가리킨 위치와 실제 삽입 위치가 일치하면 pass. **불일치해도 그 자체가 유효한 결과** — D7에 기록된 한계의 실증이므로, 재현 절차와 함께 캡처해 이슈로 남기면 됩니다.
+- **증거**: 불일치 시 before/after 스크린샷
 
-### TS-D4. 누름틀 원샷 반영
-- 전제: 누름틀(양식 필드)이 있는 문서를 열어둠 (fixture에는 누름틀 없음 — 별도 문서 필요)
-- 단계: `apply_to_open_hwp({"필드명": "값"})`
-- 기대: 누름틀 있음 — `applied`에 반영. 누름틀 없음 — `needs_field_registration: true` + cell 방식 안내
-- 증거: 반환 JSON
+### TS-D4. 누름틀 문서는 원샷으로, 없으면 안내로
+- **준비**: 누름틀(입력 필드)이 있는 문서를 열어 둠 ※ 기본 fixture에는 누름틀이 없어 별도 문서 필요
+- **순서**: `apply_to_open_hwp({"필드명": "값"})`
+- **성공**:
+  - 누름틀 있음 → `applied`에 반영됨
+  - 누름틀 없음 → `needs_field_registration: true` + 셀 방식으로 하라는 안내
+- **증거**: 반환 JSON
 
 ---
 
 ## E. 폴백/에러 경로 (P0)
 
-| ID | 단계 | 기대 (관측 가능) |
+**왜**: 잘못된 입력에 크래시하거나, 안 되는 걸 되는 척하면 안 됩니다.
+
+| ID | 이렇게 하면 | 이렇게 답해야 성공 |
 |---|---|---|
-| TS-E1 | `extract_hwp_text(아무.hwp)` | `available:false` + 후보 모듈 점검 결과(`checked`) — COM 변환으로 위장하지 않음 |
+| TS-E1 | `extract_hwp_text(아무.hwp)` | `available: false` + 어떤 후보 모듈을 점검했는지(`checked`) — COM 변환을 헤드리스 읽기로 위장하지 않음 |
 | TS-E2 | `detect_format(없는파일.hwpx)` | `{"format":"unknown","ok":false,"reason":"file not found"}` — 크래시 없음 |
-| TS-E3 | `fill_form(사본, {"없는라벨XYZ":"v"}, out)` | `skipped: [{"key":"없는라벨XYZ","reason":"no matching field"}]`, filled는 영향 없음 |
-| TS-E4 | `.hwp` 파일을 `analyze_form`에 입력 (한글 미설치 환경) | 구조화 에러(변환 백엔드 부재 안내) — 예외 아님 |
-| TS-E5 | `preview_cells_to_open_hwp(x.hwp, ...)` | `ok:false` + ".hwpx만 허용" 안내 (side-effect-free 유지) |
+| TS-E3 | `fill_form(사본, {"없는라벨XYZ":"v"}, out)` | `skipped: [{"key":"없는라벨XYZ","reason":"no matching field"}]` — 나머지 filled에는 영향 없음 |
+| TS-E4 | `.hwp` 파일을 `analyze_form`에 입력 (한글 미설치 환경) | 구조화된 에러(변환 백엔드가 없다는 안내) — 예외로 죽지 않음 |
+| TS-E5 | `preview_cells_to_open_hwp(x.hwp, ...)` | `ok: false` + ".hwpx만 허용" 안내 — 부작용 없음 유지 |
 
 ---
 
-## F. 회귀 게이트 (모든 수동 세션의 시작과 끝)
+## F. 회귀 게이트 — 모든 수동 세션의 시작과 끝에 실행
+
+수동 테스트 도중 무언가를 고쳤다면, 시작할 때와 끝날 때 아래가 그대로 통과해야 합니다.
 
 ```powershell
-./.venv/Scripts/python.exe -m pytest -q            # 기대: 214 passed, 1 skipped
+./.venv/Scripts/python.exe -m pytest -q             # 기대: 223 passed, 1 skipped
 ./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests
 ./.venv/Scripts/python.exe scripts/e2e_evidence.py  # 기대: {"ok": true}
 ```
@@ -180,5 +270,5 @@
 | TS-A1 | | | | | |
 | … | | | | | |
 
-> 기록 원칙: **F(실패)도 산출물이다.** 특히 TS-D3의 매핑 불일치, TS-A8의 오탐/미탐은
-> 각각 D7 재설계와 formfit 보정의 입력이 되므로 재현 절차와 함께 남긴다.
+> **실패(F)도 산출물입니다.** 특히 TS-D3의 매핑 불일치와 TS-A8의 오탐/미탐은
+> 각각 D7 재설계와 formfit 보정의 입력이 되므로, 재현 절차와 함께 남겨 주세요.

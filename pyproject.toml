@@ -31,7 +31,16 @@ delegate = ["python-hwpx>=2.24,<3"]
 render = ["playwright>=1.45"]
 # Live cell-fill of the OPEN Hangul window (Windows + Hangul only) via pyhwpx.
 # Optional; apply_cells_to_open_hwp returns available:false without it.
-live = ["pyhwpx>=1.7; sys_platform == 'win32'"]
+# pyhwpx 1.7 imports numpy/pandas/pyperclip/PIL at module import but does NOT
+# declare them (observed 2026-07-10: installed-yet-unimportable pyhwpx
+# masqueraded as live_available:false). Declare them here so the extra works.
+live = [
+  "pyhwpx>=1.7; sys_platform == 'win32'",
+  "numpy; sys_platform == 'win32'",
+  "pandas; sys_platform == 'win32'",
+  "pyperclip; sys_platform == 'win32'",
+  "pillow; sys_platform == 'win32'",
+]
 hwp-headless = []
 
 [project.scripts]

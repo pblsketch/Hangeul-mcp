@@ -20,6 +20,7 @@ Two layers, deliberately separated:
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -86,6 +87,64 @@ def resolve_cell_targets(
     return targets, skipped
 
 
+def _load_pyhwpx():
+    """Guarded pyhwpx access shared by the live entry points.
+
+    Returns ``(Hwp, None)`` when live COM is possible here, else
+    ``(None, structured_error)`` — one source of truth for the fallback shape.
+    """
+    if sys.platform != "win32":
+        return None, {"available": False, "error": "live COM needs Windows + Hangul"}
+    try:
+        from pyhwpx import Hwp  # optional; pulls pywin32/numpy/pandas
+    except Exception as exc:  # ImportError or dependency error
+        return None, {"available": False, "error": f"pyhwpx not installed (extra 'live'): {exc}"}
+    return Hwp, None
+
+
+def _same_doc(active_fullname: str, path: str | Path) -> bool:
+    """True when the attached instance's active document IS the requested file.
+
+    Uses os.path.normcase/normpath so separator and case differences on Windows
+    do not produce false mismatches.
+    """
+    if not active_fullname:
+        return False
+
+    def canon(p: str | Path) -> str:
+        return os.path.normcase(os.path.normpath(os.path.abspath(str(p))))
+
+    return canon(active_fullname) == canon(path)
+
+
+def open_in_hwp(path: str | Path, *, visible: bool = True) -> Dict:
+    """Open *path* in a CONTROLLABLE (automation-created) Hangul window.
+
+    Hand-opened Hangul windows never register in the COM Running Object Table,
+    so live tools cannot attach to them (observed 2026-07-10,
+    PENDING_DESKTOP_LIVE_QA.md). The reliable live workflow is: open the
+    document THROUGH the automation instance with this function, then fill that
+    window with ``apply_cells_to_open`` / ``apply_to_open``. Leaves the window
+    open; saves and closes nothing.
+    """
+    p = Path(path)
+    if not p.exists():
+        return {"available": True, "ok": False, "error": f"file not found: {p}"}
+    Hwp, err = _load_pyhwpx()
+    if err:
+        return err
+    try:
+        hwp = Hwp(new=False, visible=visible, on_quit=False)
+    except Exception as exc:
+        return {"available": True, "connected": False, "error": str(exc)}
+    try:
+        opened = bool(hwp.open(str(p)))
+        active = str(hwp.XHwpDocuments.Active_XHwpDocument.FullName or "")
+    except Exception as exc:
+        return {"available": True, "connected": True, "opened": False, "error": str(exc)}
+    return {"available": True, "connected": True, "opened": opened, "active_document": active}
+
+
 def preview_cells_to_open(path: str | Path, values: Dict[str, str]) -> Dict:
     targets, skipped = resolve_cell_targets(path, values)
     return {
@@ -104,20 +163,22 @@ def apply_cells_to_open(
     *,
     visible: bool = True,
     clear: bool = True,
+    open_if_needed: bool = True,
 ) -> Dict:
-    """Fill the currently OPEN Hangul document's cells live (via pyhwpx COM).
+    """Fill the OPEN (automation-controlled) Hangul document's cells live.
 
-    Attaches to the running Hangul instance (does not close it). For each resolved
-    target, enters the table, moves to the cell address, optionally clears it, and
-    inserts the value. Requires the optional ``pyhwpx`` substrate on Windows with
-    Hangul running. Returns ``{available, applied, skipped, count}``.
+    Attaches to the running automation instance (does not close it) and first
+    verifies its ACTIVE document is *path* — filling whatever happens to be
+    active would corrupt an unrelated document. On mismatch it opens *path*
+    into that instance when ``open_if_needed`` (default), else returns a
+    structured refusal. For each resolved target, enters the table, moves to
+    the cell address, optionally clears it, and inserts the value. Requires the
+    optional ``pyhwpx`` substrate on Windows with Hangul running.
+    Returns ``{available, applied, skipped, count, opened}``.
     """
-    if sys.platform != "win32":
-        return {"available": False, "error": "live COM fill needs Windows + Hangul"}
-    try:
-        from pyhwpx import Hwp  # optional; pulls pywin32/numpy/pandas
-    except Exception as exc:  # ImportError or dependency error
-        return {"available": False, "error": f"pyhwpx not installed (extra 'live'): {exc}"}
+    Hwp, err = _load_pyhwpx()
+    if err:
+        return err
 
     targets, skipped = resolve_cell_targets(path, values)
 
@@ -125,6 +186,36 @@ def apply_cells_to_open(
         hwp = Hwp(new=False, visible=visible, on_quit=False)  # attach to running
     except Exception as exc:
         return {"available": True, "connected": False, "error": str(exc)}
+
+    try:
+        active = str(hwp.XHwpDocuments.Active_XHwpDocument.FullName or "")
+    except Exception:
+        active = ""
+    opened_here = False
+    if not _same_doc(active, path):
+        if not open_if_needed:
+            return {
+                "available": True,
+                "connected": True,
+                "ok": False,
+                "active_document": active,
+                "error": (
+                    "attached instance's active document is not the requested file; "
+                    "pass open_if_needed=true or call open_in_hwp first "
+                    "(hand-opened windows are not attachable)"
+                ),
+            }
+        try:
+            if not hwp.open(str(Path(path))):
+                return {
+                    "available": True,
+                    "connected": True,
+                    "ok": False,
+                    "error": f"could not open {path} in the automation instance",
+                }
+        except Exception as exc:
+            return {"available": True, "connected": True, "ok": False, "error": str(exc)}
+        opened_here = True
 
     applied: List[dict] = []
     for t in targets:
@@ -142,4 +233,11 @@ def apply_cells_to_open(
         except Exception as exc:  # pragma: no cover - live COM only
             skipped.append({"key": t["label"], "reason": f"live error: {exc}"})
 
-    return {"available": True, "connected": True, "applied": applied, "skipped": skipped, "count": len(applied)}
+    return {
+        "available": True,
+        "connected": True,
+        "opened": opened_here,
+        "applied": applied,
+        "skipped": skipped,
+        "count": len(applied),
+    }
