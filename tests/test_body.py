@@ -217,3 +217,69 @@ def test_splice_entity_marker_across_split_runs():
     assert applied == [1]
     inner = "".join(t.text or "" for t in _wellformed(new_section).iter("{urn:x}t"))
     assert inner == "> V"
+
+
+# --- US-067: <hp:lineBreak/> child elements inside <hp:t> --------------------
+# A soft break authored inside a run serialises as a <hp:lineBreak/> CHILD of
+# <hp:t>. The _T capture grabs it as literal "<hp:lineBreak/>" text, which never
+# matches what Hangul (COM) renders, stalling the live body aligner. Detection
+# must render it away so the template reflects the on-screen text.
+
+def _build_linebreak_body(dst: Path) -> None:
+    """b1 = soft-break run + ``{전달 사항}``; b2 = plain; b3 = break-only (blank line)."""
+    header = (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>'
+        b'<hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"/>'
+    )
+    section0 = (
+        f'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hs:sec {_NS}>'
+        '<hp:p id="1"><hp:run charPrIDRef="1"><hp:t><hp:lineBreak/></hp:t></hp:run>'
+        '<hp:run charPrIDRef="2"><hp:t>{전달 사항}</hp:t></hp:run></hp:p>'
+        '<hp:p id="2">' + _run("다음 문단") + "</hp:p>"
+        '<hp:p id="3"><hp:run charPrIDRef="1"><hp:t><hp:lineBreak/></hp:t></hp:run></hp:p>'
+        "</hs:sec>"
+    ).encode()
+    with zipfile.ZipFile(dst, "w") as z:
+        zi = zipfile.ZipInfo("mimetype")
+        zi.compress_type = zipfile.ZIP_STORED
+        z.writestr(zi, b"application/hwp+zip")
+        z.writestr("Contents/header.xml", header)
+        z.writestr("Contents/section0.xml", section0)
+
+
+def test_linebreak_child_stripped_from_template(tmp_path):
+    src = tmp_path / "lb.hwpx"
+    _build_linebreak_body(src)
+    fields = detect_body_fields(src)
+    # break-only paragraph (id=3) is a blank line -> NOT a fillable field
+    assert [f.template for f in fields] == ["{전달 사항}", "다음 문단"]
+    # the literal tag must not leak into the template the client/aligner sees
+    assert "<hp:lineBreak/>" not in fields[0].template
+
+
+def test_linebreak_body_fill_wellformed_and_value(tmp_path):
+    src = tmp_path / "lb.hwpx"
+    _build_linebreak_body(src)
+    out = tmp_path / "lb_filled.hwpx"
+    res = fill(str(src), {"b1": "홍보 안내"}, str(out))
+    assert [f["field_id"] for f in res.filled] == ["b1"]
+    section = HwpxPackage.open(out).read("Contents/section0.xml").decode("utf-8")
+    ET.fromstring(section)  # splice stayed well-formed
+    assert "홍보 안내" in section
+    # untouched paragraph is byte-preserved
+    assert "다음 문단" in section
+
+
+def test_marker_after_linebreak_preserved_on_fill():
+    # A □ marker immediately following a <hp:lineBreak/> child element: the fill
+    # marker is measured on rendered text (matching detect_body_fields), so both
+    # the break element AND the marker survive (raw marker_prefix would drop both).
+    section = (
+        '<hp:p id="1"><hp:run><hp:t><hp:lineBreak/></hp:t></hp:run>'
+        '<hp:run><hp:t>□ 전달사항</hp:t></hp:run></hp:p>'
+    )
+    new_section, applied = replace_body_paragraph(section, {1: "새 공지"})
+    assert applied == [1]
+    assert "<hp:lineBreak/>" in new_section  # break element preserved
+    inner = "".join(t.text or "" for t in _wellformed(new_section).iter("{urn:x}t"))
+    assert inner == "□ 새 공지"  # marker kept, only content after it replaced

@@ -192,7 +192,7 @@ Hangeul-mcp/
 ├─ hangeul_mcp/server.py    # FastMCP stdio 서버 (43 tools)
 ├─ skills/SKILL.md          # 검토→반영 Agent Skill
 ├─ scripts/e2e_evidence.py  # 파일모드 e2e 증거팩 드라이버 (build/evidence/, gitignored)
-├─ tests/                   # 250 collected + fixtures (PII 없는 빈 양식·정부 보고서 템플릿)
+├─ tests/                   # 252 collected + fixtures (PII 없는 빈 양식·정부 보고서 템플릿)
 ├─ docs/                    # DECISIONS(ADR D1~D14) · architecture · clients/ · qa-codex · live-qa-runbook · test-scenarios
 └─ .github/workflows/ci.yml # CI (ubuntu: 코어 py3.11–3.13 + extras 레인 delegate/render)
 ```

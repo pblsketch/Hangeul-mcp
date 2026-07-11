@@ -1,23 +1,13 @@
 """Body-paragraph fields — fillable text that lives OUTSIDE any table.
 
-Many real forms (government report templates, memos) are not built from label
-cells or named fields (누름틀) or ``{placeholder}`` tokens — they are running
-body paragraphs, often led by an outline marker (``□ ○ ― ※ ∘ • ·`` …) whose
-text is placeholder guidance the writer replaces. The cell/inline detectors only
-scan table cells, so those paragraphs were invisible and unfillable.
-
-Design (intentionally dynamic, NOT pattern-hardcoded — forms differ per user):
-
-* We do NOT decide which paragraph is "a blank" with form-specific rules. We
-  ENUMERATE every non-empty body paragraph as an addressable slot (``b1``,
-  ``b2`` …), exposing its current text and a generically-detected marker prefix.
-  The client LLM (the brain) decides which to fill and with what.
-* Marker detection is Unicode-category based (symbol/punctuation run after
-  leading spaces), so any form's bullet style is recognized without a fixed
-  ``□○―`` list.
-* Filling replaces only the text AFTER the marker prefix (or the whole paragraph
-  when there is no marker), editing only ``<hp:t>`` inner text so run/charPr
-  markup and byte-preservation of untouched regions are kept.
+Many real forms (government report templates, memos) are running body paragraphs
+led by an outline marker (``□ ○ ― ※ ∘ • ·`` …) whose text is placeholder guidance,
+not label cells / 누름틀 / ``{placeholder}`` tokens — so the cell detectors missed
+them. Design (dynamic, NOT pattern-hardcoded — forms differ per user): ENUMERATE
+every non-empty body paragraph as an addressable slot (``b1``, ``b2`` …) and let
+the client pick. Marker detection is a Unicode-category grammar (no fixed glyph
+list); filling replaces only text AFTER the marker (or the whole paragraph when
+there is none), editing only ``<hp:t>`` inner text to keep byte-preservation.
 """
 
 from __future__ import annotations
@@ -40,10 +30,33 @@ _NOT_MARKER = set(":：-－.。,，、;；!！?？'\"`‘’“”…/\\()[]{}�
 # Categories of a standalone bullet/reference symbol (□ ○ ● ◆ ▪ ※ * · • ― – —).
 _SYM_CATS = {"So", "Sm", "Sk", "Sc", "Po", "Pd", "Pc"}
 _NUM_PAREN = re.compile(r"\(?\d{1,3}\)")
+# Void child elements that live INSIDE an <hp:t> (soft line break, tab, hyphen).
+# `_T` captures them as literal tag text, so they must be dropped to get the text
+# as Hangul actually renders it (what COM get_selected_text returns).
+_CHILD_TAG = re.compile(r"<[^>]+>")
 
 
 def _esc(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _render(raw: str) -> str:
+    # rendered text = raw <hp:t> concat with child-element tags dropped, decoded.
+    s = _CHILD_TAG.sub("", raw)
+    return s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+
+
+def _raw_prefix(raw: str, n: int) -> int:
+    # length of the raw <hp:t>-concat prefix that RENDERS as the first n chars:
+    # child tags (<...>) contribute 0 rendered chars, an entity (&..;) contributes 1.
+    ri = i = 0
+    while i < len(raw) and ri < n:
+        if raw[i] == "<":
+            i = raw.find(">", i) + 1 or len(raw)
+        else:
+            i = (raw.find(";", i) + 1 or i + 1) if raw[i] == "&" else i + 1
+            ri += 1
+    return i
 
 
 def _is_bullet_sym(ch: str) -> bool:
@@ -144,8 +157,7 @@ def _iter_body_paras(pkg):
         for start, end, has_table in _body_para_spans(section):
             if has_table:
                 continue  # structural wrapper (wraps a table), not a fill slot
-            raw = _para_text(section, start, end)
-            text = raw.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+            text = _render(_para_text(section, start, end))
             if not text.strip():
                 continue
             global_n += 1
@@ -221,7 +233,7 @@ def replace_body_paragraph(section: str, ordinal_map: Dict[int, str], keep_marke
     # keep only non-empty (must match detect_body_fields numbering)
     ordered: List[Tuple[int, int]] = []
     for s, e in spans:
-        if _para_text(section, s, e).strip():
+        if _render(_para_text(section, s, e)).strip():
             ordered.append((s, e))
 
     applied: List[int] = []
@@ -231,13 +243,12 @@ def replace_body_paragraph(section: str, ordinal_map: Dict[int, str], keep_marke
             continue
         s, e = ordered[idx - 1]
         para = section[s:e]
-        prefix = marker_prefix(
-            _para_text(section, s, e).replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-        ) if keep_marker else ""
-        # prefix is measured on DECODED text; the splice indexes RAW <hp:t> chars,
-        # so pass the prefix length in raw (escaped) units or an entity in the
-        # marker (&amp; &lt; &gt;) would be cut mid-sequence -> malformed XML.
-        new_para = _splice_after_prefix(para, len(_esc(prefix)), ordinal_map[idx])
+        raw = _para_text(section, s, e)
+        # Measure the marker on RENDERED text (same basis as detect_body_fields'
+        # insert_after), then map its length back to raw <hp:t> offsets so child
+        # tags and entities in/before the marker are preserved, not cut.
+        marker = marker_prefix(_render(raw)) if keep_marker else ""
+        new_para = _splice_after_prefix(para, _raw_prefix(raw, len(marker)), ordinal_map[idx])
         if new_para is None:
             continue
         section = section[:s] + new_para + section[e:]
@@ -249,10 +260,12 @@ def _splice_after_prefix(para: str, prefix_len: int, value: str) -> str | None:
     """Within one paragraph's XML, replace raw-concat-text[prefix_len:] with *value*.
 
     ``prefix_len`` counts characters of the RAW concatenated ``<hp:t>`` inner text
-    (entities like ``&amp;`` count as their literal characters), matching the
-    idxmap below — callers holding a decoded prefix must ``_esc`` it first.
-    Edits only ``<hp:t>`` inner segments; tags/charPr are preserved. Returns the
-    new paragraph XML, or None if the paragraph has no text node.
+    (entities like ``&amp;`` and child tags like ``<hp:lineBreak/>`` count as their
+    literal characters), matching the idxmap below. Callers with a rendered-text
+    prefix length must translate it via :func:`_raw_prefix` (which accounts for
+    both entities and child tags); ``len(_esc(prefix))`` alone is correct only when
+    the raw text has no child element tags. Edits only ``<hp:t>`` inner segments;
+    tags/charPr are preserved. Returns the new paragraph XML, or None if no text node.
     """
     segs = [(m.start(1), m.end(1)) for m in _T.finditer(para)]
     if not segs:

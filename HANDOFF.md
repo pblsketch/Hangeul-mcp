@@ -6,7 +6,7 @@
 
 ## 검증된 기준선 (실측)
 
-- 테스트: `./.venv/Scripts/python.exe -m pytest -q` → **249 passed, 1 skipped (250 collected)**
+- 테스트: `./.venv/Scripts/python.exe -m pytest -q` → **251 passed, 1 skipped (252 collected)**
   - 유일한 skip = `tests/test_com.py` 라이브 COM 테스트(`HANGEUL_MCP_LIVE=1` 데스크톱 전용)
 - 린트: `./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests` → clean
 - 런타임 MCP 툴: **43** (등록은 정적 — optional extra 유무와 무관하게 등록되고, 미설치 시 호출 결과가 `available:false`)
