@@ -79,6 +79,33 @@ fresh 연결 read-back == "홍길동". US-029(원래 시나리오: 사용자가 
   read-back `t2.r3.c1` == `" 은행명: 농협   계좌번호: 123-456-7890      "`(중복 없음).
 - 경계(명시): 인라인 라이브는 셀 전체 텍스트를 재작성하므로 셀 내 리치서식이 평탄화된다. 서식 보존이 필요하면 파일 모드.
 
+## 본문/라이브 QA 결함 수정 패스 (2026-07-11, FIX-FIRST — codex 독립 QA)
+
+독립 QA(FIX-FIRST)가 실측 확인한 결함 5건을 수정하고 각 결함에 재현 테스트를 추가했다
+(수정 전 red → 후 green, 전체 `pytest -q` = 249 passed / 1 skipped).
+
+- **P1/HIGH-3** (`body.py`, 순수·헤드리스 검증 완료): 엔티티(`&amp; &lt; &gt;`)가 든 마커
+  prefix를 **디코딩 길이**로 splice해 raw `<hp:t>`의 엔티티를 절단 → malformed XML.
+  prefix 길이를 raw(`_esc`) 단위로 넘겨 해결. 회귀: `test_splice_*`(왕복 + `ET.fromstring` 통과).
+- **P4/MEDIUM-8** (`body.py`, 순수·헤드리스 검증 완료): 유니코드 범주 단독 판정 → `:`/`-` 오탐,
+  로마숫자/원문자/`(1)` 미탐. **마커 문법**(불릿·대시·참조표·번호마커 + 뒤 구분자 요구, prose
+  구두점 제외)으로 교체. 회귀: `test_marker_prefix_*`. 정부 fixture □○―※ 탐지 유지.
+- **P5/HIGH-4** (`fill.py`, 순수·헤드리스 검증 완료): 선행 placeholder/markpen/누름틀 패스가
+  본문 문단을 비우면 `replace_body_paragraph`의 비어있지-않은 ordinal이 시프트. 본문 패스를
+  section-wide 패스보다 **먼저** 적용해 원본 좌표(b_index)와 일치. 회귀: 빈 `ph:x`+`b1` 동시 fill.
+- **P2/CRITICAL-2** (`hwp/live_body.py`, **fake-COM 단위검증 · 실기기 미확보**): 본문 라이브 채우기가
+  `set_pos` 실패를 무시하고 `Delete`해 직전 문단 파괴 가능. `set_pos` 반환 검사 + **compare-before-write**
+  (삭제 전 문단 재독해 → template 불일치 시 skip) 추가. 회귀: `tests/test_live_body.py`(실패 주입 시 Delete 미호출).
+- **P3/CRITICAL-1** (`hwp/live.py`, **fake-COM 단위검증 · 실기기 미확보**): 자동 `open` 후 활성문서를
+  재확인하지 않고 편집 → open이 True여도 활성이 안 바뀌면 무관 문서 오염. open 직후 `Active…FullName`을
+  다시 읽어 `same_doc` 강제, 불일치면 편집 없이 구조화 거절. `open_in_hwp`도 `ok = opened and same_doc`.
+  회귀: `tests/test_live_open.py`(open→True·활성불변 시 편집 없이 `ok:false`).
+
+**실기기(Windows+한글) 미확보 — 이 패스에서 캡처해야 할 증거**:
+1. `open_in_hwp(사본)` → `apply_cells_to_open_hwp(사본, {b_n: 값})` 본문 채우기 → fresh read-back 정확
+2. 실패 주입(존재하지 않는 문단/변경된 문단)에서 파괴적 편집이 일어나지 않고 skip으로 귀결
+3. P3: 타 문서 활성 상태에서 auto-open 후 active==path 확인되어야만 편집 진행
+
 ## 미확보 증거 (이 문서를 닫는 조건)
 
 [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md) 절차로 다음을 캡처하면 이 문서를 삭제하고

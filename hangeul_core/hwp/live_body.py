@@ -64,7 +64,22 @@ def apply_body_targets(hwp, path, body_targets: List[dict], applied: List[dict],
             skipped.append({"key": fid, "reason": "body paragraph not found live"})
             continue
         try:
-            hwp.set_pos(0, para, len(t["marker"]))  # caret just past the marker
+            # compare-before-write: re-read the paragraph and overwrite ONLY when
+            # it still matches the template we analysed — never delete blind.
+            if not hwp.set_pos(0, para, 0):
+                skipped.append({"key": fid, "reason": "could not position caret in body paragraph"})
+                continue
+            hwp.HAction.Run("MoveSelParaEnd")
+            current = hwp.get_selected_text()
+            hwp.HAction.Run("Cancel")
+            if _norm(current) != _norm(t["template"]):
+                skipped.append({"key": fid, "reason": "body paragraph changed since analysis"})
+                continue
+            # A failed set_pos here would leave the caret in the PREVIOUS paragraph;
+            # the MoveSelParaEnd+Delete below would then destroy it. Guard it.
+            if not hwp.set_pos(0, para, len(t["marker"])):  # caret just past the marker
+                skipped.append({"key": fid, "reason": "could not position caret past marker"})
+                continue
             hwp.HAction.Run("MoveSelParaEnd")
             hwp.HAction.Run("Delete")
             if t["value"]:

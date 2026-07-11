@@ -33,33 +33,69 @@ from hangeul_core.schema import KIND_BODY_PARA, Field, normalize_label
 
 _TAG = re.compile(r"<hp:(?:p|tbl)\b[^>]*>|</hp:(?:p|tbl)>")
 _T = re.compile(r"<hp:t>(.*?)</hp:t>", re.S)
-# Unicode categories that count as an outline marker character (bullets, dashes,
-# reference marks, etc.) — general, not a hardcoded 표-specific list.
-_MARKER_CATS = {"So", "Sm", "Sk", "Sc", "Po", "Pd", "Pc"}
+# Prose punctuation that is never a standalone outline marker (colon, sentence
+# hyphen/period/comma, quotes, brackets, slash). This is the DUAL of the marker
+# grammar — general prose punctuation, not a hardcoded per-form bullet list.
+_NOT_MARKER = set(":：-－.。,，、;；!！?？'\"`‘’“”…/\\()[]{}（）")
+# Categories of a standalone bullet/reference symbol (□ ○ ● ◆ ▪ ※ * · • ― – —).
+_SYM_CATS = {"So", "Sm", "Sk", "Sc", "Po", "Pd", "Pc"}
+_NUM_PAREN = re.compile(r"\(?\d{1,3}\)")
 
 
 def _esc(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def marker_prefix(text: str) -> str:
-    """Leading run of ``whitespace + marker-symbols + whitespace`` (may be '').
+def _is_bullet_sym(ch: str) -> bool:
+    return unicodedata.category(ch) in _SYM_CATS and ch not in _NOT_MARKER
 
-    Detects the outline marker generically via Unicode category so any form's
-    bullet style works. Stops at the first letter/digit/Hangul.
-    """
-    i = 0
+
+def _marker_token_end(text: str, i: int) -> int:
+    """End offset of the marker glyph(s) beginning at *i* (excluding trailing
+    whitespace), or -1 if *text[i]* does not start a marker token."""
     n = len(text)
+    ch = text[i]
+    cat = unicodedata.category(ch)
+    if cat == "Nl":  # roman numerals Ⅰ Ⅱ … (+ optional . or ) separator)
+        j = i + 1
+        while j < n and j - i < 4 and unicodedata.category(text[j]) == "Nl":
+            j += 1
+        return j + 1 if j < n and text[j] in ".)" else j
+    if cat == "No":  # circled / enclosed number ① ⑵ …
+        return i + 1
+    m = _NUM_PAREN.match(text, i)  # (1) or 1) — parenthesised number list
+    if m:
+        return m.end()
+    if _is_bullet_sym(ch):  # bullet / reference symbol run (bounded length)
+        j = i + 1
+        while j < n and j - i < 3 and _is_bullet_sym(text[j]):
+            j += 1
+        return j
+    return -1
+
+
+def marker_prefix(text: str) -> str:
+    """Leading ``whitespace + outline-marker + separator`` run (``''`` if none).
+
+    A general marker GRAMMAR, not a hardcoded glyph list (invariant 2): a
+    bullet/reference symbol (Unicode symbol category, minus prose punctuation
+    like ``: - .``) or a NUMBER marker (roman ``Ⅰ``, circled ``①``,
+    ``(1)``/``1)``), each of bounded length and REQUIRING a following separator
+    (whitespace). A lone ``:`` / ``-`` / quote is prose, hence not a marker.
+    """
+    n = len(text)
+    i = 0
     while i < n and text[i].isspace():
         i += 1
-    j = i
-    while j < n and unicodedata.category(text[j]) in _MARKER_CATS:
-        j += 1
-    if j == i:  # no marker symbol found
+    if i >= n:
         return ""
-    while j < n and text[j].isspace():
-        j += 1
-    return text[:j]
+    j = _marker_token_end(text, i)
+    if j < 0:
+        return ""
+    k = j
+    while k < n and text[k].isspace():
+        k += 1
+    return text[:k] if k > j else ""  # a marker must be followed by whitespace
 
 
 def _body_para_spans(section: str) -> List[Tuple[int, int, bool]]:
@@ -198,7 +234,10 @@ def replace_body_paragraph(section: str, ordinal_map: Dict[int, str], keep_marke
         prefix = marker_prefix(
             _para_text(section, s, e).replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
         ) if keep_marker else ""
-        new_para = _splice_after_prefix(para, len(prefix), ordinal_map[idx])
+        # prefix is measured on DECODED text; the splice indexes RAW <hp:t> chars,
+        # so pass the prefix length in raw (escaped) units or an entity in the
+        # marker (&amp; &lt; &gt;) would be cut mid-sequence -> malformed XML.
+        new_para = _splice_after_prefix(para, len(_esc(prefix)), ordinal_map[idx])
         if new_para is None:
             continue
         section = section[:s] + new_para + section[e:]
@@ -207,8 +246,11 @@ def replace_body_paragraph(section: str, ordinal_map: Dict[int, str], keep_marke
 
 
 def _splice_after_prefix(para: str, prefix_len: int, value: str) -> str | None:
-    """Within one paragraph's XML, replace concat-text[prefix_len:] with *value*.
+    """Within one paragraph's XML, replace raw-concat-text[prefix_len:] with *value*.
 
+    ``prefix_len`` counts characters of the RAW concatenated ``<hp:t>`` inner text
+    (entities like ``&amp;`` count as their literal characters), matching the
+    idxmap below — callers holding a decoded prefix must ``_esc`` it first.
     Edits only ``<hp:t>`` inner segments; tags/charPr are preserved. Returns the
     new paragraph XML, or None if the paragraph has no text node.
     """

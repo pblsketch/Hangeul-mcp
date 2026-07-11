@@ -126,6 +126,7 @@ def open_in_hwp(path: str | Path, *, visible: bool = True) -> Dict:
     return {
         "available": True,
         "connected": True,
+        "ok": opened and _same_doc(active, p),
         "opened": opened,
         "active_document": active,
         "cold_start": cold_start,
@@ -134,9 +135,8 @@ def open_in_hwp(path: str | Path, *, visible: bool = True) -> Dict:
 
 
 def _resolve_all_targets(path: str | Path, values: Dict[str, str]):
-    """Resolve to ``(direct, text, body, skipped)``: empty_cell → direct value
-    targets; body field_ids (``b{n}``) → body paragraphs; the rest (inline
-    blanks, checkboxes) ride the file-fill mirror."""
+    """Resolve to ``(direct, text, body, skipped)``: empty_cell → direct values,
+    body field_ids (``b{n}``) → body paragraphs, the rest → file-fill mirror."""
     targets, unresolved = resolve_cell_targets(path, values)
     leftover = {u["key"]: values[u["key"]] for u in unresolved if u["key"] in values}
     if not leftover:
@@ -174,12 +174,9 @@ def apply_cells_to_open(
 ) -> Dict:
     """Fill the OPEN (automation-controlled) Hangul document's cells live.
 
-    Verifies the attached instance's ACTIVE document is *path* first — filling
-    whatever happens to be active would corrupt an unrelated document. On
-    mismatch it opens *path* there when ``open_if_needed`` (default), else
-    returns a structured refusal. Direct targets are cleared+inserted; inline
-    targets replace their cell's full text (file-fill mirror).
-    Returns ``{available, applied, skipped, count, opened, cold_start, elapsed_seconds}``.
+    Verifies the attached instance's ACTIVE document is *path* first (else a
+    different active doc would be corrupted); on mismatch opens *path* when
+    ``open_if_needed`` (default), else refuses — then edits the cell targets.
     """
     Hwp, err = load_pyhwpx()
     if err:
@@ -235,15 +232,20 @@ def _apply_cells_connected(
                 ),
             }
         try:
-            if not hwp.open(str(Path(path))):
-                return {
-                    "available": True,
-                    "connected": True,
-                    "ok": False,
-                    "error": f"could not open {path} in the automation instance",
-                }
+            opened_ok = bool(hwp.open(str(Path(path))))
+            active = str(hwp.XHwpDocuments.Active_XHwpDocument.FullName or "")
         except Exception as exc:
             return {"available": True, "connected": True, "ok": False, "error": str(exc)}
+        # open() can return True while the active document did NOT switch — editing
+        # then would corrupt whatever stayed active. Re-verify before any edit.
+        if not opened_ok or not _same_doc(active, path):
+            return {
+                "available": True,
+                "connected": True,
+                "ok": False,
+                "active_document": active,
+                "error": f"could not make {path} the active document in the automation instance",
+            }
         opened_here = True
 
     applied: List[dict] = []

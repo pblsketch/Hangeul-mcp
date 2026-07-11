@@ -427,6 +427,25 @@ def fill(
         sections[cell.section] = section[:cs] + newtc + section[ce:]
         filled.append({"field_id": fld.field_id, "label": fld.label, "value": value})
 
+    # Body-paragraph pass: replace text of addressed body paragraphs (outside
+    # tables), preserving the marker prefix. MUST run before the markpen / 누름틀 /
+    # {placeholder} passes: those can BLANK a body paragraph (e.g. an empty
+    # placeholder value), and replace_body_paragraph re-enumerates *non-empty*
+    # leaf paragraphs — a prior blanking would slide every later ordinal and land
+    # the value in the wrong paragraph (b_index was computed on the original).
+    if body_edits:
+        for sname, omap in body_edits.items():
+            text = section_text(sname)
+            newtext, applied_ord = replace_body_paragraph(text, omap)
+            if applied_ord:
+                sections[sname] = newtext
+            for local, val in omap.items():
+                key = body_keys[(sname, local)]
+                if local in applied_ord:
+                    filled.append({"field_id": key, "label": key, "value": val})
+                else:
+                    skipped.append({"key": key, "reason": "body paragraph not located"})
+
     # markpen pass: swap only highlighted text, keeping markpenBegin/End tags.
     if mk_edits:
         region_by_pair = {(r["section"], r["occ"]): r for r in mk_regions}
@@ -472,22 +491,6 @@ def fill(
         for name in ph_values:
             if name not in applied_all:
                 skipped.append({"key": name, "reason": "placeholder token not found"})
-
-    # Body-paragraph pass: replace text of addressed body paragraphs (outside
-    # tables), preserving the marker prefix. Applied after cell fills; body and
-    # cell paragraphs never overlap, so ordinals stay valid on the edited string.
-    if body_edits:
-        for sname, omap in body_edits.items():
-            text = section_text(sname)
-            newtext, applied_ord = replace_body_paragraph(text, omap)
-            if applied_ord:
-                sections[sname] = newtext
-            for local, val in omap.items():
-                key = body_keys[(sname, local)]
-                if local in applied_ord:
-                    filled.append({"field_id": key, "label": key, "value": val})
-                else:
-                    skipped.append({"key": key, "reason": "body paragraph not located"})
 
     for name, text in sections.items():
         pkg.replace(name, text.encode("utf-8"))
