@@ -100,3 +100,9 @@
 - **거부 규칙**: mixed-family shape, 템플릿 전용 asset/image payload, alignment/centering hint, `header_footer.columns` 같은 경로 혼합, 중복 `section_id`, 닫히지 않은 nested payload shape는 preview 단계에서 즉시 거절한다.
 - **레이아웃 경계**: page setup / header / footer / page number / columns는 최대 1개의 후속 delegate layout batch로만 적용한다. `columns`는 `page_setup.columns`에만 존재하며, base create 단계가 숨은 본문이나 위치를 합성하지 않는다.
 - **정직성**: v1은 템플릿 전용 이미지 배치, centered heading, 임의 정렬, 숨은 문안 합성, 미문서 `defaults` shape를 약속하지 않는다. 그런 기능은 별도 substrate·테스트·ADR 없이는 추가하지 않는다.
+
+## D17. OWN text edits and current-document picker stay conservative
+- **결정**: OWN 텍스트 치환 경로는 `preview_search_and_replace` / `preview_batch_replace` → `apply_edit_session` → `restore_edit_session`의 **immutable preview + single-session apply + journal/snapshot restore** 제어면으로만 확장한다. 이 세션 계약은 `search_and_replace` / `batch_replace`의 텍스트 치환 경로에만 적용되며, 리치 서식·이미지·live undo를 암묵적으로 포함하지 않는다.
+- **이유**: 바이트보존 불변식과 evidence-first 운영을 유지하려면, 우리가 실제로 증명한 OWN 텍스트 치환과 아직 증명하지 못한 delegate/live 편집을 같은 "undo/edit plan" 약속으로 섞으면 안 된다.
+- **현재 문서 picker 경계**: `resolve_current_hwp_document()` 후보에는 `picker_title` / `picker_subtitle` / `picker_badges` / `picker_label` 같은 additive metadata만 노출한다. 선택 권위는 계속 `candidate_id`이고, saved `.hwpx`/exact-path/fail-closed 라우팅은 바뀌지 않는다.
+- **Windows evidence artifact 경계**: `scripts/windows_live_regression_harness.py`와 `docs/evidence/windows-live-regression-template.json`은 데스크톱 캡처를 정리하는 scaffold일 뿐이다. 이 scaffold 자체가 Windows literal write-safe 증거를 대신하지 않으며, `PENDING_DESKTOP_LIVE_QA.md`의 pending gate를 자동 해제하지 않는다.

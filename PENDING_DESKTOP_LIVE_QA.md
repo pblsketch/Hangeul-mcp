@@ -144,9 +144,10 @@ US-029/US-053 및 saved `.hwpx` current-document pathless UX의 desktop-live-pen
 2. exact-path 경로: `preview_cells_to_open_hwp` 의 attach metadata + target 수
 3. exact-path 경로: `apply_cells_to_open_hwp` 또는 (`open_in_hwp`/`preview_cells_to_open_hwp`로 attach 확인 후) `apply_to_open_hwp(path, values)` 의 `applied[]`/`skipped[]`/count (preview와 대조)
 4. current-document 경로: `resolve_current_hwp_document()` → `preview_current_hwp_document(...)` → `apply_to_current_hwp_document(preview_token)` 의 JSON 전문 + fresh read-back
-5. current-document 안전 경계: Explorer 더블클릭 current-doc 흐름, 같은 basename·다른 폴더 no-auto-select, explicit `candidate_id` selection_required 케이스의 캡처
+5. current-document 안전 경계: Explorer 더블클릭 current-doc 흐름, 같은 basename·다른 폴더 no-auto-select, explicit `candidate_id` selection_required 케이스의 캡처 + `picker_*` metadata 확인
 6. COM 에러 텍스트(있다면)
 7. 채워진 창의 스크린샷 또는 저장본(PII 없는 fixture 사본만)
+8. 필요하면 `scripts/windows_live_regression_harness.py create|validate`로 만든 artifact JSON (`docs/evidence/windows-live-regression-template.json` 구조 준수)
 
 필요 환경: Windows + 한컴오피스 설치 + `pip install -e ".[live]"` + 대화형 세션(Claude Desktop 등).
 pytest 라이브 레인: `$env:HANGEUL_MCP_LIVE=1; python -m pytest tests/test_com.py tests/test_live_resolve.py tests/test_live_current_document.py -q`

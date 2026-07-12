@@ -14,6 +14,15 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from hangeul_core.analyze import _section_names
+from hangeul_core.edit_session import (
+    EditPlan,
+    EditSession,
+    RestoreResult,
+    apply_edit_session,
+    preview_batch_replace,
+    preview_search_and_replace,
+    restore_edit_session,
+)
 from hangeul_core.locate import replace_literals
 from hangeul_core.owpml import HwpxPackage
 
@@ -57,3 +66,17 @@ def search_and_replace(
 ) -> ReplaceResult:
     """Replace every occurrence of *find* with *replace* (byte-preserving)."""
     return batch_replace(path, {find: replace}, out_path)
+
+
+__all__ = [
+    "EditPlan",
+    "EditSession",
+    "ReplaceResult",
+    "RestoreResult",
+    "apply_edit_session",
+    "batch_replace",
+    "preview_batch_replace",
+    "preview_search_and_replace",
+    "restore_edit_session",
+    "search_and_replace",
+]

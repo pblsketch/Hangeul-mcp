@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "kind": "package-test-report",
+  "feature": "safe-full-editor-continuation-g001",
+  "commands": [
+    {
+      "command": "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest tests/test_live_regression.py tests/test_maintainability.py tests/test_edit.py tests/test_edit_session.py tests/test_delegate_edit_session.py tests/test_server.py tests/test_capabilities.py tests/test_live_current_document.py tests/test_live_resolve.py -q",
+      "summary": "75 passed, 1 warning"
+    },
+    {
+      "command": "uv run --no-project --with pyflakes env PYTHONPATH=. python3 -m pyflakes hangeul_core hangeul_mcp tests scripts/windows_live_regression_harness.py",
+      "summary": "clean"
+    },
+    {
+      "command": "python3 -m json.tool docs/prd.json && python3 -m json.tool docs/evidence/windows-live-regression-template.json && python3 scripts/windows_live_regression_harness.py --help",
+      "summary": "json validation clean; harness CLI help succeeded"
+    }
+  ],
+  "notes": [
+    "OWN text replacement now ships immutable preview/apply edit sessions with journal+snapshot restore artifacts.",
+    "Current-document candidates expose additive picker metadata only; saved-.hwpx and fail-closed routing remain unchanged.",
+    "Windows/Hangul literal write-safe evidence is still pending and is not simulated; the new harness/template only structures future desktop captures."
+  ]
+}

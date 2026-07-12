@@ -39,6 +39,53 @@ def candidate_supported(candidate: Dict[str, Any]) -> bool:
     return candidate_format(candidate.get("path")) in {"hwp", "hwpx"}
 
 
+def _picker_title(path: str | Path | None) -> str:
+    raw = str(path or "").strip()
+    if not raw:
+        return "Unsaved current document"
+    return Path(raw).name or raw
+
+
+def _picker_subtitle(path: str | Path | None) -> str:
+    raw = str(path or "").strip()
+    if not raw:
+        return "Save as .hwpx before using current-document live apply"
+    parent = str(Path(raw).parent)
+    return "" if parent == "." else parent
+
+
+def build_candidate_picker(candidate: Dict[str, Any]) -> Dict[str, Any]:
+    path = candidate.get("path")
+    saved = candidate_saved(candidate)
+    fmt = candidate_format(path)
+    write_state = str(candidate.get("write_state") or "unknown")
+    active = bool(candidate.get("is_active"))
+    badges = ["Current" if active else "Background"]
+    if saved:
+        badges.append(f"Saved .{fmt}" if fmt else "Saved")
+    else:
+        badges.append("Unsaved")
+    if write_state == "writable":
+        badges.append("Writable")
+    elif write_state == "read_only":
+        badges.append("Read-only")
+    else:
+        badges.append("Write state unknown")
+    subtitle = _picker_subtitle(path)
+    label = _picker_title(path)
+    if subtitle:
+        label = f"{label} — {subtitle}"
+    return {
+        "picker_title": _picker_title(path),
+        "picker_subtitle": subtitle,
+        "picker_badges": badges,
+        "picker_detail": " · ".join(badges),
+        "picker_label": label,
+    }
+
+
+
+
 def inventory_digest(candidates: Iterable[Dict[str, Any]]) -> str:
     payload = []
     for candidate in candidates:
@@ -233,6 +280,7 @@ def refresh_candidate_state(token: Dict[str, Any], candidates: List[Dict[str, An
 
 
 __all__ = [
+    "build_candidate_picker",
     "candidate_format",
     "candidate_saved",
     "candidate_supported",

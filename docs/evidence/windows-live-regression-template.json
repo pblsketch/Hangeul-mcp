@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "artifacts": {
+    "exact_path": {
+      "schemaVersion": 1,
+      "flow": "exact_path",
+      "fixturePath": "tests/fixtures/sample_form.hwpx",
+      "jsonRefs": {
+        "status": "",
+        "preview": "",
+        "apply": ""
+      },
+      "readback": {
+        "verified": false,
+        "method": "fresh_com_readback",
+        "notes": ""
+      },
+      "screenshotPath": "",
+      "savedCopyPath": "",
+      "notes": [
+        "Fill this artifact only after real Windows + Hangul desktop execution.",
+        "Resolver-path existence and literal write-safe proof must be captured separately."
+      ]
+    },
+    "current_document": {
+      "schemaVersion": 1,
+      "flow": "current_document",
+      "fixturePath": "tests/fixtures/sample_form.hwpx",
+      "jsonRefs": {
+        "status": "",
+        "resolve": "",
+        "preview": "",
+        "apply": ""
+      },
+      "readback": {
+        "verified": false,
+        "method": "fresh_com_readback",
+        "notes": ""
+      },
+      "screenshotPath": "",
+      "savedCopyPath": "",
+      "notes": [
+        "Fill this artifact only after real Windows + Hangul desktop execution.",
+        "Resolver-path existence and literal write-safe proof must be captured separately."
+      ]
+    }
+  }
+}

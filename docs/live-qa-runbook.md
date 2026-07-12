@@ -25,13 +25,22 @@
    - cells/inline/body: `preview_cells_to_open_hwp(path, values)` → `apply_cells_to_open_hwp(path, values)`
 4. **saved `.hwpx` current-document pathless UX**는 별도 케이스로 검증한다.
    - `resolve_current_hwp_document()` → `preview_current_hwp_document(values)` → `apply_to_current_hwp_document(preview_token)`
+   - `resolve_current_hwp_document()` 후보의 `picker_title`/`picker_label`/`picker_badges`를 함께 기록한다.
    - saved `.hwp` current document는 `preview_requires_hwpx`여야 한다.
-5. pytest 라이브 레인:
+5. artifact scaffold가 필요하면 먼저 템플릿을 만든다.
+
+```powershell
+python scripts/windows_live_regression_harness.py create --flow exact_path --out docs/evidence/windows-live-exact-path.json
+python scripts/windows_live_regression_harness.py create --flow current_document --out docs/evidence/windows-live-current-document.json
+```
+
+6. pytest 라이브 레인:
 
 ```powershell
 $env:HANGEUL_MCP_LIVE=1
 ./.venv/Scripts/python.exe -m pytest tests/test_com.py tests/test_live_resolve.py tests/test_live_current_document.py -q
 ```
+
 
 ## 캡처할 증거 (US-053 종결 조건)
 
@@ -39,6 +48,7 @@ $env:HANGEUL_MCP_LIVE=1
 - exact-path 또는 current-document preview 반환(JSON 전문)
 - `applied[]`/`skipped[]` 전체와 COM 에러 텍스트(있다면)
 - 결과 스크린샷 또는 저장본(**PII 없는 fixture 사본만**)
+- 필요하면 `scripts/windows_live_regression_harness.py validate --path <artifact.json>` 결과
 
 raw probe/json과 literal write evidence를 함께 확보하면 `docs/prd.json`의 live 상태를 갱신한다.
 확보 전에는 `PENDING_DESKTOP_LIVE_QA.md`가 earlier failed context와 pending QA gate의 상태 진실이다.

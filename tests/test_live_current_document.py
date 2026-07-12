@@ -90,6 +90,9 @@ def test_resolve_current_auto_selects_single_saved_active_hwpx(monkeypatch, tmp_
     assert res["state"] == "auto_selected"
     assert res["selection_basis"] == "single_saved_active_hwpx"
     assert res["candidate"]["write_state"] == "writable"
+    assert res["candidate"]["picker_title"] == "active.hwpx"
+    assert "Current" in res["candidate"]["picker_badges"]
+
 
 
 
@@ -128,6 +131,14 @@ def test_resolve_current_requires_selection_with_multiple_saved_hwpx(monkeypatch
     res = live_current.resolve_current_hwp_document()
     assert res["state"] == "selection_required"
     assert len(res["candidates"]) == 2
+    active_candidate = next(c for c in res["candidates"] if c["path"] == str(active))
+    other_candidate = next(c for c in res["candidates"] if c["path"] == str(other))
+    assert active_candidate["picker_title"] == "active.hwpx"
+    assert active_candidate["picker_subtitle"] == str(active.parent)
+    assert active_candidate["picker_badges"] == ["Current", "Saved .hwpx", "Writable"]
+    assert active_candidate["picker_detail"] == "Current · Saved .hwpx · Writable"
+    assert active_candidate["picker_label"] == f"active.hwpx — {active.parent}"
+    assert other_candidate["picker_badges"] == ["Background", "Saved .hwpx", "Writable"]
 
 
 def test_resolve_current_blocks_unsaved_active_document(monkeypatch):
@@ -150,6 +161,10 @@ def test_resolve_current_blocks_unsaved_active_document(monkeypatch):
     )
     res = live_current.resolve_current_hwp_document()
     assert res["state"] == "current_document_unsaved"
+    candidate = res["candidates"][0]
+    assert candidate["picker_title"] == "Unsaved current document"
+    assert candidate["picker_subtitle"] == "Save as .hwpx before using current-document live apply"
+    assert candidate["picker_badges"] == ["Current", "Unsaved", "Write state unknown"]
 
 
 def test_resolve_current_blocks_unprovable_active_document(monkeypatch, tmp_path):
@@ -179,6 +194,9 @@ def test_resolve_current_marks_saved_hwp_current_document_unsupported(monkeypatc
     monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
     res = live_current.resolve_current_hwp_document()
     assert res["state"] == "current_document_unsupported"
+    candidate = res["candidates"][0]
+    assert candidate["picker_title"] == "legacy.hwp"
+    assert candidate["picker_badges"] == ["Current", "Saved .hwp", "Writable"]
 
 
 def test_preview_current_uses_real_cell_fixture(monkeypatch):
@@ -187,6 +205,8 @@ def test_preview_current_uses_real_cell_fixture(monkeypatch):
     assert res["state"] == "preview_ready"
     assert res["route"] == "cells"
     assert res["selection_basis"] == "single_saved_hwpx_total"
+    assert res["candidate"]["picker_title"] == SAMPLE_FIXTURE.name
+    assert res["candidate"]["picker_label"].startswith(SAMPLE_FIXTURE.name)
 
     assert res["preview"]["count"] >= 2
     assert res["preview"]["targets"]
@@ -219,6 +239,9 @@ def test_preview_current_allows_explicit_candidate_selection(monkeypatch, tmp_pa
     res = live_current.preview_current_hwp_document({"직위": "교사"}, candidate_id=candidate_id)
     assert res["state"] == "preview_ready"
     assert res["candidate"]["path"] == str(second)
+    assert res["candidate"]["picker_title"] == "second.hwpx"
+    assert res["candidate"]["picker_badges"] == ["Background", "Saved .hwpx", "Writable"]
+    assert any(candidate["picker_label"] == f"first.hwpx — {first.parent}" for candidate in res["candidates"])
 
 
 
@@ -233,6 +256,8 @@ def test_preview_current_mints_token_for_named_field(monkeypatch, tmp_path):
     assert res["route"] == "named_field"
     assert isinstance(res["preview_token"], str) and res["preview_token"]
     assert res["preview"]["named_field_keys"] == ["성명"]
+    assert res["candidate"]["picker_label"] == f"named.hwpx — {src.parent}"
+    assert res["candidate"]["picker_detail"] == "Current · Saved .hwpx · Writable"
 
 
 def test_preview_current_reports_route_conflict(monkeypatch, tmp_path):
@@ -328,6 +353,58 @@ def test_preview_current_supports_mixed_route(monkeypatch, tmp_path):
     assert res["route"] == "mixed"
     assert res["preview"]["named_field_keys"] == ["성명"]
 
+
+
+def test_apply_current_mixed_route_reports_partial_apply(monkeypatch, tmp_path):
+    src = tmp_path / "named.hwpx"
+    _build_named_field(src)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
+    monkeypatch.setattr(
+        live_current,
+        "preview_cells_to_open",
+        lambda path, values: {
+            "available": True,
+            "ok": True,
+            "targets": [{"label": "직위", "field_id": "t1.r0.c1", "value": "교사"}],
+            "text_targets": [],
+            "body_targets": [],
+            "skipped": [],
+        },
+    )
+    preview = live_current.preview_current_hwp_document({"성명": "홍길동", "직위": "교사"})
+    monkeypatch.setattr(
+        live_current,
+        "apply_named_fields_exact_path",
+        lambda path, values: {
+            "available": True,
+            "connected": True,
+            "ok": True,
+            "state": "attached_existing",
+            "applied": ["성명"],
+            "skipped": [],
+            "count": 1,
+            "active_document": str(path),
+        },
+    )
+    monkeypatch.setattr(
+        live_current,
+        "apply_cells_to_open",
+        lambda path, values: {
+            "available": True,
+            "ok": False,
+            "state": "reload_blocked_existing",
+            "warning": "reload blocked",
+        },
+    )
+
+    first = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    second = live_current.apply_to_current_hwp_document(preview["preview_token"])
+
+    assert first["state"] == "partial_apply_error"
+    assert first["partial_apply"] is True
+    assert first["detail_state"] == "reload_blocked_existing"
+    assert first["named_result"]["applied"] == ["성명"]
+    assert second["state"] == "stale_preview_token"
 
 def test_apply_current_reports_stale_candidate(monkeypatch, tmp_path):
     src = tmp_path / "named.hwpx"
@@ -534,7 +611,9 @@ def test_apply_current_invalidates_token_after_partial_mixed_failure(monkeypatch
     )
     first = live_current.apply_to_current_hwp_document(preview["preview_token"])
     second = live_current.apply_to_current_hwp_document(preview["preview_token"])
-    assert first["state"] == "error"
+    assert first["state"] == "partial_apply_error"
+    assert first["partial_apply"] is True
+    assert first["detail_state"] == "error"
     assert second["state"] == "stale_preview_token"
 
 

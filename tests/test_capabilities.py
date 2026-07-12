@@ -30,9 +30,26 @@ def test_delegate_capability_lists_document_spec_tool():
     assert "create_document_from_spec" in delegate["tools"]
 
 
+def test_file_capability_lists_edit_session_tools():
+    file_cap = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "file_hwpx")
+    assert {
+        "search_and_replace",
+        "batch_replace",
+        "preview_search_and_replace",
+        "preview_batch_replace",
+        "apply_edit_session",
+        "restore_edit_session",
+    } <= set(file_cap["tools"])
+
+
 def test_live_capability_lists_current_document_tools():
     live = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "live_hwp")
     assert {
+        "hwp_status",
+        "open_in_hwp",
+        "apply_to_open_hwp",
+        "preview_cells_to_open_hwp",
+        "apply_cells_to_open_hwp",
         "resolve_current_hwp_document",
         "preview_current_hwp_document",
         "apply_to_current_hwp_document",

@@ -192,6 +192,10 @@ pip install -e ".[live]"
 자체 바이트 보존 엔진:
 
 - `search_and_replace`, `batch_replace`, `mail_merge`
+- `preview_search_and_replace`, `preview_batch_replace`, `apply_edit_session`, `restore_edit_session`
+  - preview는 변경 엔트리/개수 audit를 먼저 보여 줍니다.
+  - apply는 단일 session 기준으로 journal/snapshot을 남깁니다.
+  - rich formatting/image/undo를 가장하지 않고 **텍스트 치환 경로만** 다룹니다.
 
 `python-hwpx` 위임 기능:
 
@@ -203,6 +207,7 @@ pip install -e ".[live]"
 - 표 문서·공문 스켈레톤·블록 문서·`DocumentSpec v1`·Markdown 기반 HWPX 생성
 
 위임 기능의 정확한 도구명은 `describe_capabilities()` 또는 서버의 도구 목록에서 확인할 수 있습니다.
+
 
 ### 4. 열린 한글 문서에 라이브 입력
 
@@ -230,6 +235,7 @@ resolve_current_hwp_document()
 
 - v1은 **저장된 `.hwpx` 현재 문서만** 지원합니다.
 - 여러 문서가 있으면 임의로 고르지 않고 후보 선택을 요청합니다.
+- `resolve_current_hwp_document()` 후보에는 `picker_title`/`picker_subtitle`/`picker_badges`/`picker_label`이 들어 있어 사람이 보고 고를 수 있습니다.
 - preview에서 받은 일회용 token 없이는 쓰지 않습니다.
 - apply 직전에 COM 객체·문서 슬롯·전체 경로를 다시 확인합니다.
 - 문서가 바뀌거나 닫혔거나 token이 재사용되면 쓰지 않고 구조화된 오류를 반환합니다.
@@ -241,7 +247,9 @@ resolve_current_hwp_document()
 
 - ROT 전체 열거와 normalized `FullName` exact match로 대상 문서를 찾는 코드
 - 다중 문서·같은 파일명·stale token·active race 등에 대한 fake-COM 자동 테스트
+- current-document 후보의 human-readable picker metadata(`picker_*`) 추가
 - Windows Shell `Start-Process`로 연 기존 `.hwpx`에 `open_if_needed=false`로 값 2건 입력 후 별도 연결 read-back 성공
+- Windows regression artifact template/validator(`docs/evidence/windows-live-regression-template.json`, `scripts/windows_live_regression_harness.py`)
 
 아직 남은 것:
 
@@ -250,6 +258,7 @@ resolve_current_hwp_document()
 - 일부 본문 라이브 안전장치의 추가 실기기 실패 주입 검증
 
 따라서 라이브 기능은 파일 모드보다 보수적으로 사용해야 합니다. 원자료와 완료 조건은 [`PENDING_DESKTOP_LIVE_QA.md`](PENDING_DESKTOP_LIVE_QA.md), 절차는 [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md)에서 확인할 수 있습니다.
+
 
 ## 개인정보와 로컬 실행 경계
 
@@ -261,11 +270,12 @@ resolve_current_hwp_document()
 ## 개발 상태와 품질
 
 - 패키지 버전: `0.1.2` (Pre-Alpha)
-- 런타임 MCP 도구: **47 tools**
+- 런타임 MCP 도구: **51 tools**
 - 최신 로컬 검증: **416 passed, 1 skipped**
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending
+
 
 ### 배포 채널과 release 증거 원칙
 
@@ -317,10 +327,12 @@ Hangeul-mcp/
 ├─ tests/                    # 단위·통합·fake-COM 테스트와 PII 없는 fixtures
 ├─ docs/                     # 설계, 상태, QA, 클라이언트 설정
 ├─ scripts/e2e_evidence.py   # 파일 모드 E2E 증거 생성
+├─ scripts/windows_live_regression_harness.py  # Windows live artifact template/validator
 └─ .github/workflows/ci.yml  # CI
+
 ```
 
-FastMCP stdio 서버에는 현재 47개의 도구가 등록됩니다 `(47 tools)`.
+FastMCP stdio 서버에는 현재 51개의 도구가 등록됩니다 `(51 tools)`.
 
 ## 관련 문서
 

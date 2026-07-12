@@ -43,7 +43,8 @@
 
 ### C. 편집 (우리는 "채우기"만, 일반 편집 없음)
 
-- [ ] `search_and_replace` / `batch_replace` (전역 텍스트 치환)
+- [x] `search_and_replace` / `batch_replace` (전역 텍스트 치환)
+- [x] text edit-session preview/apply/restore (`preview_search_and_replace` / `preview_batch_replace` / `apply_edit_session` / `restore_edit_session`) — OWN 경로만, rich formatting/image/undo는 제외
 - [ ] 문단: `add_heading`/`add_paragraph`/`insert`/`delete`/`add_page_break`
 - [ ] 표: create/merge/split/format, add/remove rows·cols, `table_compute`(합계·평균)
 - [ ] 리치 서식: bold/italic/underline/color/size/font, 문단정렬·줄간격·들여쓰기, `create_custom_style`
@@ -60,14 +61,13 @@
 ### E. 안전·품질·복구 (우리는 바이트보존·well-formed 검증만)
 
 - [ ] **XSD 스키마 검증** — D1 결정에서 python-hwpx로 하려 했으나 미통합.
-- [ ] **원자적 트랜잭션 / dry-run / undo / rollback** — airmang `apply_edits`·`undo_last_edit`.
+- [~] **원자적 트랜잭션 / dry-run / undo / rollback** — OWN text path에는 immutable preview/apply + journal/snapshot restore가 들어갔지만, rich/live undo는 여전히 미지원.
 - [ ] **change tracking(redline)** — `add_tracked_edit`.
 - [ ] **repair_hwpx** — 안 열리는 파일 복구.
 - [ ] **render_preview (HTML/PNG)** — 시각 프리뷰. claw-hwp 라이브 프리뷰, airmang render_preview. 우리 없음.
 - [ ] **PII 마스킹 게이트** — jkf87/airmang secure-fill. 우리 SKILL.md 권고만 있고 코드 게이트 없음.
 - [ ] **lint / 품질 게이트** — `lint_text_conventions`, 공식문서 스타일 검사.
 - [ ] `mcp_server_health`, `copy_document`(편집 전 복사 강제).
-
 ### F. 포맷 확장
 
 - [ ] PDF/DOCX/XLSX ingestion (airmang `[ingest]`, kordoc).

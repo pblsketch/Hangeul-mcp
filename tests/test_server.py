@@ -21,6 +21,10 @@ def test_four_tools_registered():
         "create_document_from_blocks",
         "create_document_from_spec",
         "render_preview",
+        "preview_search_and_replace",
+        "preview_batch_replace",
+        "apply_edit_session",
+        "restore_edit_session",
         "extract_hwp_text",
         "describe_capabilities",
         "preview_cells_to_open_hwp",
@@ -58,11 +62,17 @@ def test_extract_text_tool():
 def test_current_document_tools_delegate_to_live_module(monkeypatch):
     import hangeul_mcp.tools_live as live_tools
 
-    monkeypatch.setattr(live_tools, "_resolve_current_hwp_document", lambda: {"state": "selection_required"})
+    monkeypatch.setattr(live_tools, "_resolve_current_hwp_document", lambda: {"state": "selection_required", "candidates": []})
     monkeypatch.setattr(
         live_tools,
         "_preview_current_hwp_document",
-        lambda values, candidate_id=None, mode="auto": {"state": "preview_ready", "preview_token": "tok"},
+        lambda values, candidate_id=None, mode="auto": {
+            "state": "preview_ready",
+            "preview_token": "tok",
+            "candidate": {"candidate_id": candidate_id, "picker_label": "sample.hwpx — fixtures"},
+            "candidates": [{"candidate_id": candidate_id, "picker_label": "sample.hwpx — fixtures"}],
+            "mode": mode,
+        },
     )
     monkeypatch.setattr(
         live_tools,
@@ -71,5 +81,9 @@ def test_current_document_tools_delegate_to_live_module(monkeypatch):
     )
 
     assert server.resolve_current_hwp_document()["state"] == "selection_required"
-    assert server.preview_current_hwp_document({"성명": "홍길동"})["state"] == "preview_ready"
+    preview = server.preview_current_hwp_document({"성명": "홍길동"}, candidate_id="cand-1", mode="strict")
+    assert preview["state"] == "preview_ready"
+    assert preview["candidate"]["candidate_id"] == "cand-1"
+    assert preview["candidate"]["picker_label"] == "sample.hwpx — fixtures"
+    assert preview["mode"] == "strict"
     assert server.apply_to_current_hwp_document("tok")["preview_token"] == "tok"

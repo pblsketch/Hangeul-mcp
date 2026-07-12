@@ -11,6 +11,7 @@ from hangeul_core.hwp import HwpBridge
 from hangeul_core.hwp.com import list_rot_instances, normalize_live_path
 
 from hangeul_core.hwp.current_document import (
+    build_candidate_picker,
     candidate_format,
     candidate_saved,
     candidate_write_state,
@@ -67,6 +68,7 @@ def _candidate_from_document(moniker: str, document: Dict[str, Any]) -> Dict[str
         "active_identity_proven": bool(document.get("active_identity_proven")),
         "write_state": candidate_write_state(path),
     }
+    candidate.update(build_candidate_picker(candidate))
     _CANDIDATE_CACHE[candidate["candidate_id"]] = dict(candidate)
     return candidate
 
@@ -310,10 +312,22 @@ def apply_to_current_hwp_document(preview_token: str) -> Dict[str, Any]:
         named_result = _apply_named_route(candidate, token)
         if not named_result.get("ok"):
             return _normalize_apply_error(route, named_result)
-        _PREVIEW_TOKENS.pop(preview_token, None)
         cell_result = _apply_cell_route(candidate, token)
         if not cell_result.get("ok"):
-            return _normalize_apply_error(route, {**cell_result, "named_result": named_result})
+            _PREVIEW_TOKENS.pop(preview_token, None)
+            normalized = _normalize_apply_error(route, {**cell_result, "named_result": named_result})
+            return {
+                **normalized,
+                "available": normalized.get("available", True),
+                "ok": False,
+                "state": "partial_apply_error",
+                "detail_state": normalized.get("state"),
+                "partial_apply": True,
+                "candidate": candidate,
+                "named_result": named_result,
+                "cell_result": cell_result,
+            }
+        _PREVIEW_TOKENS.pop(preview_token, None)
         return {
             "available": True,
             "ok": True,
