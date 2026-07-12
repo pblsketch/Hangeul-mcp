@@ -95,3 +95,8 @@
 - **정직성**: 업데이트 확인은 PyPI JSON 메타데이터를 우선 사용하되, 패키지가 아직 게시되지 않았거나 PyPI 응답이 불능이면 `not_published` 또는 구조화된 오류를 그대로 노출한다. 아직 verifiable publication이 없는데 성공을 추정하지 않는다.
 - **클라이언트 설정 원칙**: managed install이 아니면 각 클라이언트는 절대 경로 `sys.executable -m hangeul_mcp.server`를 사용한다. managed install일 때만 stable launcher를 사용해 런타임 전환을 캡슐화한다.
 - **extras 문서화 경계**: Windows live 문서는 `com`(pywin32)과 `live`(pyhwpx + numpy/pandas/pyperclip/pillow)가 **별도 optional extra**임을 기준으로 쓴다. `live`가 `com`을 자동 포함한다고 과장하지 않는다.
+## D16. `DocumentSpec v1`는 conservative tagged union만 제공한다
+- **결정**: `create_document_from_spec` v1은 `blocks_template`(`school.*`)와 `recipe_template`(`official.*`)의 **명시적 tagged union**만 허용한다. 학교 템플릿은 `sections`가 유일한 본문 권위 데이터이며, 공문 템플릿은 기존 recipe chrome만 재사용한다. 현재 shipped contract는 더 보수적으로 `meeting_overview`에 **제목 뒤 최소 1개 paragraph**를 요구하고, `letter_header`/`report_header`/`application_header`는 **단일 heading(title) 블록만** 허용한다.
+- **거부 규칙**: mixed-family shape, 템플릿 전용 asset/image payload, alignment/centering hint, `header_footer.columns` 같은 경로 혼합, 중복 `section_id`, 닫히지 않은 nested payload shape는 preview 단계에서 즉시 거절한다.
+- **레이아웃 경계**: page setup / header / footer / page number / columns는 최대 1개의 후속 delegate layout batch로만 적용한다. `columns`는 `page_setup.columns`에만 존재하며, base create 단계가 숨은 본문이나 위치를 합성하지 않는다.
+- **정직성**: v1은 템플릿 전용 이미지 배치, centered heading, 임의 정렬, 숨은 문안 합성, 미문서 `defaults` shape를 약속하지 않는다. 그런 기능은 별도 substrate·테스트·ADR 없이는 추가하지 않는다.

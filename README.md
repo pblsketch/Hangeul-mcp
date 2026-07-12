@@ -200,7 +200,7 @@ pip install -e ".[live]"
 - 표 병합·병합 해제·셀 음영
 - 글자 강조
 - 용지·여백·단·쪽번호·머리말·꼬리말
-- 표 문서·공문 스켈레톤·블록 문서·Markdown 기반 HWPX 생성
+- 표 문서·공문 스켈레톤·블록 문서·`DocumentSpec v1`·Markdown 기반 HWPX 생성
 
 위임 기능의 정확한 도구명은 `describe_capabilities()` 또는 서버의 도구 목록에서 확인할 수 있습니다.
 
@@ -261,8 +261,8 @@ resolve_current_hwp_document()
 ## 개발 상태와 품질
 
 - 패키지 버전: `0.1.2` (Pre-Alpha)
-- 런타임 MCP 도구: **46 tools**
-- 최신 로컬 검증: **312 passed, 15 skipped**
+- 런타임 MCP 도구: **47 tools**
+- 최신 로컬 검증: **416 passed, 1 skipped**
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending
@@ -283,6 +283,7 @@ resolve_current_hwp_document()
 - `.hwp`의 검증된 비COM 헤드리스 읽기
 - 임의 표의 행·열 추가/삭제, table compute, TOC 자동화
 - 열린 문서의 글꼴·스타일을 라이브 COM으로 자유 편집
+- `DocumentSpec v1`에서 템플릿 전용 이미지 배치·정렬 힌트·숨은 본문 합성
 - 모든 HWPX 양식에 대한 무검토 자동 채우기 보장
 
 로드맵은 [`docs/ROADMAP.md`](docs/ROADMAP.md), 상태 원본은 [`docs/prd.json`](docs/prd.json), 설계 결정은 [`docs/DECISIONS.md`](docs/DECISIONS.md)에서 관리합니다.
@@ -319,7 +320,7 @@ Hangeul-mcp/
 └─ .github/workflows/ci.yml  # CI
 ```
 
-FastMCP stdio 서버에는 현재 46개의 도구가 등록됩니다 `(46 tools)`.
+FastMCP stdio 서버에는 현재 47개의 도구가 등록됩니다 `(47 tools)`.
 
 ## 관련 문서
 

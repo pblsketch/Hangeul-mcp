@@ -18,6 +18,7 @@ from hangeul_core.delegate_edit import (
 )
 from hangeul_core.delegate_generate import (
     create_document_from_blocks,
+    create_document_from_spec,
     create_from_markdown,
     create_official_document,
     create_table_from_rows,
@@ -28,6 +29,7 @@ __all__ = [
     "add_picture",
     "add_table",
     "create_document_from_blocks",
+    "create_document_from_spec",
     "create_from_markdown",
     "create_official_document",
     "create_table_from_rows",

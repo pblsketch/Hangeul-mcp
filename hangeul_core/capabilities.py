@@ -88,6 +88,7 @@ def describe_capabilities() -> Dict[str, Any]:
                     "create_official_document",
                     "create_document_from_blocks",
                     "create_hwpx_from_markdown",
+                    "create_document_from_spec",
                 ],
                 requires=["python-hwpx"],
                 note="Commodity editing and generation delegated to python-hwpx.",

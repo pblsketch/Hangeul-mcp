@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict
 
+from hangeul_core.document_spec import create_document_from_spec as _create_document_from_spec
 from hangeul_core.delegate_base import edit_result, module, save
 
 
@@ -137,3 +138,7 @@ def create_document_from_blocks(blocks: list, out_path: str | Path) -> Dict:
     from hangeul_core.blocks import create_document_from_blocks as create
 
     return create(blocks, out_path)
+
+
+def create_document_from_spec(spec: Dict, out_path: str | Path) -> Dict:
+    return _create_document_from_spec(spec, out_path)

@@ -1,0 +1,137 @@
+{
+  "architectReview": {
+    "architectureStatus": "CLEAR",
+    "productStatus": "CLEAR",
+    "codeStatus": "CLEAR",
+    "recommendation": "APPROVE",
+    "evidence": "Architect final lane cleared the hardened DocumentSpec v1 planner/generator surface, and the critic final lane approved Stage-05 plan conformance after doc-sync.",
+    "commands": [
+      "agent://19-19-ArchitectDocSpecClear9",
+      "agent://21-21-CriticDocSpecApprove5"
+    ],
+    "blockers": []
+  },
+  "executorQa": {
+    "status": "passed",
+    "e2eStatus": "passed",
+    "redTeamStatus": "passed",
+    "evidence": "Leader-ran focused/full package verification, fail-closed negative cases, runtime MCP discovery, CLI smoke, PRD JSON validation, and diff cleanliness on the current worktree.",
+    "e2eCommands": [
+      "uv run --no-project --with pytest --with 'mcp>=1.2.0' --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest tests/test_document_spec.py tests/test_delegate_document_spec.py tests/test_server.py tests/test_capabilities.py tests/test_live_current_document.py -q",
+      "uv run --no-project --with pytest --with 'mcp>=1.2.0' --with pyflakes --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest -q"
+    ],
+    "redTeamCommands": [
+      "uv run --no-project --with pyflakes env PYTHONPATH=. python3 -m pyflakes hangeul_core hangeul_mcp tests",
+      "uv run --no-project --with 'mcp>=1.2.0' env PYTHONPATH=. python3 - <<'PY' ... await server.mcp.list_tools() ... PY",
+      "uv run --no-project --with 'mcp>=1.2.0' env PYTHONPATH=. python3 -m hangeul_mcp.manage --help",
+      "git diff --check"
+    ],
+    "artifactRefs": [
+      {
+        "id": "package-surface",
+        "kind": "package-test-report",
+        "path": "docs/evidence/document-spec-v1-verification.json",
+        "description": "Focused/full pytest, pyflakes, PRD JSON parse, MCP discovery, CLI smoke, and diff-clean evidence for DocumentSpec v1"
+      }
+    ],
+    "contractCoverage": [
+      {
+        "id": "school-union-routing",
+        "contractRef": "SAFE_FULL_EDITOR_EXPANSION_RALPLAN.md#stage-05-blocks-template",
+        "obligation": "school.* templates stay section-authoritative, flatten deterministically, and reject malformed nested payloads fail closed.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["package-surface"],
+        "adversarialCaseRefs": ["duplicate-section", "nested-payload"]
+      },
+      {
+        "id": "official-union-routing",
+        "contractRef": "SAFE_FULL_EDITOR_EXPANSION_RALPLAN.md#stage-05-recipe-template",
+        "obligation": "official.* templates remain metadata-driven with required/allowed metadata validation and no hidden prose synthesis beyond documented recipe chrome.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["package-surface"],
+        "adversarialCaseRefs": ["unknown-metadata", "non-object-spec"]
+      },
+      {
+        "id": "layout-batch-order",
+        "contractRef": "SAFE_FULL_EDITOR_EXPANSION_RALPLAN.md#delegate-follow-on-layout-batch-rule",
+        "obligation": "layout follow-on emits at most one delegate batch in fixed order with `page_setup.columns` as the only columns path.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["package-surface"],
+        "adversarialCaseRefs": ["header-footer-columns"]
+      },
+      {
+        "id": "public-surface-compat",
+        "contractRef": "README.md / HANDOFF.md / capabilities / MCP registry",
+        "obligation": "the new DocumentSpec tool is exposed without weakening existing live current-document routing or public capability guidance.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["package-surface"],
+        "adversarialCaseRefs": ["non-object-spec"]
+      }
+    ],
+    "surfaceEvidence": [
+      {
+        "id": "package-surface",
+        "contractRef": "DocumentSpec v1 package surface",
+        "surface": "package",
+        "invocation": "Focused pytest lanes, full pytest suite, MCP tool discovery, CLI help smoke, PRD JSON parse, and diff cleanliness on the current worktree.",
+        "verdict": "passed",
+        "artifactRefs": ["package-surface"]
+      }
+    ],
+    "adversarialCases": [
+      {
+        "id": "duplicate-section",
+        "contractRef": "closed-world blocks_template validation",
+        "scenario": "duplicate required/optional section ids in a school template",
+        "expectedBehavior": "reject with structured invalid-shape error before delegate execution",
+        "verdict": "passed",
+        "artifactRefs": ["package-surface"]
+      },
+      {
+        "id": "nested-payload",
+        "contractRef": "malformed nested payload rejection",
+        "scenario": "non-object sections, missing/non-list blocks, nested dict cells, and unsupported nested block keys",
+        "expectedBehavior": "return structured invalid-shape errors without leaking raw Python exceptions",
+        "verdict": "passed",
+        "artifactRefs": ["package-surface"]
+      },
+      {
+        "id": "unknown-metadata",
+        "contractRef": "official metadata gating",
+        "scenario": "unknown metadata keys, missing required metadata, and bad optional metadata types for official templates",
+        "expectedBehavior": "reject as invalid_template_kind_shape",
+        "verdict": "passed",
+        "artifactRefs": ["package-surface"]
+      },
+      {
+        "id": "header-footer-columns",
+        "contractRef": "page_setup.columns only",
+        "scenario": "caller supplies `header_footer.columns` or malformed layout value types/enums",
+        "expectedBehavior": "reject the plan instead of silently dropping or coercing unsupported layout payloads",
+        "verdict": "passed",
+        "artifactRefs": ["package-surface"]
+      },
+      {
+        "id": "non-object-spec",
+        "contractRef": "MCP tool contract hardening",
+        "scenario": "server receives a non-object `spec` payload",
+        "expectedBehavior": "return structured invalid-shape error instead of coercing the payload",
+        "verdict": "passed",
+        "artifactRefs": ["package-surface"]
+      }
+    ],
+    "blockers": []
+  },
+  "iteration": {
+    "status": "passed",
+    "evidence": "Architect blockers and critic iterate findings were fixed in code/tests/docs, then the full verification loop was rerun cleanly on the hardened worktree.",
+    "fullRerun": true,
+    "rerunCommands": [
+      "uv run --no-project --with pytest --with 'mcp>=1.2.0' --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest tests/test_document_spec.py tests/test_delegate_document_spec.py tests/test_server.py tests/test_capabilities.py tests/test_live_current_document.py -q",
+      "uv run --no-project --with pytest --with 'mcp>=1.2.0' --with pyflakes --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest -q",
+      "uv run --no-project --with pyflakes env PYTHONPATH=. python3 -m pyflakes hangeul_core hangeul_mcp tests",
+      "git diff --check"
+    ],
+    "blockers": []
+  }
+}

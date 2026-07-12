@@ -19,6 +19,7 @@ def test_four_tools_registered():
         "merge_table_cells",
         "set_cell_shading",
         "create_document_from_blocks",
+        "create_document_from_spec",
         "render_preview",
         "extract_hwp_text",
         "describe_capabilities",

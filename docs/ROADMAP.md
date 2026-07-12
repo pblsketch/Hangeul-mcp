@@ -54,8 +54,8 @@ python-hwpx를 얇게 감싸 Hangeul-mcp 툴로 노출(재발명 금지). 편집
 
 ## Phase D (P3) — 문서 생성 [DELEGATE + 우리 레시피]
 
-1. **빌더/변환** ✅(부분) — `create_document_from_blocks` 완전제어 빌더, markdown subset(heading/paragraph/list/pipe table)→HWPX 완료. `create_document_from_plan`·full CommonMark·중첩 목록은 후속. (`blocks.py`, `markdown.py`, US-025/039/040)
-2. **공식문서 레시피** — 기안문·보도자료·계획서·시험지(문제+답안) 템플릿 생성. 우리 템플릿 + 위임 조립.
+1. **빌더/변환** ✅(부분) — `create_document_from_blocks` 완전제어 빌더, markdown subset(heading/paragraph/list/pipe table)→HWPX, 그리고 보수적 `create_document_from_spec` v1(`school.*` section-authoritative / `official.*` recipe-template) 완료. 템플릿 전용 이미지 배치·정렬 힌트·`create_document_from_plan`·full CommonMark·중첩 목록은 후속. (`blocks.py`, `document_spec.py`, `markdown.py`, US-025/039/040)
+2. **공식문서 레시피** — 기안문·보도자료·계획서·시험지(문제+답안) 템플릿 생성. 우리 템플릿 + 위임 조립. `create_document_from_spec`의 `official.*` 브랜치는 현재 공문/보도자료/기안문만 보수적으로 라우팅한다.
 3. **mail_merge** ✅ — 대량 생성(우리 fill 엔진 + 레코드 반복, **OWN 바이트보존**). CSV/JSON 파싱은 클라이언트(records 전달). (`mailmerge.py`, US-026)
 - 원칙: 문안 *생성*은 클라이언트 LLM, 서버는 구조 조립·채우기만.
 

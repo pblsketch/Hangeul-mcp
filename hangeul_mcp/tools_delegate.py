@@ -178,6 +178,12 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
         return _delegate_op("", _delegate.create_document_from_blocks, blocks, out_path)
 
     @mcp.tool()
+    def create_document_from_spec(spec: Dict[str, Any], out_path: str) -> Dict[str, Any]:
+        if not _delegate.hwpx_available():
+            return _unavailable()
+        return _delegate_op("", _delegate.create_document_from_spec, spec, out_path)
+
+    @mcp.tool()
     def create_hwpx_from_markdown(markdown: str, out_path: str) -> Dict[str, Any]:
         if not _delegate.hwpx_available():
             return _unavailable()

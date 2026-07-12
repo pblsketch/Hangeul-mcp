@@ -171,6 +171,7 @@ def test_preview_current_requires_hwpx_for_saved_hwp(monkeypatch, tmp_path):
     res = live_current.preview_current_hwp_document({"성명": "홍길동"})
     assert res["state"] == "preview_requires_hwpx"
     assert res["ok"] is False
+    assert "preview_token" not in res
 
 def test_resolve_current_marks_saved_hwp_current_document_unsupported(monkeypatch, tmp_path):
     src = tmp_path / "legacy.hwp"

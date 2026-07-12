@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "kind": "package-test-report",
+  "feature": "document-spec-v1",
+  "commands": [
+    {
+      "command": "uv run --no-project --with pytest --with 'mcp>=1.2.0' --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest tests/test_document_spec.py tests/test_delegate_document_spec.py tests/test_server.py tests/test_capabilities.py tests/test_live_current_document.py -q",
+      "result": "86 passed, 1 warning"
+    },
+    {
+      "command": "uv run --no-project --with pytest --with 'mcp>=1.2.0' --with pyflakes --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest -q",
+      "result": "416 passed, 1 skipped, 1 warning"
+    },
+    {
+      "command": "uv run --no-project --with pyflakes env PYTHONPATH=. python3 -m pyflakes hangeul_core hangeul_mcp tests",
+      "result": "clean"
+    },
+    {
+      "command": "python3 - <<'PY' ... json.load(open('docs/prd.json')) ... PY",
+      "result": "ok=true, stories=67"
+    },
+    {
+      "command": "uv run --no-project --with 'mcp>=1.2.0' env PYTHONPATH=. python3 - <<'PY' ... await server.mcp.list_tools() ... PY",
+      "result": "count=47, has_create_document_from_spec=true"
+    },
+    {
+      "command": "uv run --no-project --with 'mcp>=1.2.0' env PYTHONPATH=. python3 -m hangeul_mcp.manage --help",
+      "result": "cli help rendered"
+    },
+    {
+      "command": "git diff --check",
+      "result": "clean"
+    }
+  ],
+  "reviews": {
+    "architect": "agent://19-19-ArchitectDocSpecClear9",
+    "critic": "agent://21-21-CriticDocSpecApprove5"
+  },
+  "notes": [
+    "DocumentSpec v1 now covers all four school templates and all three official templates in planner and delegate generation tests.",
+    "The shipped contract is conservative: school templates are section-authoritative, official templates remain metadata-driven, template-owned assets/images plus alignment hints are rejected, and malformed nested payloads fail closed before delegate execution.",
+    "Windows/Hangul live evidence is not feasible in this Linux session and was not simulated. Existing desktop-live pending work remains tracked separately in PENDING_DESKTOP_LIVE_QA.md."
+  ]
+}

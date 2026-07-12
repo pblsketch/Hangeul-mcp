@@ -25,6 +25,11 @@ def test_server_describe_capabilities_tool_registered():
     assert any("fill_form" in cap["tools"] for cap in res["capabilities"])
 
 
+def test_delegate_capability_lists_document_spec_tool():
+    delegate = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "delegate_hwpx")
+    assert "create_document_from_spec" in delegate["tools"]
+
+
 def test_live_capability_lists_current_document_tools():
     live = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "live_hwp")
     assert {
