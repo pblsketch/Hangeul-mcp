@@ -31,7 +31,7 @@ def _fail_fill(message):
 def _live_reload_module():
     try:
         return importlib.import_module("hangeul_core.hwp.live_reload")
-    except ModuleNotFoundError as exc:  # pragma: no cover - RED until implementation lands
+    except ModuleNotFoundError:  # pragma: no cover - RED until implementation lands
         pytest.fail(
             "safe-attach reload helper missing: expected hangeul_core.hwp.live_reload"
         )

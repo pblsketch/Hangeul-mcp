@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "kind": "package-test-report",
+  "feature": "current-document-pathless-ux",
+  "commands": [
+    {
+      "command": "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest tests/test_live_current_document.py tests/test_com.py tests/test_live_resolve.py tests/test_server.py tests/test_capabilities.py tests/test_live_open.py tests/test_maintainability.py -q",
+      "result": "79 passed, 1 skipped, 1 warning"
+    },
+    {
+      "command": "uv run --no-project --with pyflakes --with 'mcp>=1.2.0' python -m pyflakes hangeul_core hangeul_mcp tests",
+      "result": "clean"
+    },
+    {
+      "command": "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest -q",
+      "result": "244 passed, 15 skipped, 1 warning"
+    },
+    {
+      "command": "python3 -m json.tool docs/prd.json >/dev/null && git diff --check && python3 -c 'from hangeul_mcp import server; print(len(server.mcp._tool_manager._tools))'",
+      "result": "prd.json valid, git diff --check clean, tool count 46"
+    }
+  ],
+  "reviews": {
+    "architect": "agent://6-ArchitectFinal",
+    "critic": "agent://9-CriticApprove"
+  },
+  "notes": [
+    "Saved-.hwpx current-document pathless UX is code/headless-complete.",
+    "Remaining Windows desktop proof is explicitly tracked in PENDING_DESKTOP_LIVE_QA.md."
+  ]
+}

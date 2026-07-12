@@ -18,6 +18,25 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 
+
+def _active_document_object(docs):
+    try:
+        return getattr(docs, "Active_XHwpDocument")
+    except Exception:
+        return None
+
+
+def _same_document_object(left, right) -> bool:
+    if left is None or right is None:
+        return False
+    if left is right:
+        return True
+    try:
+        return bool(left == right)
+    except Exception:
+        return False
+
+
 def normalize_live_path(path: str | Path) -> str:
     """Normalize a live-attach path for exact Windows-style FullName matching."""
     raw = str(path or "").strip()
@@ -55,23 +74,61 @@ def inspect_open_documents(docs) -> List[dict]:
         count = int(docs.Count)
     except Exception:
         return []
-    active_path = _document_fullname(getattr(docs, "Active_XHwpDocument", None))
+    active_doc = _active_document_object(docs)
+    active_path = _document_fullname(active_doc)
     active_normalized = normalize_live_path(active_path)
+    active_path_empty = active_doc is not None and not bool(active_path)
     base = _document_index_base(docs, count)
-    documents: List[dict] = []
+    raw_documents = []
     for slot in range(count):
-        entry: dict = {"slot": slot}
+        entry: dict = {
+            "slot": slot,
+            "is_active": False,
+            "active_source": None,
+            "active_slot": None,
+            "active_path_empty": active_path_empty,
+            "active_identity_proven": False,
+        }
+        doc = None
         try:
-            fullname = _document_fullname(docs.Item(slot + base))
+            doc = docs.Item(slot + base)
+            fullname = _document_fullname(doc)
             entry["path"] = fullname
             entry["normalized_path"] = normalize_live_path(fullname)
-            entry["is_active"] = bool(
-                active_normalized and entry["normalized_path"] == active_normalized
-            )
         except Exception as exc:
             entry["inspect_error"] = str(exc)
+        raw_documents.append((entry, doc))
+
+    active_slot = None
+    active_source = None
+    active_identity_proven = False
+    if active_doc is not None:
+        for entry, doc in raw_documents:
+            if _same_document_object(active_doc, doc):
+                active_slot = entry["slot"]
+                active_source = "identity"
+                active_identity_proven = True
+                break
+    if active_slot is None and active_normalized:
+        matched_slots = [
+            entry["slot"]
+            for entry, _doc in raw_documents
+            if str(entry.get("normalized_path") or "") == active_normalized
+        ]
+        if len(matched_slots) == 1:
+            active_slot = matched_slots[0]
+            active_source = "path"
+
+    documents: List[dict] = []
+    for entry, _doc in raw_documents:
+        if active_slot is not None and entry["slot"] == active_slot:
+            entry["is_active"] = True
+            entry["active_source"] = active_source
+        entry["active_slot"] = active_slot
+        entry["active_identity_proven"] = active_identity_proven
         documents.append(entry)
-    if active_path and not any(doc.get("is_active") for doc in documents):
+
+    if active_doc is not None and active_slot is None:
         documents.insert(
             0,
             {
@@ -79,6 +136,10 @@ def inspect_open_documents(docs) -> List[dict]:
                 "path": active_path,
                 "normalized_path": active_normalized,
                 "is_active": True,
+                "active_source": "active_only",
+                "active_slot": None,
+                "active_path_empty": active_path_empty,
+                "active_identity_proven": False,
                 "source": "Active_XHwpDocument",
             },
         )
@@ -137,7 +198,12 @@ def find_rot_exact_path_candidates(
                     "path": doc_path,
                     "source": "rot_exact_path",
                     "moniker": moniker,
+                    "slot": doc.get("slot"),
                     "is_active": bool(doc.get("is_active")),
+                    "active_source": doc.get("active_source"),
+                    "active_slot": doc.get("active_slot"),
+                    "active_path_empty": bool(doc.get("active_path_empty")),
+                    "active_identity_proven": bool(doc.get("active_identity_proven")),
                 }
             )
             matched = True
@@ -151,7 +217,12 @@ def find_rot_exact_path_candidates(
                     "path": active_document,
                     "source": "rot_exact_path",
                     "moniker": moniker,
+                    "slot": instance.get("active_slot"),
                     "is_active": True,
+                    "active_source": instance.get("active_source"),
+                    "active_slot": instance.get("active_slot"),
+                    "active_path_empty": bool(instance.get("active_path_empty")),
+                    "active_identity_proven": bool(instance.get("active_identity_proven")),
                 }
             )
     return candidates
@@ -252,6 +323,17 @@ def list_rot_instances() -> List[dict]:
                 )
                 entry["active_document"] = active_document
                 entry["normalized_active_document"] = normalize_live_path(active_document)
+                active_entry = next(
+                    (doc for doc in entry["documents"] if doc.get("is_active")),
+                    None,
+                )
+                if active_entry is not None:
+                    entry["active_source"] = active_entry.get("active_source")
+                    entry["active_slot"] = active_entry.get("active_slot")
+                    entry["active_path_empty"] = bool(active_entry.get("active_path_empty"))
+                    entry["active_identity_proven"] = bool(
+                        active_entry.get("active_identity_proven")
+                    )
             except Exception as exc:
                 entry["inspect_error"] = str(exc)
             instances.append(entry)

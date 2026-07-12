@@ -8,7 +8,14 @@ import os
 
 import pytest
 
-from hangeul_core.hwp import HwpBridge, find_rot_exact_path_candidates, normalize_field_values, pick_rot_exact_path_candidate
+from hangeul_core.hwp import (
+    HwpBridge,
+    find_broker_exact_path_candidates,
+    normalize_field_values,
+    pick_broker_exact_path_candidate,
+    revalidate_broker_exact_path_candidate,
+)
+from hangeul_core.hwp.com import inspect_open_documents
 from hangeul_mcp import server
 
 
@@ -93,38 +100,127 @@ def test_apply_tool_pathful_missing_file_uses_exact_path_state(monkeypatch, tmp_
     assert res["available"] is True
 
 
-def test_find_rot_exact_path_candidates_preserve_ambiguity(tmp_path):
+class _Doc:
+    def __init__(self, fullname):
+        self.FullName = fullname
+
+
+class _Docs:
+    def __init__(self, docs, active_doc):
+        self._docs = list(docs)
+        self.Active_XHwpDocument = active_doc
+        self.Count = len(self._docs)
+
+    def Item(self, idx):
+        if idx < 1 or idx > self.Count:
+            raise IndexError(idx)
+        return self._docs[idx - 1]
+
+
+def test_inspect_open_documents_reports_active_provenance(tmp_path):
+    src = tmp_path / "form.hwpx"
+    other = tmp_path / "other.hwpx"
+    docs = [_Doc(str(other)), _Doc(str(src))]
+
+    rows = inspect_open_documents(_Docs(docs, docs[1]))
+
+    assert rows[1]["is_active"] is True
+    assert rows[1]["active_source"] == "identity"
+    assert rows[1]["active_slot"] == 1
+    assert rows[1]["active_path_empty"] is False
+    assert rows[1]["active_identity_proven"] is True
+
+
+def test_inspect_open_documents_reports_unprovable_active_empty_path():
+    docs = [_Doc("C:/docs/one.hwpx")]
+
+    rows = inspect_open_documents(_Docs(docs, _Doc("")))
+
+    assert rows[0]["source"] == "Active_XHwpDocument"
+    assert rows[0]["is_active"] is True
+    assert rows[0]["active_source"] == "active_only"
+    assert rows[0]["active_slot"] is None
+    assert rows[0]["active_path_empty"] is True
+    assert rows[0]["active_identity_proven"] is False
+
+
+
+
+def test_find_broker_exact_path_candidates_preserve_ambiguity(tmp_path):
     src = tmp_path / "form.hwpx"
     src.write_bytes(b"x")
     instances = [
         {
             "moniker": "rot://1",
-            "documents": [{"path": str(src), "is_active": True}],
+            "documents": [
+                {
+                    "path": str(src),
+                    "slot": 0,
+                    "is_active": True,
+                    "active_source": "identity",
+                    "active_slot": 0,
+                    "active_path_empty": False,
+                    "active_identity_proven": True,
+                }
+            ],
             "active_document": str(src),
         },
         {
             "moniker": "rot://2",
-            "documents": [{"path": str(src), "is_active": False}],
+            "documents": [
+                {
+                    "path": str(src),
+                    "slot": 0,
+                    "is_active": False,
+                    "active_source": "path",
+                    "active_slot": 1,
+                    "active_path_empty": False,
+                    "active_identity_proven": False,
+                }
+            ],
             "active_document": str(src),
         },
     ]
 
-    candidates = find_rot_exact_path_candidates(src, instances)
+    candidates = find_broker_exact_path_candidates(src, instances)
 
     assert len(candidates) == 2
     assert {c["moniker"] for c in candidates} == {"rot://1", "rot://2"}
     assert all(c["state"] == "attached_existing" for c in candidates)
     assert all(c["source"] == "rot_exact_path" for c in candidates)
-    assert pick_rot_exact_path_candidate(src, instances) is None
+    assert pick_broker_exact_path_candidate(src, instances) is None
 
 
-def test_apply_tool_pathful_exact_path_candidates_still_refuses_generic_reconnect(monkeypatch, tmp_path):
-    monkeypatch.setattr(HwpBridge, "available", staticmethod(lambda: True))
+def test_revalidate_broker_exact_path_candidate_rechecks_moniker_and_slot(tmp_path):
+    src = tmp_path / "form.hwpx"
+    src.write_bytes(b"x")
+    candidate = {
+        "moniker": "rot://1",
+        "path": str(src),
+        "slot": 1,
+    }
+    instances = [
+        {
+            "moniker": "rot://1",
+            "documents": [
+                {"path": str(src), "slot": 0, "is_active": False},
+                {"path": str(src), "slot": 1, "is_active": True},
+            ],
+        },
+        {
+            "moniker": "rot://2",
+            "documents": [{"path": str(src), "slot": 1, "is_active": True}],
+        },
+    ]
 
-    def boom(self, *args, **kwargs):
-        raise AssertionError("pathful apply_to_open_hwp must not use generic reconnect")
+    matched = revalidate_broker_exact_path_candidate(src, candidate, instances)
 
-    monkeypatch.setattr(HwpBridge, "connect", boom)
+    assert matched is not None
+    assert matched["moniker"] == "rot://1"
+    assert matched["slot"] == 1
+
+
+def test_apply_tool_pathful_exact_path_delegates_to_exact_path_helper(monkeypatch, tmp_path):
     src = tmp_path / "form.hwpx"
     src.write_bytes(b"x")
 
@@ -132,23 +228,24 @@ def test_apply_tool_pathful_exact_path_candidates_still_refuses_generic_reconnec
 
     monkeypatch.setattr(
         live_tools,
-        "_exact_attach_candidates",
-        lambda path: [
-            {"state": "attached_existing", "path": str(src), "source": "rot_exact_path"},
-            {"state": "attached_existing", "path": str(src), "source": "rot_exact_path"},
-        ],
+        "_apply_named_fields_exact_path",
+        lambda path, values, visible=True: {
+            "available": True,
+            "connected": True,
+            "ok": True,
+            "state": "attached_existing",
+            "requested_path": str(path),
+            "applied": ["성명"],
+            "skipped": [],
+        },
     )
 
     res = server.apply_to_open_hwp({"성명": "홍길동"}, path=str(src))
 
-    assert res["ok"] is False
-    assert res["state"] == "legacy_active_document"
+    assert res["ok"] is True
+    assert res["state"] == "attached_existing"
     assert res["requested_path"] == str(src)
-    assert res["attach_candidates"] == [
-        {"state": "attached_existing", "path": str(src), "source": "rot_exact_path"},
-        {"state": "attached_existing", "path": str(src), "source": "rot_exact_path"},
-    ]
-    assert "use open_in_hwp(path)" in res["note"]
+    assert res["applied"] == ["성명"]
 
 
 def test_com_tools_registered():

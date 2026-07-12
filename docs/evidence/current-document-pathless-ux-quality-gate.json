@@ -1,0 +1,140 @@
+{
+  "architectReview": {
+    "architectureStatus": "CLEAR",
+    "productStatus": "CLEAR",
+    "codeStatus": "CLEAR",
+    "recommendation": "APPROVE",
+    "evidence": "Architect final signoff cleared the availability-gating, token-lifecycle, and proof-boundary issues for the current-document live UX.",
+    "commands": [
+      "agent://6-ArchitectFinal"
+    ],
+    "blockers": []
+  },
+  "executorQa": {
+    "status": "passed",
+    "e2eStatus": "passed",
+    "redTeamStatus": "passed",
+    "evidence": "Leader-ran focused and full pytest suites plus pyflakes validated resolver/preview/apply success and fail-closed states, MCP facade wiring, docs drift guards, and repo gates. The remaining Windows desktop proof boundary is explicitly captured in PENDING_DESKTOP_LIVE_QA.md.",
+    "e2eCommands": [
+      "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest tests/test_live_current_document.py tests/test_com.py tests/test_live_resolve.py tests/test_server.py tests/test_capabilities.py tests/test_live_open.py tests/test_maintainability.py -q",
+      "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest -q"
+    ],
+    "redTeamCommands": [
+      "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest tests/test_live_current_document.py -q"
+    ],
+    "artifactRefs": [
+      {
+        "id": "current-doc-report",
+        "kind": "package-test-report",
+        "path": "docs/evidence/current-document-pathless-ux-verification.json",
+        "description": "Focused/full pytest, pyflakes, json validation, and tool-count evidence for the current-document live UX"
+      }
+    ],
+    "contractCoverage": [
+      {
+        "id": "resolver-contract",
+        "contractRef": "CURRENT_DOCUMENT_PATHLESS_UX_RALPLAN.md#resolve_current_hwp_document",
+        "obligation": "Current-document resolution must fail closed for unavailable, unsaved, unsupported, and unprovable states while preserving safe selection metadata.",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "package-surface"
+        ],
+        "adversarialCaseRefs": [
+          "resolver-boundaries"
+        ]
+      },
+      {
+        "id": "preview-apply-contract",
+        "contractRef": "CURRENT_DOCUMENT_PATHLESS_UX_RALPLAN.md#authoritative-preview-token",
+        "obligation": "Preview/apply must support saved .hwpx only, token-only apply, exact-path revalidation, and fail-closed stale/race/read-only handling.",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "package-surface"
+        ],
+        "adversarialCaseRefs": [
+          "token-fail-closed",
+          "mixed-token-invalidation"
+        ]
+      },
+      {
+        "id": "server-facade-contract",
+        "contractRef": "CURRENT_DOCUMENT_PATHLESS_UX_RALPLAN.md#public-tool-schemas",
+        "obligation": "Server must register and delegate the three current-document tools without broad rewrites.",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "package-surface"
+        ],
+        "adversarialCaseRefs": [
+          "facade-delegation"
+        ]
+      }
+    ],
+    "surfaceEvidence": [
+      {
+        "id": "package-surface",
+        "contractRef": "python package + MCP facade tests",
+        "surface": "package",
+        "invocation": "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest -q",
+        "verdict": "passed",
+        "artifactRefs": [
+          "current-doc-report"
+        ]
+      }
+    ],
+    "adversarialCases": [
+      {
+        "id": "resolver-boundaries",
+        "contractRef": "current-document resolver blockers",
+        "scenario": "Unavailable, unsaved, unsupported, unprovable, and explicit candidate-selection states.",
+        "expectedBehavior": "Return fail-closed resolver/preview states with no guessed background pivot.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "current-doc-report"
+        ]
+      },
+      {
+        "id": "token-fail-closed",
+        "contractRef": "preview token lifecycle",
+        "scenario": "Stale preview token, stale candidate, closed document, active race, read-only upgrade, and reload_blocked_existing.",
+        "expectedBehavior": "Reject or preserve blocker states without mutating a different live target.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "current-doc-report"
+        ]
+      },
+      {
+        "id": "mixed-token-invalidation",
+        "contractRef": "mixed-route apply token safety",
+        "scenario": "A mixed route mutates named fields successfully, then the cell leg fails.",
+        "expectedBehavior": "Invalidate the reviewed token immediately so a retry requires a fresh preview.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "current-doc-report"
+        ]
+      },
+      {
+        "id": "facade-delegation",
+        "contractRef": "server current-document tool wiring",
+        "scenario": "Server-facing resolve/preview/apply tools delegate into the live_current orchestration layer.",
+        "expectedBehavior": "The registered tools call the expected facade targets and preserve returned state.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "current-doc-report"
+        ]
+      }
+    ],
+    "blockers": []
+  },
+  "iteration": {
+    "status": "passed",
+    "evidence": "After contract/test/doc fixes, the focused suite, pyflakes, full pytest, JSON validation, git diff --check, and tool-count verification were rerun cleanly, and architect/critic follow-up lanes cleared or approved the remaining issues.",
+    "fullRerun": true,
+    "rerunCommands": [
+      "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest tests/test_live_current_document.py tests/test_com.py tests/test_live_resolve.py tests/test_server.py tests/test_capabilities.py tests/test_live_open.py tests/test_maintainability.py -q",
+      "uv run --no-project --with pyflakes --with 'mcp>=1.2.0' python -m pyflakes hangeul_core hangeul_mcp tests",
+      "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' python -m pytest -q",
+      "python3 -m json.tool docs/prd.json >/dev/null && git diff --check && python3 -c 'from hangeul_mcp import server; print(len(server.mcp._tool_manager._tools))'"
+    ],
+    "blockers": []
+  }
+}

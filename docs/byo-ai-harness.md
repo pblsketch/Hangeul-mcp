@@ -51,17 +51,27 @@ render_preview(out_path, preview_png)
 
 본문과 표 내용은 AI 클라이언트가 만든다. Hangeul-mcp는 구조 조립과 검증만 담당한다.
 
-## 열린 한글 문서 live 셀 채우기 흐름
+## 열린 한글 문서 live 흐름
 
 ```text
 hwp_status()
+open_in_hwp(path)
+apply_to_open_hwp(path, values)          # named field exact-path live apply
 preview_cells_to_open_hwp(path, values)
-apply_cells_to_open_hwp(path, values)
+apply_cells_to_open_hwp(path, values)    # cell/inline/body exact-path live apply
 ```
 
 `preview_cells_to_open_hwp`는 COM을 호출하지 않는다. 열린 한글 창을 건드리지 않고, 어떤 표/행/열에 값이 들어갈지만 미리 보여준다.
 
-실제 적용은 사용자가 target을 확인한 뒤 `apply_cells_to_open_hwp`로 수행한다.
+## 현재 문서(pathless) live 흐름 — saved `.hwpx` only
+
+```text
+resolve_current_hwp_document()
+preview_current_hwp_document(values, candidate_id=None, mode="auto")
+apply_to_current_hwp_document(preview_token)
+```
+
+현재 문서 pathless UX는 **저장된 `.hwpx` current document만** 지원한다. saved `.hwp` current document는 `preview_requires_hwpx`로 fail-closed 하고, apply는 preview에서 발급한 token만 받는다.
 
 ## 개인정보 경계
 

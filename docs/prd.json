@@ -3,7 +3,8 @@
   "summary": "Korean HWP/HWPX form-fill MCP server. Client-agnostic (Claude Desktop, Codex, Antigravity 2.0). Python. v1 headless fill, v2 COM live-apply via pyhwpx put_field_text. Differentiators: inline-blank fill, merged-cell 2D understanding, review-then-apply.",
   "status": "v0.1.0 released; codex QA passed (all findings fixed)",
   "planApprovedByUser": true,
-  "note": "Approved and implemented baseline. This file now tracks the shipped headless codebase plus the approved conservative Batch A live contract: confirm exact-path with open_in_hwp(path) or preview_cells_to_open_hwp(path, values) first, then use legacy active-document apply_to_open_hwp(values) for named fields; pathful apply remains guidance/refusal only. Stories with passes:true are complete, and desktop-live-pending stories still require literal Windows write-safe evidence. | Stabilization pass (ralplan consensus, .omo/plans/hangeul-mcp-stabilization-ralplan.md): stories US-047..US-060 ARE recorded in this file (BC3); pass count == passes==true.",
+  "note": "Approved and implemented baseline. This file now tracks the shipped headless codebase plus the approved conservative live contract: exact-path named-field apply via open_in_hwp(path) / apply_to_open_hwp(path, values), exact-path cell apply via preview_cells_to_open_hwp(path, values) / apply_cells_to_open_hwp(path, values), and saved-.hwpx current-document pathless UX via resolve_current_hwp_document / preview_current_hwp_document / apply_to_current_hwp_document. Stories with passes:true are complete, and desktop-live-pending stories still require literal Windows write-safe evidence. | Stabilization pass (ralplan consensus, .omo/plans/hangeul-mcp-stabilization-ralplan.md): stories US-047..US-060 ARE recorded in this file (BC3); pass count == passes==true.",
+
   "stories": [
     {
       "id": "US-000",
@@ -157,13 +158,13 @@
       "passes": true,
       "acceptanceCriteria": [
         "hwp_status, open_in_hwp, apply_to_open_hwp tools exposed",
-        "Preferred Batch A flow for named fields is open_in_hwp(path) or preview_cells_to_open_hwp(path, values) first, then apply_to_open_hwp(values) on the already-controlled active document",
-        "Pathful apply_to_open_hwp(path, values) is guidance/refusal only: it may confirm/refuse attach conservatively, but docs/tests MUST NOT present it as independent exact-path write proof",
+        "Preferred live flows are open_in_hwp(path) -> apply_to_open_hwp(path, values) for named fields, preview_cells_to_open_hwp(path, values) -> apply_cells_to_open_hwp(path, values) for cell routes, and resolve_current_hwp_document -> preview_current_hwp_document -> apply_to_current_hwp_document for saved current .hwpx docs",
+        "Pathful apply_to_open_hwp(path, values) is broker-targeted exact-path live apply; docs/tests MUST still treat Windows write-safe evidence as a separate desktop QA gate",
         "Returns applied[] and skipped[] with reasons plus opened/attached_existing state as applicable; returns needs_field_registration when no named fields exist",
-        "End-to-end demo: analyze -> (LLM draft) -> exact-path attach-first -> active-document apply_to_open_hwp(values) fills the intended live document one-shot"
+        "End-to-end demo: analyze -> (LLM draft) -> exact-path attach-first or saved current-document preview/apply -> intended live document fill"
       ],
       "status": "desktop-live-pending",
-      "statusNote": "Named-field docs now match Batch A: attach first via open_in_hwp/preview, then write through legacy active-document apply_to_open_hwp(values); real-desktop put_field_text evidence remains pending under US-053 / PENDING_DESKTOP_LIVE_QA."
+      "statusNote": "Named-field exact-path apply and saved-.hwpx current-document tooling are implemented, but literal Windows write-safe evidence remains pending under US-053 / PENDING_DESKTOP_LIVE_QA."
     },
     {
       "id": "US-011",

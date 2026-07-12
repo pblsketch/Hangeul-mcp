@@ -20,24 +20,27 @@
 
 1. `tests/fixtures/sample_form.hwpx` **사본**을 준비한다(원본 fixture 오염 금지). 손으로 먼저 열었더라도 계속 가능하지만, 이후 판정은 창 존재 여부가 아니라 **정규화한 경로 exact match** 기준으로만 한다.
 2. `hwp_status()` — 부작용 없음(한글을 띄우지 않음). `available`/`connected`뿐 아니라 `instances`/`attach_boundary`/`first_call_hint`를 함께 기록.
-3. `preview_cells_to_open_hwp(path, values)` — 문서를 쓰지 않는다. `targets`(table/row/col)·`count`와 함께 attach metadata(어떤 resolver path로 exact-path를 잡았는지)를 기록한다.
-4. `apply_cells_to_open_hwp(path, values)` — preview에서 exact-path가 확인된 같은 문서에만 삽입한다. `applied`/`skipped`/`count`와 `active_document`/열림 상태(`opened` 또는 `attached_existing`)를 함께 기록한다.
-   창은 닫히지 않는다. 저장 전이면 한글에서 Ctrl+Z로 복구 가능.
+3. exact-path live 경로 중 하나를 선택한다.
+   - named field: `open_in_hwp(path)` → `apply_to_open_hwp(path, values)`
+   - cells/inline/body: `preview_cells_to_open_hwp(path, values)` → `apply_cells_to_open_hwp(path, values)`
+4. **saved `.hwpx` current-document pathless UX**는 별도 케이스로 검증한다.
+   - `resolve_current_hwp_document()` → `preview_current_hwp_document(values)` → `apply_to_current_hwp_document(preview_token)`
+   - saved `.hwp` current document는 `preview_requires_hwpx`여야 한다.
 5. pytest 라이브 레인:
 
 ```powershell
 $env:HANGEUL_MCP_LIVE=1
-./.venv/Scripts/python.exe -m pytest tests/test_com.py tests/test_live_resolve.py -q
+./.venv/Scripts/python.exe -m pytest tests/test_com.py tests/test_live_resolve.py tests/test_live_current_document.py -q
 ```
 
 ## 캡처할 증거 (US-053 종결 조건)
 
 - `hwp_status` 출력(`instances`/`attach_boundary` 포함)
-- preview의 attach metadata + target 수 vs applied 수
+- exact-path 또는 current-document preview 반환(JSON 전문)
 - `applied[]`/`skipped[]` 전체와 COM 에러 텍스트(있다면)
 - 결과 스크린샷 또는 저장본(**PII 없는 fixture 사본만**)
 
-raw probe/json과 literal write evidence를 함께 확보하면 `docs/prd.json`의 US-029/US-053 상태를 갱신한다.
+raw probe/json과 literal write evidence를 함께 확보하면 `docs/prd.json`의 live 상태를 갱신한다.
 확보 전에는 `PENDING_DESKTOP_LIVE_QA.md`가 earlier failed context와 pending QA gate의 상태 진실이다.
 
 ## 주의 (D7 — best-effort 경계)

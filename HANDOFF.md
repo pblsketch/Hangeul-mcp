@@ -9,7 +9,8 @@
 - 테스트: `./.venv/Scripts/python.exe -m pytest -q` → **current worktree baseline**
   - 코어/extra 설치 프로파일과 Windows live(COM) 환경 여부에 따라 일부 테스트는 skip 또는 `available:false`가 될 수 있다
 - 린트: `./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests` → clean
-- 런타임 MCP 툴: **43** (등록은 정적 — optional extra 유무와 무관하게 등록되고, 미설치 시 호출 결과가 `available:false`)
+- 런타임 MCP 툴: **46** (등록은 정적 — optional extra 유무와 무관하게 등록되고, 미설치 시 호출 결과가 `available:false`)
+
 - PRD: `docs/prd.json` **67 stories** (US-000~US-066), pass 카운트 정의 = `passes==true` (BC3)
 - 개발 환경: venv `./.venv` (Windows). CI(ubuntu)는 두 레인 — 코어(`.[dev]`, py3.11–3.13; 위임/렌더 테스트는 importorskip으로 skip)와 extras(`.[dev,delegate,render]` + chromium, py3.12). `live`/`com` extra는 win32 전용이라 CI에서 강제하지 않고 데스크톱에서 검증한다. 로컬 기준선은 설치 프로파일에 따라 달라질 수 있으므로 `pytest -q` 실측값을 함께 기록한다
 
@@ -19,7 +20,7 @@
 |---|---|---|
 | `complete` | 코드 + 테스트 + 관측 산출물 모두 존재 | v1 헤드리스 코어(인식·바이트보존 채우기·읽기·검증·PII·formfit), 텍스트치환(OWN), mail_merge, capability manifest |
 | `optional-gated` | 코드·테스트 완료, optional extra 필요(미설치 시 `available:false`) | 위임 편집/생성/내보내기(python-hwpx `delegate`), `render_preview`(playwright `render`) |
-| `desktop-live-pending` | 코드 완료, **raw probe/json은 exact-path resolver 존재를 보여 주지만 literal write-safe 실기기(Windows+한글) 증거는 대기** | `apply_to_open_hwp`(US-010) · `apply_cells_to_open_hwp`(US-029) · COM 브릿지(US-009). D7: 중첩표 인덱스 매핑은 best-effort |
+| `desktop-live-pending` | 코드 완료, **raw probe/json은 exact-path resolver 존재를 보여 주지만 literal write-safe 실기기(Windows+한글) 증거는 대기** | `apply_to_open_hwp`(US-010) · `apply_cells_to_open_hwp`(US-029) · `resolve_current_hwp_document`/`preview_current_hwp_document`/`apply_to_current_hwp_document`(saved `.hwpx` current-doc UX) · COM 브릿지(US-009). D7: 중첩표 인덱스 매핑은 best-effort |
 | `spike-pending` | 구현 전 리서치/ADR 필요 | `.hwp` 비COM 읽기(US-042/054/055) · 표 행/열 추가삭제·TOC(US-060, python-hwpx 미노출) |
 | `planned` | 승인된 backlog 상태가 생길 때만 사용 | 현재는 `docs/prd.json` 기준 planned story가 없으면 비워 둔다 |
 

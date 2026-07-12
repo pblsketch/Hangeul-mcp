@@ -6,6 +6,7 @@ object) the CRITICAL-1 guard that refuses to edit when an auto-``open`` did not
 actually make the requested file the active document.
 """
 
+from hangeul_core.hwp import pick_broker_exact_path_candidate
 from hangeul_core.hwp.live import _apply_cells_connected, _same_doc, open_in_hwp
 from hangeul_mcp import server
 import hangeul_core.hwp.live_attach as live_attach_mod
@@ -131,6 +132,35 @@ def test_open_in_hwp_missing_file_is_structured():
     assert res["ok"] is False
     assert "not found" in res["error"]
 
+
+def test_pick_broker_exact_path_candidate_supports_open_in_hwp_attach_substrate(tmp_path):
+    src = tmp_path / "form.hwpx"
+    src.write_bytes(b"x")
+
+    candidate = pick_broker_exact_path_candidate(
+        src,
+        [
+            {
+                "moniker": "rot://1",
+                "documents": [
+                    {
+                        "path": str(src),
+                        "slot": 0,
+                        "is_active": True,
+                        "active_source": "identity",
+                        "active_slot": 0,
+                        "active_path_empty": False,
+                        "active_identity_proven": True,
+                    }
+                ],
+            }
+        ],
+    )
+
+    assert candidate is not None
+    assert candidate["moniker"] == "rot://1"
+    assert candidate["slot"] == 0
+    assert candidate["active_source"] == "identity"
 
 
 def test_open_in_hwp_attaches_unique_exact_path_candidate_without_reopen(monkeypatch, tmp_path):

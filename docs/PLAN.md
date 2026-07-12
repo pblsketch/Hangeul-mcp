@@ -141,19 +141,21 @@ Hangeul-mcp/
 - `open_in_hwp(path) -> {ok, opened, attached_existing, active_document, cold_start, elapsed_seconds}`
 - `preview_cells_to_open_hwp(path, values) -> {count, targets:[...], attach_metadata}`  (문서를 쓰지 않고 exact-path resolver 결과를 먼저 보여 줌)
 - `apply_to_open_hwp(path, values)` / `apply_to_open_hwp(values) -> {applied:[], skipped:[], opened?, attached_existing?}`
-  - 안전한 Batch A named-field 흐름은 `open_in_hwp(path)` 또는 `preview_cells_to_open_hwp(path, values)`로 exact-path attach를 먼저 확인한 뒤, **이미 제어 중인 active 문서에** `apply_to_open_hwp(values)`를 호출하는 것이다
-  - path 인자는 exact-path 단독 쓰기 경로가 아니라 guidance/보수적 refusal 용도다
-  - 내부 쓰기 단계는 서식정합 전처리 후 active 문서의 `get_field_list` 매칭 → `put_field_text(dict)` 원샷
+  - pathful branch는 broker-targeted exact-path live apply다
+  - pathless branch는 이미 제어 중인 active 문서에만 쓰는 legacy 경로다
   - 누름틀/셀필드 없는 양식이면 `needs_field_registration` 반환(안내)
 - `apply_cells_to_open_hwp(path, values, open_if_needed)` — preview의 attach metadata로 same-doc가 확인된 경우에만 셀 쓰기
-- `register_fields(path, mapping)` (선택) — 빈칸을 이름있는 누름틀로 1회 등록해 이후 반영을 견고하게
-- `live_reload(path)` (승인된 follow-up, 미구현 가능) — exact-path 문서 재확인/재attach를 단일 helper로 캡슐화
+- `resolve_current_hwp_document() -> {state, selection_basis, candidates:[...]}`
+- `preview_current_hwp_document(values, candidate_id=None, mode="auto") -> {state, route, preview_token?}`
+  - saved `.hwpx` current document만 v1 범위에 포함
+  - saved `.hwp` current document는 `preview_requires_hwpx`로 종료
+- `apply_to_current_hwp_document(preview_token) -> {state}`
+  - preview token만이 apply 권한이며 fresh values/path는 받지 않음
 
 **검토→반영 워크플로우** (클라이언트 프롬프트/Skill이 오케스트레이션)
 1. `analyze_form` → 필드 스키마
 2. 클라이언트 LLM이 필드별 값 생성(초안) → **사용자 검토**
-3. 승인 시 v1 `fill_form`(파일) 또는 v2 `open_in_hwp(path)`/`preview_cells_to_open_hwp(path, values)`로 exact-path를 확인한 뒤 legacy active-document `apply_to_open_hwp(values)`
-
+3. 승인 시 v1 `fill_form`(파일) 또는 v2 `open_in_hwp(path)`/`apply_to_open_hwp(path, values)` 혹은 `resolve_current_hwp_document`→`preview_current_hwp_document`→`apply_to_current_hwp_document`
 ---
 
 ## 7. 로드맵 (마일스톤)

@@ -25,10 +25,12 @@ from hangeul_core.hwp.com import (
     list_rot_instances,
     load_pyhwpx,
     restore_dialogs,
-    same_doc as _same_doc,
+    same_doc as _same_doc_impl,
     suppress_dialogs,
 )
-from hangeul_core.hwp.live_attach import _ensure_active_document, open_in_hwp
+from hangeul_core.hwp.live_attach import _ensure_active_document, open_in_hwp as _open_in_hwp
+
+
 from hangeul_core.hwp.live_body import apply_body_targets
 from hangeul_core.hwp.live_inline import apply_text_targets, compute_cell_text_replacements
 from hangeul_core.schema import label_key
@@ -36,6 +38,13 @@ from hangeul_core.understand import understand
 
 
 
+
+def _same_doc(active_fullname: str, path: str | Path) -> bool:
+    return _same_doc_impl(active_fullname, path)
+
+
+def open_in_hwp(path: str | Path, *, visible: bool = True):
+    return _open_in_hwp(path, visible=visible)
 def live_available() -> bool:
     """True only where a live COM fill could actually work.
 

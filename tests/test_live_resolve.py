@@ -86,7 +86,7 @@ def test_server_preview_reports_side_effect_free_attach_state(monkeypatch):
     assert res["resolver"] == {
         "side_effect_free": True,
         "exact_path": str(FIXTURE),
-        "apply_to_open_hwp_state": "legacy_active_document",
+        "apply_to_open_hwp_state": "pathful_exact_path",
         "apply_cells_to_open_hwp_state": "pathful_exact_path",
     }
     assert res["attach_candidates"] == [

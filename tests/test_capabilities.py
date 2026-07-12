@@ -25,6 +25,15 @@ def test_server_describe_capabilities_tool_registered():
     assert any("fill_form" in cap["tools"] for cap in res["capabilities"])
 
 
+def test_live_capability_lists_current_document_tools():
+    live = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "live_hwp")
+    assert {
+        "resolve_current_hwp_document",
+        "preview_current_hwp_document",
+        "apply_to_current_hwp_document",
+    } <= set(live["tools"])
+
+
 def test_project_does_not_depend_on_llm_api_sdks():
     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     project_deps = data["project"].get("dependencies", [])

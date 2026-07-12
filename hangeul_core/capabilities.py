@@ -102,21 +102,25 @@ def describe_capabilities() -> Dict[str, Any]:
             _capability(
                 "live_hwp",
                 HwpBridge.available() or live_available(),
-                [
-                    "hwp_status",
-                    "open_in_hwp",
-                    "apply_to_open_hwp",
-                    "preview_cells_to_open_hwp",
-                    "apply_cells_to_open_hwp",
-                ],
-                requires=["Windows", "Hangul", "pywin32", "pyhwpx"],
-                note=(
-                    "Open Hangul document control is optional and never required for file-mode "
-                    "HWPX work. Live tools insert VALUE content only; formatting/styling edits stay "
-                    "in file-mode tools. hwp_status and preview are side-effect-free, and connected:false "
-                    "is the normal idle state. Safe live attach is exact-path based: use open_in_hwp(path) "
-                    "before apply so the requested document is active in the automation-visible window."
-                )
+[
+    "hwp_status",
+    "open_in_hwp",
+    "apply_to_open_hwp",
+    "preview_cells_to_open_hwp",
+    "apply_cells_to_open_hwp",
+    "resolve_current_hwp_document",
+    "preview_current_hwp_document",
+    "apply_to_current_hwp_document",
+],
+requires=["Windows", "Hangul", "pywin32", "pyhwpx"],
+note=(
+    "Open Hangul document control is optional and never required for file-mode "
+    "HWPX work. Live tools insert VALUE content only; formatting/styling edits stay "
+    "in file-mode tools. hwp_status and preview are side-effect-free, and connected:false "
+    "is the normal idle state. Safe live attach is exact-path based: use open_in_hwp(path) "
+    "before apply, or use the saved-.hwpx current-document resolve/preview/apply flow "
+    "for tokenized pathless UX."
+)
             ),
             _capability(
                 "hwp_headless",

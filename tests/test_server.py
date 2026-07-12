@@ -23,6 +23,9 @@ def test_four_tools_registered():
         "extract_hwp_text",
         "describe_capabilities",
         "preview_cells_to_open_hwp",
+        "resolve_current_hwp_document",
+        "preview_current_hwp_document",
+        "apply_to_current_hwp_document",
     } <= names
 
 
@@ -49,3 +52,23 @@ def test_fill_form_tool_end_to_end(tmp_path):
 def test_extract_text_tool():
     txt = server.extract_text(str(FIXTURE))
     assert "강사카드" in txt.replace(" ", "")
+
+
+def test_current_document_tools_delegate_to_live_module(monkeypatch):
+    import hangeul_mcp.tools_live as live_tools
+
+    monkeypatch.setattr(live_tools, "_resolve_current_hwp_document", lambda: {"state": "selection_required"})
+    monkeypatch.setattr(
+        live_tools,
+        "_preview_current_hwp_document",
+        lambda values, candidate_id=None, mode="auto": {"state": "preview_ready", "preview_token": "tok"},
+    )
+    monkeypatch.setattr(
+        live_tools,
+        "_apply_to_current_hwp_document",
+        lambda preview_token: {"state": "applied_cells", "preview_token": preview_token},
+    )
+
+    assert server.resolve_current_hwp_document()["state"] == "selection_required"
+    assert server.preview_current_hwp_document({"성명": "홍길동"})["state"] == "preview_ready"
+    assert server.apply_to_current_hwp_document("tok")["preview_token"] == "tok"
