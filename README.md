@@ -1,244 +1,249 @@
 # Hangeul-mcp
 
-> 한글(HWP/HWPX) **양식을 인식**하고, AI가 생성한 값을 **원본 서식을 보존한 채** 채워 넣는 **MCP 서버**.
-> Claude Desktop · Codex · Antigravity 2.0 등 임의의 MCP 클라이언트에서 동작.
+> AI 클라이언트가 한글(HWP/HWPX) 문서를 **읽고, 양식을 찾고, 값을 채우도록 돕는 로컬 MCP 서버**입니다.
 
 [![CI](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/pblsketch/Hangeul-mcp/actions/workflows/ci.yml)
 
-**상태: v0.1.0 + Phase A~D 핵심 + 선택 확장 1차 + BYO-AI 하네스 1차 + 안정화 패스(US-047~060) + 라이브 UX 재정의(US-062~063)** — v1 헤드리스(인식 · 채우기 · MCP 서버) **완성**, Phase A 양식 인식·채우기 심화 5종, Phase B 신뢰성·검증·읽기 자체코어 4종, Phase C 텍스트치환(OWN)·구조편집·이미지(python-hwpx 위임), Phase D 문서생성(위임)·mail_merge(OWN) **완성**, 선택 확장으로 기존 표 merge/셀음영, `create_document_from_blocks`, 구조보존 markdown subset, `render_preview` PNG, `.hwp` headless adapter gate 추가. BYO-AI 하네스로 `describe_capabilities`와 `preview_cells_to_open_hwp` 추가. 라이브 UX 재정의로 `open_in_hwp` 진입점·apply 활성문서 검증/자동 open·status 인스턴스 노출 추가, 인라인·**표 밖 본문 문단** 라이브/파일 채우기 추가(누름틀·플레이스홀더 불필요, 마커 동적감지, exact-path resolver-path/보수적 attach 정책 관측; Windows literal write-safe QA는 pending). 테스트 상태는 현재 worktree baseline(`pytest -q`)과 최신 QA/e2e 검증 산출물을 기준으로 본다; python-hwpx `delegate` + Playwright render path는 미설치 환경에서 skip 또는 `available:false`가 될 수 있다. 독립 codex QA 2회([`v0.1.0`](docs/qa-codex-v0.1.0.md) · [`Phase A~D`](docs/qa-codex-phaseA-D.md)) — High/Medium/Low 지적 **전부 수정·문서화**.
+Hangeul-mcp 자체에는 문장을 생성하는 AI가 없습니다. Claude Desktop, Codex처럼 사용자가 선택한 MCP 클라이언트가 문안과 값을 만들고, Hangeul-mcp는 로컬 PC에서 문서를 분석·편집·검증합니다.
 
----
+## 지금 무엇이 되나요?
 
-유지보수 원칙: 새 기능은 [`docs/feature-implementation-workflow.md`](docs/feature-implementation-workflow.md)의 phase/TDD/품질 게이트 절차를 따른다.
+| 사용 상황 | 현재 상태 | 설명 |
+|---|---|---|
+| `.hwpx` 양식 분석·채우기 | **핵심 경로 구현·자동 테스트 완료** | Windows·macOS·Linux에서 한글 프로그램 없이 실행할 수 있습니다. |
+| 텍스트 검색·검증·PII 검사 | **사용 가능** | 문서 구조, 표, 스타일, 예상 값 반영 여부를 확인합니다. |
+| 표·이미지·문단·페이지 편집 | **선택 기능** | `python-hwpx`를 설치해야 합니다. 이 경로는 문서를 재직렬화하므로 바이트 동일성을 보장하지 않습니다. |
+| PNG 미리보기 | **선택 기능** | Playwright와 Chromium이 필요합니다. |
+| 열린 한글 창에 값 넣기 | **Windows 전용·검증 진행 중** | 한글과 COM 의존성이 필요합니다. exact-path 안전장치는 구현됐지만 일부 실제 데스크톱 시나리오는 아직 QA가 남았습니다. |
+| 경로 없이 “현재 문서 채워줘” | **코드·자동 테스트 완료, 데스크톱 QA 대기** | 저장된 `.hwpx`만 지원합니다. 미리보기 토큰을 발급하고, 쓰기 직전에 같은 문서인지 다시 확인합니다. |
+| `.hwp` 헤드리스 읽기 | **아직 미지원** | 비COM reader가 확정되지 않아 `available:false`를 정직하게 반환합니다. Windows에서는 한글 COM으로 `.hwpx` 변환이 가능합니다. |
 
-## BYO-AI 로컬 하네스 목표
+### 가장 안전하고 완성도가 높은 사용법
 
-Hangeul-mcp는 자체 AI/API 과금 앱이 아니라 **사용자가 이미 구독하는 AI 클라이언트가 한글 문서를 다룰 수 있게 해 주는 로컬 MCP 문서 엔진**을 목표로 한다.
-
-- 서버는 OpenAI/Anthropic/Gemini 같은 LLM API를 직접 호출하지 않는다.
-- 문안과 값 생성은 사용자의 AI 클라이언트가 담당한다.
-- Hangeul-mcp는 로컬 PC에서 HWP/HWPX 분석, 채우기, 편집, 미리보기, 검증, live 반영을 수행한다.
-- AI 클라이언트는 먼저 `describe_capabilities()`를 호출해 현재 PC에서 가능한 file/render/live/headless-HWP 기능을 확인할 수 있다.
-- 자세한 사용 흐름은 [`docs/byo-ai-harness.md`](docs/byo-ai-harness.md)를 본다.
-
-## 무엇인가
-
-한글 양식 문서(신청서·강사카드·공문 등)를 파싱해 **어디가 빈칸이고, 그 라벨이 무엇이며, 어떤 서식인지**를 구조화하고,
-AI가 만든 값을 **서식·쪽수를 훼손하지 않고** 정확히 채워 넣는다.
-
-- **두뇌와 손의 분리** — 값 *생성*은 클라이언트 LLM(Claude/Codex/Gemini)의 몫. 이 서버는 **인식·채우기·반영**이라는 기계적 도구만 제공한다.
-- **바이트 보존 채우기** — 바꾼 필드 외에는 (엔트리 payload 기준) 1바이트도 건드리지 않는다. mimetype STORED·XML 선언까지 보존.
-- **클라이언트 무관** — 표준 MCP(stdio) + tools-only로 여러 클라이언트에서 공통 동작.
-
-## 차별점
-
-기존 한글 파서/필러가 못 하는 세 가지 (모두 실제 강사카드 양식에서 동작 검증):
-
-1. **inline-blank 채우기** — "∘ ___ 을 졸업하시고", "은행명: ___ 계좌번호: ___" 같은 **문장/셀 중간 빈칸**. 서로 다른 문단에 흩어진 빈칸도 각각 정확히 채움.
-   또한 **표 밖 본문 문단**(누름틀·플레이스홀더 없는 정부 보고서 양식 등)도 `body_para`로 채움 — 마커(□○―※ 등)를 유니코드 범주로 자동감지해 양식별로 동적 대응(하드코딩 없음).
-2. **병합셀 2D 이해** — 라벨 아래/병합(colSpan·rowSpan)된 값 셀을 occupancy grid로 정확히 매핑(인접 라벨이 아니라 진짜 값 셀).
-3. **검토 → COM 원샷 반영** — 검토한 값 묶음을 `put_field_text`로 **정확한 문서 경로로 식별한 한글 문서**에 한 번에 반영(v2).
-
-## MCP 툴
-
-**v1 (헤드리스, 크로스플랫폼)**
-- `describe_capabilities()` — BYO-AI 로컬 하네스 capability manifest. 서버가 LLM/API를 호출하지 않는다는 경계와 file/render/live/headless-HWP 가용성을 반환
-- `detect_format(path)` — hwpx/hwp/unknown 감지
-- `analyze_form(path)` — 양식 인식 → 필드 목록. kind: `empty_cell` · `inline_blank` · `placeholder`(`{학교명}`) · `markpen`(형광펜 예시값) · `checkbox`(☑/□, `options` 포함) · `form_field`(누름틀) · `body_para`(**표 밖 본문 문단** — 마커 자동감지, 누름틀·플레이스홀더 불필요)
-- `fill_form(path, values, out_path, normalize_spacing, checkbox_exclusive, auto_fit, mask_pii, dry_run, backup)` — 서식 보존 채우기 → 새 .hwpx. 위 모든 kind 처리. `auto_fit`은 셀 넘침 추정 시 해당 run 글꼴만 축소(하한 보장), `mask_pii`는 값의 PII 마스킹, `dry_run`은 미기록 미리보기, `backup`은 덮어쓰기 전 `.bak`
-- `analyze_formfit(path, values)` — 셀 넘침(쪽수 드리프트) 추정 경고. 렌더러 없는 휴리스틱(추정치)
-- `extract_text(path)` — 텍스트 추출
-- `find_text(path, query)` — 텍스트 검색(문서 전역 count + 셀 주소·스니펫)
-- `get_document_outline(path)` — 구조 개요(섹션·표·셀·kind별 필드 집계)
-- `get_table_map(path)` — 표/셀 구조 맵(field_id·행·열·span·텍스트·빈칸)
-- `find_cell_by_label(path, label)` — 라벨 셀 + 매핑된 값 셀 field_id 조회
-- `verify_fill(path, expected)` — 채운 값 실제 반영 검증(present/missing)
-- `list_styles(path)` — 헤더 스타일 목록(charPr 글꼴 크기/자간, paraPr 글머리표)
-- `scan_pii(path)` — 문서 텍스트의 PII 감사(주민번호·전화·카드·계좌·이메일)
-- `validate_hwpx(path)` — 무결성 검증(모든 XML well-formed·mimetype·XML 선언, python-hwpx 설치 시 XSD)
-- `search_and_replace(path, find, replace, out_path)` — 일반 텍스트 치환 → 새 .hwpx. 바이트보존(우리 splice 엔진, `<hp:t>` 텍스트만·태그 무변경·셀 경계 넘김 방지)
-- `batch_replace(path, replacements, out_path)` — 다중 find→replace 일괄(긴 매치 우선, 재치환 없음)
-- `mail_merge(template_path, records, out_dir, mask_pii)` — 대량 생성. 레코드마다 **바이트보존 채우기**로 번호 매긴 .hwpx 산출(모든 kind 재사용, 문안은 클라이언트)
-- `extract_hwp_text(path)` — `.hwp` 비COM 헤드리스 읽기 adapter gate. 현재 reader substrate 미선정/미설치 시 `available:false`와 후보 모듈 점검 결과를 반환하며 COM 변환을 headless 읽기로 속이지 않음
-
-**위임(DELEGATE, python-hwpx substrate — optional `delegate` extra)**
-> commodity breadth(편집·생성·리치 내보내기)는 재발명 대신 python-hwpx에 위임하고 우리 툴로 노출. 위임 편집은 재직렬화라 바이트동일이 아니라 **`validate_hwpx` 게이트 통과**를 무결성 기준으로 삼는다. 미설치 시 `available:false` 반환.
-- `hwpx_to_html(path)` / `hwpx_to_markdown(path)` — HTML/Markdown 렌더(미리보기, read-only)
-- `add_paragraph(path, text, out_path)` / `add_table(path, rows, cols, out_path)` — 구조 편집 → validate 게이트
-- `merge_table_cells(path, table_index, cell_range, out_path)` / `set_cell_shading(path, table_index, row, col, fill_color, out_path)` — 기존 표 병합·셀 배경색 지정 → validate 게이트
-- `split_merged_cell(path, table_index, row, col, out_path)` — **병합된** 셀 분할(병합 해제 전용 — 임의 셀 분할은 python-hwpx 미지원 non-goal, ADR D13). 비병합 셀은 ok:false
-- `add_image(path, image_path, out_path, width_mm, height_mm)` — 이미지/도장/서명 삽입 → validate 게이트
-- `emphasize_text(path, find, out_path, bold, italic, underline, color, size)` — find 포함 run에 리치 서식(전체 run 단위) → validate 게이트
-- `set_page_size(path, out_path, width, height)` / `set_page_margins(...)` / `set_columns(path, out_path, col_count)` / `set_page_number(path, out_path, position)` — 공문 페이지 설정(HWPUNIT, 1/7200 inch) → 섹션 XML 속성 변화를 재오픈 검증 + validate 게이트
-- `set_header(path, text, out_path)` / `set_footer(path, text, out_path)` — 머리말/꼬리말 텍스트 설정(문안은 클라이언트 제공) → validate 게이트. python-hwpx `>=2.24` 필요(미달 시 구조화 안내)
-- `create_hwpx_table(rows, out_path)` — 2D 데이터로 채운 표 새 HWPX(레게드 행 패딩)
-- `create_official_document(fields, out_path, doc_type)` — 공문/보도자료/기안문 스켈레톤 조립
-- `create_document_from_blocks(blocks, out_path)` — heading/paragraph/list/table/image/page_break 블록을 클라이언트가 전부 제공하는 완전제어 빌더
-- `create_hwpx_from_markdown(markdown, out_path)` — 지원 subset(ATX heading, 문단, 순서/비순서 목록, pipe table)을 blocks로 변환해 새 HWPX 생성
-
-**렌더(optional `render` extra)**
-- `render_preview(path, out_path, format="png", width, height)` — HWPX→HTML을 로컬 HTTP 서버로 띄워 Playwright Chromium이 PNG 스크린샷 생성. `file://` 미사용. Playwright/브라우저 미설치 시 `available:false`.
-
-**v2 (COM 라이브, Windows + 한글 필요)**
-> 라이브 attach의 증거는 `connected:true`나 generic reconnect가 아니라 **ROT 열거 → 모든 `XHwpDocuments` → 정규화한 `FullName` exact match**다. 손으로 연 창도 이 resolver의 후보일 수 있지만, literal write-safe Windows 증거는 아직 pending이며 [`PENDING_DESKTOP_LIVE_QA.md`](PENDING_DESKTOP_LIVE_QA.md)가 상태의 진실이다.
-- `hwp_status()` — COM 브릿지 가용 여부 + ROT `instances`(모니커/문서수/활성문서) + `attach_boundary`/`first_call_hint` 안내(부작용 없음, 한글 안 띄움)
-- `open_in_hwp(path)` — 라이브 편집 진입점: exact-path 문서가 이미 제어 가능하면 `attached_existing:true`, 아니면 자동화 인스턴스로 .hwp/.hwpx를 visible 창에 열기(저장·닫기 없음)
-- `apply_to_open_hwp(path, values)` / `apply_to_open_hwp(values)` — 누름틀(named field) 반영. path가 있으면 broker-targeted exact-path live apply를 수행하고, path가 없으면 이미 제어 중인 active 문서에만 쓰는 legacy 경로다. 누름틀이 없으면 `needs_field_registration` 반환
-- `preview_cells_to_open_hwp(path, values)` — 문서를 쓰지 않고 셀 live-fill target과 attach metadata(어떤 경로로 exact-path를 잡았는지)를 미리 계산
-- `apply_cells_to_open_hwp(path, values, open_if_needed)` — **누름틀 없이** 셀 양식을 라이브로 채움(pyhwpx, optional `live` extra). preview의 attach metadata로 exact-path가 확인된 문서만 쓰기 대상으로 삼는다. 빈 셀 + **인라인 빈칸(콜론 `은행명:`·마커 `∘ 프로그램명`·체크박스)** 모두 처리 — 인라인 값은 파일-필 미러로 셀 전체 텍스트를 대체(셀 내 리치서식은 평탄화; 서식 보존은 파일 모드). 활성 문서==path 검증, 불일치 시 자동 open(기본). 첫 호출은 한글 콜드 스타트로 수십 초 가능(`cold_start`/`elapsed_seconds` 반환). 창을 닫지 않음
-- `resolve_current_hwp_document()` → `preview_current_hwp_document(values, candidate_id=None, mode="auto")` → `apply_to_current_hwp_document(preview_token)` — **저장된 `.hwpx` 현재 문서만** 지원하는 pathless current-document UX. preview는 side-effect-free이고 token만이 apply 권한이다. 저장된 `.hwp` 현재 문서는 `preview_requires_hwpx`로 fail-closed 한다
-
-### 보수적 Batch A / 조건부 Batch B
-
-- **Batch A (승인된 보수 범위, 지금 문서화해도 되는 것)**
-  - 헤드리스 워크플로우 전체(`analyze_form` → 검토 → `fill_form`)
-  - Windows 라이브에서는 `hwp_status()`의 `connected:false`를 **정상 idle pre-attach 상태**로 해석
-  - `open_in_hwp(path)` / `preview_cells_to_open_hwp(path, values)` / pathful `apply_to_open_hwp(path, values)`의 exact-path named-field live 경로
-  - 저장된 `.hwpx` 현재 문서의 tokenized pathless UX는 구현돼 있지만, 실제 데스크톱 current-document write/read-back 증거는 아직 pending
-
-  - 서버가 연 문서 또는 exact-path가 확인된 active 문서를 대상으로 한 신중한 라이브 진입 정책 자체
-
-- **Batch B (조건부 승격, 아직 추가 실기기 증거 필요)**
-  - 손으로 연 창까지 포함한 exact-path attach의 **literal write-safe** 승격
-  - Windows 데스크톱에서의 추가 라이브 QA 캡처 없이 "이미 충분히 실증됨"이라고 홍보하는 표현
-
-`PENDING_DESKTOP_LIVE_QA.md`가 남아 있는 동안 README는 **Batch A까지만 확정 사실**로 말한다. Batch B의 최종 승인 조건인 사람의 실제 Explorer 더블클릭 QA는 pending으로 유지한다.
-
-### Windows Shell-open 중간 실기기 증거 (2026-07-11)
-
-PII 없는 `sample_form.hwpx` 사본을 **COM이 아닌 Windows Shell `Start-Process`**로 연 뒤 실제 라이브 쓰기와 fresh read-back을 수행했다.
+원본을 직접 수정하지 않는 **파일 모드**입니다.
 
 ```text
-apply_cells_to_open_hwp(..., open_if_needed=false)
-  state = attached_existing
-  applied = 성명(홍길동), 직위(교사)
-
-별도 fresh Hwp(new=False) 연결 GetTextFile("TEXT", "")
-  홍길동 포함 = true
-  교사 포함 = true
+analyze_form("신청서.hwpx")
+→ 사용자가 채울 값 검토
+→ fill_form("신청서.hwpx", values, "신청서_완성.hwpx")
+→ validate_hwpx("신청서_완성.hwpx")
+→ verify_fill("신청서_완성.hwpx", expected)
 ```
 
-- 성공 원자료: [`docs/evidence/shell-open-live-write-qa.json`](docs/evidence/shell-open-live-write-qa.json)
-- 사용 사본: `build/evidence/sample_form_hand_opened_live_qa.hwpx`(로컬 QA 산출물, Git 제외)
-- 이 증거는 **Shell-open된 기존 문서에 exact-path 확인 후 쓰기·재읽기가 성공했다**는 것을 보여 준다.
-- 다만 사람이 탐색기에서 실제 마우스로 더블클릭한 것은 아니므로, Batch B 최종 승격과 `PENDING_DESKTOP_LIVE_QA.md` 종료는 literal Explorer-double-click 재현 후로 남긴다.
+- 새 파일로 저장하므로 원본을 보존합니다.
+- 자체 채우기 엔진은 변경한 텍스트 외 HWPX 엔트리 payload를 보존하도록 설계했습니다.
+- 표·페이지·이미지 같은 위임 편집은 `python-hwpx`가 문서를 재직렬화하므로 **바이트 보존이 아니라 재검증 통과**를 기준으로 합니다.
 
-> 값 *생성*은 서버가 하지 않는다 — 클라이언트 LLM이 초안을 만들고, 서버는 인식·채우기·반영만 한다.
-> 검토→반영 워크플로우 가이드: [`skills/SKILL.md`](skills/SKILL.md).
+## 어떤 양식을 이해하나요?
+
+- 라벨 옆이나 아래의 빈 셀
+- 병합된 표의 실제 입력 셀
+- `은행명: ___`, `∘ 프로그램명 ___` 같은 문장·셀 중간 빈칸
+- `{학교명}` 같은 플레이스홀더
+- 형광펜으로 표시한 예시 값
+- 체크박스(☑/□)
+- 한글 누름틀(form field)
+- 표 밖 본문 문단과 목록형 마커
+
+모든 문서를 완벽하게 자동 해석하는 것은 아닙니다. 특히 중첩 표, 복잡한 병합, 특수 컨트롤이 많은 문서는 `analyze_form` 결과를 먼저 검토한 뒤 채우는 것을 권장합니다.
 
 ## 빠른 시작
 
-```bash
-pip install git+https://github.com/pblsketch/Hangeul-mcp   # 콘솔명령: hangeul-mcp
+Python 3.10 이상이 필요합니다.
 
-# 로컬 개발
-git clone https://github.com/pblsketch/Hangeul-mcp && cd Hangeul-mcp
-pip install -e ".[dev]"
-pytest -q                     # 결과 총계는 고정하지 않고 현재 실행 출력 또는 최신 verification evidence를 기준으로 기록
-# 편집·생성·리치 내보내기(위임) 사용:
-pip install -e ".[delegate]"  # python-hwpx (optional; 미설치 시 해당 툴은 available:false)
-# PNG preview:
-pip install -e ".[render]" && python -m playwright install chromium
+```bash
+pip install git+https://github.com/pblsketch/Hangeul-mcp
 ```
 
-파이썬 코어 직접 사용:
+MCP 서버 실행 명령:
+
+```bash
+hangeul-mcp
+# 또는
+python -m hangeul_mcp.server
+```
+
+클라이언트 설정 예시는 다음 문서에 있습니다.
+
+- [Claude Desktop](docs/clients/claude-desktop.md)
+- [Codex](docs/clients/codex.md)
+- [Antigravity 2.0](docs/clients/antigravity.md)
+- [클라이언트 설정 모음](docs/clients/README.md)
+
+Hangeul-mcp는 표준 MCP stdio를 지원하는 클라이언트에서 사용할 수 있습니다. 실제 stdio 기동·도구 호출은 `tests/test_client_stdio.py`로 검증합니다.
+
+## 선택 기능 설치
+
+```bash
+# 개발·테스트
+pip install -e ".[dev]"
+
+# 표·문단·이미지·페이지 편집 및 문서 생성
+pip install -e ".[delegate]"
+
+# PNG 미리보기
+pip install -e ".[render]"
+python -m playwright install chromium
+
+# Windows 한글 COM
+pip install -e ".[com]"
+
+# Windows 열린 문서의 셀·본문 라이브 입력
+pip install -e ".[live]"
+```
+
+설치하지 않은 선택 기능은 성공한 것처럼 동작하지 않고 `available:false`와 필요한 의존성을 반환합니다. `describe_capabilities()`로 현재 PC에서 가능한 기능을 먼저 확인할 수 있습니다.
+
+## 주요 MCP 워크플로우
+
+### 1. HWPX 양식 채우기
+
+- `analyze_form(path)` — 입력 가능한 필드와 위치 찾기
+- `fill_form(path, values, out_path, ...)` — 새 HWPX 파일 생성
+- `validate_hwpx(path)` — 패키지·XML 무결성 검사
+- `verify_fill(path, expected)` — 값이 실제로 들어갔는지 확인
+- `analyze_formfit(path, values)` — 셀 넘침 가능성 추정
+
+### 2. 읽기·검색·감사
+
+- `extract_text`, `find_text`
+- `get_document_outline`, `get_table_map`, `find_cell_by_label`
+- `list_styles`, `scan_pii`
+
+### 3. 파일 편집·생성
+
+자체 바이트 보존 엔진:
+
+- `search_and_replace`, `batch_replace`, `mail_merge`
+
+`python-hwpx` 위임 기능:
+
+- HTML/Markdown 변환
+- 문단·표·이미지 추가
+- 표 병합·병합 해제·셀 음영
+- 글자 강조
+- 용지·여백·단·쪽번호·머리말·꼬리말
+- 표 문서·공문 스켈레톤·블록 문서·Markdown 기반 HWPX 생성
+
+위임 기능의 정확한 도구명은 `describe_capabilities()` 또는 서버의 도구 목록에서 확인할 수 있습니다.
+
+### 4. 열린 한글 문서에 라이브 입력
+
+Windows + 한컴오피스 한글이 필요합니다.
+
+**경로를 알고 있을 때**
+
+```text
+open_in_hwp(path)
+→ preview_cells_to_open_hwp(path, values)
+→ apply_cells_to_open_hwp(path, values)
+```
+
+누름틀이 있는 문서는 `apply_to_open_hwp(path, values)`로 exact-path 대상에 입력할 수 있습니다.
+
+**사용자가 경로를 말하지 않고 “지금 열린 문서 채워줘”라고 할 때**
+
+```text
+resolve_current_hwp_document()
+→ preview_current_hwp_document(values, candidate_id?)
+→ apply_to_current_hwp_document(preview_token)
+```
+
+이 흐름은 다음 규칙을 지킵니다.
+
+- v1은 **저장된 `.hwpx` 현재 문서만** 지원합니다.
+- 여러 문서가 있으면 임의로 고르지 않고 후보 선택을 요청합니다.
+- preview에서 받은 일회용 token 없이는 쓰지 않습니다.
+- apply 직전에 COM 객체·문서 슬롯·전체 경로를 다시 확인합니다.
+- 문서가 바뀌거나 닫혔거나 token이 재사용되면 쓰지 않고 구조화된 오류를 반환합니다.
+- 사용자가 연 문서를 자동 저장·닫기·재열기하지 않습니다.
+
+### 라이브 기능의 정직한 검증 상태
+
+확인된 것:
+
+- ROT 전체 열거와 normalized `FullName` exact match로 대상 문서를 찾는 코드
+- 다중 문서·같은 파일명·stale token·active race 등에 대한 fake-COM 자동 테스트
+- Windows Shell `Start-Process`로 연 기존 `.hwpx`에 `open_if_needed=false`로 값 2건 입력 후 별도 연결 read-back 성공
+
+아직 남은 것:
+
+- 사람이 파일 탐색기에서 직접 더블클릭한 문서의 current-document token 흐름 전체 캡처
+- 복잡한 중첩 표에서의 라이브 셀 매핑 확대 검증
+- 일부 본문 라이브 안전장치의 추가 실기기 실패 주입 검증
+
+따라서 라이브 기능은 파일 모드보다 보수적으로 사용해야 합니다. 원자료와 완료 조건은 [`PENDING_DESKTOP_LIVE_QA.md`](PENDING_DESKTOP_LIVE_QA.md), 절차는 [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md)에서 확인할 수 있습니다.
+
+## 개인정보와 로컬 실행 경계
+
+- Hangeul-mcp 서버는 OpenAI·Anthropic·Gemini API를 직접 호출하지 않습니다.
+- 문서는 도구가 실행되는 로컬 PC에서 처리됩니다.
+- 다만 MCP 클라이언트가 어떤 내용을 AI 모델에 보내는지는 **해당 클라이언트의 설정과 정책**에 따릅니다.
+- `scan_pii`와 `mask_pii`는 보조 안전장치이며 개인정보 처리 책임을 대신하지 않습니다.
+
+## 개발 상태와 품질
+
+- 패키지 버전: `0.1.0` (Pre-Alpha)
+- 런타임 MCP 도구: **46 tools**
+- 최신 로컬 검증: **244 passed, 15 skipped**
+- Architect 최종 리뷰: CLEAR
+- Critic 최종 리뷰: 승인
+- 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending
+
+`skipped`에는 Windows·한글·Playwright·python-hwpx처럼 현재 환경에 없는 선택 의존성 테스트가 포함될 수 있습니다. 최신 자동 검증 산출물은 [`docs/evidence/`](docs/evidence/)에 있습니다.
+
+### 아직 하지 않는 것
+
+- 서버 자체 LLM 또는 유료 AI API 제공
+- `.hwp`의 검증된 비COM 헤드리스 읽기
+- 임의 표의 행·열 추가/삭제, table compute, TOC 자동화
+- 열린 문서의 글꼴·스타일을 라이브 COM으로 자유 편집
+- 모든 HWPX 양식에 대한 무검토 자동 채우기 보장
+
+로드맵은 [`docs/ROADMAP.md`](docs/ROADMAP.md), 상태 원본은 [`docs/prd.json`](docs/prd.json), 설계 결정은 [`docs/DECISIONS.md`](docs/DECISIONS.md)에서 관리합니다.
+
+## Python에서 직접 사용
 
 ```python
 from hangeul_core.understand import understand
 from hangeul_core.inline import detect_inline
 from hangeul_core.fill import fill
 
-# 양식 인식
-for f in understand("강사카드.hwpx").fields + detect_inline("강사카드.hwpx"):
-    print(f.field_id, f.label, f.kind)
+fields = understand("강사카드.hwpx").fields + detect_inline("강사카드.hwpx")
+for field in fields:
+    print(field.field_id, field.label, field.kind)
 
-# 서식 보존 채우기 (field_id 또는 label을 키로)
-res = fill("강사카드.hwpx", {"성명": "홍길동", "학력": "○○대학교"}, "채움.hwpx")
-print(res.filled, res.skipped)
+result = fill(
+    "강사카드.hwpx",
+    {"성명": "홍길동", "학력": "○○대학교"},
+    "강사카드_완성.hwpx",
+)
+print(result.filled, result.skipped)
 ```
 
-## 클라이언트 지원
+## 프로젝트 구조
 
-표준 stdio MCP 서버(**tools-only**)라 모든 MCP 클라이언트에서 동일하게 동작합니다.
-실행 명령: `hangeul-mcp` 또는 `python -m hangeul_mcp.server`.
-클라이언트별 등록 스니펫: [`docs/clients/`](docs/clients/README.md)
-— [Claude Desktop](docs/clients/claude-desktop.md) · [Codex](docs/clients/codex.md) · [Antigravity 2.0](docs/clients/antigravity.md).
-
-실제 stdio 클라이언트가 서버를 기동해 툴을 나열·호출하는 통합 테스트로 검증됨(`tests/test_client_stdio.py`).
-COM(v2) 기능은 로컬 Windows + 한글 설치 환경에서만 활성화되고, 그 외에는 헤드리스로 폴백.
-
-### v2 COM 라이브 검증 경계 (데스크톱 QA gate)
-
-헤드리스 세션에서는 한글 창을 띄우지 않도록 실제 COM Dispatch가 게이트되어 있습니다.
-Windows + 한글에서 누름틀 있는 문서를 열고:
-
-```bash
-pip install -e ".[com]"                       # pywin32
-set HANGEUL_MCP_LIVE=1
-python -m pytest tests/test_com.py -q          # 라이브 연결 테스트
-```
-
-## 로드맵 / 상태
-
-- **v1 (헤드리스)** ✅ 완료 — analyze/understand/inline/fill + MCP 서버 + `.hwp` 자동변환.
-- **Phase A (P0) 양식 인식·채우기 심화** ✅ 완료 — 형광펜(markpen) · 체크박스(☑/□) · `{placeholder}` 전역치환 · 누름틀 헤드리스 fill · form-fit/쪽수 드리프트 가드.
-- **Phase B (P1) 신뢰성·검증·읽기** ✅ 완료 — PII 마스킹·경고 · dry-run/백업 · 읽기 확장(find_text/outline/styles/table_map/verify_fill) · `validate_hwpx`(실제 패키지검증·`standalone` 강제) · `render_preview` PNG(optional render).
-- **Phase C (P2) 편집** ✅ 핵심+선택 일부 완료 — 텍스트 치환(OWN 바이트보존) · 문단/표 생성/기존 표 merge/셀음영/**병합셀 분할**/이미지/리치서식(python-hwpx 위임 + validate 게이트). 행/열 추가삭제·table_compute는 spike-pending(D14).
-- **Phase D (P3) 생성** ✅ 핵심+선택 일부 완료 — 구조보존 markdown subset→HWPX · `create_document_from_blocks` · 표 생성 · 공문/보도자료/기안문 레시피 · mail_merge(OWN).
-- **codex QA(Phase A~D)** ✅ 반영 — High/Medium/Low 지적 전부 수정 또는 명문화(D6 레시피 chrome, D7 라이브 표 매핑).
-- **안정화 패스(US-047~060)** ✅ 완료 — prd.json 기계판독 상태 매트릭스 + README/HANDOFF 카운트 드리프트 가드(테스트 강제) · 파일모드 e2e 증거팩([`scripts/e2e_evidence.py`](scripts/e2e_evidence.py)) · CI extras 레인(delegate+render) · 라이브 QA runbook · `.hwp` substrate 스파이크(D12 keep-gate) · delegate API-표면 계약(D13, python-hwpx `>=2.24,<3`) · **머리말/꼬리말·페이지 설정(크기/여백/단/쪽번호)·병합셀 분할 툴 7종 추가**(35→42 tools) · 행/열·TOC 재분류(D14).
-- **v2 COM 라이브** 🟡 라이브 UX 재정의 구현 + exact-path resolver-path/보수적 attach 정책 관측(US-062/063: `open_in_hwp` 진입점 · apply 활성문서 검증/자동 open · status 인스턴스 노출 · live extra 의존성 보강) + **saved `.hwpx` current-document pathless UX**(`resolve_current_hwp_document` · `preview_current_hwp_document` · `apply_to_current_hwp_document`, 코드/헤드리스 검증 완료 · 데스크톱 증거 pending) — raw probe/json에 더해 Windows Shell `Start-Process`로 연 기존 문서에서 `open_if_needed=false` 최소 쓰기와 fresh read-back까지 성공했다. 다만 사람의 실제 Explorer 더블클릭 조건은 아직 pending이며 [`PENDING_DESKTOP_LIVE_QA.md`](PENDING_DESKTOP_LIVE_QA.md)가 상태의 진실이다. 검증 절차: [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md) · 수동 인수 시나리오: [`docs/test-scenarios.md`](docs/test-scenarios.md).
-
-- 후속(선택): `.hwp` 헤드리스 읽기(D12 keep-gate — olefile/PrvText 경로가 유일한 라이선스-안전 후보), 표 행/열 편집·table_compute·TOC(D14 spike-pending) — [`docs/ROADMAP.md`](docs/ROADMAP.md).
-
-마일스톤·유저 스토리(67개 — 66 pass + 라이브/스파이크 pending, [`상태 매트릭스`](docs/prd.json)): [`docs/prd.json`](docs/prd.json) · 설계 결정: [`docs/DECISIONS.md`](docs/DECISIONS.md) · QA 리포트: [`docs/qa-codex-phaseA-D.md`](docs/qa-codex-phaseA-D.md) · 아키텍처: [`docs/architecture.md`](docs/architecture.md).
-
-## 리포 구조
-
-```
+```text
 Hangeul-mcp/
-├─ hangeul_core/            # 순수 파이썬 엔진 (MCP 무관, 재사용 가능)
-│  ├─ owpml/package.py      #   바이트 보존 HWPX 컨테이너
-│  ├─ analyze.py            #   구조 분석 (셀 주소/span/글머리표/자간/셀 크기)
-│  ├─ understand.py         #   2D 라벨-값 매핑 (병합셀 occupancy)
-│  ├─ inline.py             #   inline-blank 탐지 (마커/콜론, 표 셀)
-│  ├─ body.py               #   표 밖 본문 문단 열거·마커감지·바이트보존 교체 (동적)
-│  ├─ locate.py             #   섹션 전역 {placeholder} 탐지·splice (run 분할 대응)
-│  ├─ markpen.py            #   형광펜 예시값 탐지·서식보존 교체
-│  ├─ checkbox.py           #   체크박스(☑/□) 탐지·선택 토글
-│  ├─ formfield.py          #   누름틀 헤드리스 탐지·채우기 (COM 이름 스키마 공유)
-│  ├─ formfit.py            #   셀 넘침 추정 + 선택적 auto-fit(글꼴 축소)
-│  ├─ pii.py                #   PII 탐지·마스킹 게이트 (주민번호/전화/카드/계좌/이메일)
-│  ├─ read.py               #   읽기 확장 (find_text/outline/styles, read-only)
-│  ├─ validate.py           #   무결성 검증 (well-formed/mimetype/선언, 선택적 XSD)
-│  ├─ edit.py               #   일반 텍스트 치환 (search/batch replace, 바이트보존)
-│  ├─ delegate.py           #   python-hwpx 위임 (편집·생성·이미지·리치 내보내기, optional)
-│  ├─ blocks.py             #   create_document_from_blocks 완전제어 빌더
-│  ├─ markdown.py           #   markdown subset → blocks 변환
-│  ├─ render.py             #   Playwright 기반 render_preview PNG
-│  ├─ hwp_headless.py       #   .hwp 비COM reader adapter gate
-│  ├─ mailmerge.py          #   mail_merge (대량 생성, 우리 fill 엔진 + 레코드 반복)
-│  ├─ fill.py               #   서식 보존 채우기 (set/append/inline/placeholder/markpen/checkbox/누름틀, mask_pii/dry_run/backup, 멀티섹션)
-│  ├─ extract.py            #   텍스트 추출
-│  ├─ convert.py            #   .hwp → .hwpx (한글 COM)
-│  ├─ schema.py             #   FieldSchema 데이터 모델
-│  ├─ hwp/com.py            #   (v2) COM 브릿지 (put_field_text, 누름틀, ROT 조회)
-│  ├─ hwp/live.py           #   (v2) 누름틀 없이 열린 셀 라이브 채우기 (pyhwpx, optional)
-│  ├─ hwp/live_inline.py    #   (v2) 인라인 빈칸 라이브 (파일-필 미러 → 셀 텍스트 대체)
-│  └─ hwp/live_body.py      #   (v2) 표 밖 본문 문단 라이브 (문서순서 정렬 → 문단 교체)
-├─ hangeul_mcp/server.py    # FastMCP stdio 서버 (46 tools)
-├─ skills/SKILL.md          # 검토→반영 Agent Skill
-├─ scripts/e2e_evidence.py  # 파일모드 e2e 증거팩 드라이버 (build/evidence/, gitignored)
-├─ tests/                   # current worktree pytest baseline + fixtures (PII 없는 빈 양식·정부 보고서 템플릿)
-├─ docs/                    # DECISIONS(ADR D1~D14) · architecture · clients/ · qa-codex · live-qa-runbook · test-scenarios
-└─ .github/workflows/ci.yml # CI (ubuntu: 코어 py3.11–3.13 + extras 레인 delegate/render)
+├─ hangeul_core/             # HWPX 분석·채우기·검증 코어
+│  └─ hwp/                   # Windows 한글 COM·ROT·현재 문서 안전장치
+├─ hangeul_mcp/              # FastMCP 도구 등록과 라이브 orchestration
+├─ tests/                    # 단위·통합·fake-COM 테스트와 PII 없는 fixtures
+├─ docs/                     # 설계, 상태, QA, 클라이언트 설정
+├─ scripts/e2e_evidence.py   # 파일 모드 E2E 증거 생성
+└─ .github/workflows/ci.yml  # CI
 ```
 
-## 관련 오픈소스
+FastMCP stdio 서버에는 현재 46개의 도구가 등록됩니다 `(46 tools)`.
 
-생태계 조사 및 개발 전략: [`docs/research-strategy.md`](docs/research-strategy.md)
-(python-hwpx, kordoc, claw-hwp, hwp-mcp, pyhwpx 등).
+## 관련 문서
+
+- [BYO-AI 사용 흐름](docs/byo-ai-harness.md)
+- [Agent Skill: 검토 → 반영](skills/SKILL.md)
+- [기능 구현·검증 절차](docs/feature-implementation-workflow.md)
+- [수동 테스트 시나리오](docs/test-scenarios.md)
+- [연구 및 오픈소스 전략](docs/research-strategy.md)
 
 ## 라이선스
 
-MIT — [`LICENSE`](LICENSE)
+MIT — [LICENSE](LICENSE)
