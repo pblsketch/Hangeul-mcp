@@ -13,7 +13,7 @@ from typing import Any, Callable, Iterable
 try:
     import tomllib  # type: ignore[attr-defined]
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
-    tomllib = None
+    import tomli as tomllib  # type: ignore[no-redef]
 
 
 SERVER_NAME = "hangeul-mcp"

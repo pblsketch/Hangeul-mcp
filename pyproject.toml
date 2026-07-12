@@ -18,7 +18,10 @@ classifiers = [
   "Natural Language :: Korean",
 ]
 # Runtime deps added per-story: python-hwpx (US-002 validation, optional) is soft.
-dependencies = ["mcp>=1.2.0"]
+dependencies = [
+  "mcp>=1.2.0",
+  "tomli>=2; python_version < '3.11'",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "pyflakes>=3"]

@@ -200,7 +200,7 @@ def get_managed_runtime_command(paths: ManagedPaths) -> list[str] | None:
         return None
     runtime_python = paths.version_python_path(current_version)
     if not runtime_python.exists():
-        return None
+        raise RuntimeError(f"Managed runtime is missing for configured version: {current_version}")
     return [str(runtime_python), "-m", MODULE_NAME]
 
 
