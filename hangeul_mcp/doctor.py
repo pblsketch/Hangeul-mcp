@@ -8,12 +8,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from hangeul_core.hwp_headless import headless_status
 from hangeul_mcp import __version__
 from hangeul_mcp.client_config import (
     command_exists,
     default_antigravity_workspace_path,
     default_client_path,
     default_codex_project_path,
+    determine_launcher,
     load_registered_client_command,
 )
 
@@ -43,6 +45,16 @@ def _module_available(name: str) -> bool:
 def collect_optional_extras_status() -> dict[str, Any]:
     status: dict[str, Any] = {}
     for extra, modules in OPTIONAL_EXTRA_MODULES.items():
+        if extra == "hwp-headless":
+            gate = headless_status()
+            status[extra] = {
+                "available": False,
+                "status": "unsupported",
+                "checked": gate["checked"],
+                "modules": {},
+                "note": "headless .hwp extraction adapter is not selected yet",
+            }
+            continue
         if not modules:
             status[extra] = {"available": True, "modules": {}}
             continue
@@ -221,10 +233,10 @@ def run_mcp_smoke_test(timeout: float = 10.0) -> dict[str, Any]:
             "error": {"kind": "import", "message": str(exc)},
         }
 
-    runtime = selected_runtime()
+    launcher = determine_launcher()
 
     async def run() -> dict[str, Any]:
-        params = StdioServerParameters(command=runtime["command"][0], args=runtime["command"][1:])
+        params = StdioServerParameters(command=launcher.command, args=launcher.args)
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()

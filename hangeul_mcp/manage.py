@@ -52,10 +52,16 @@ def run_setup(*, client: str, features: list[str], dry_run: bool, yes: bool) -> 
         for name in _selected_clients(client)
     ]
     manual_needed = any(item.get("status") not in {"configured", "unchanged"} for item in results)
+    normalized_features = [feature for feature in features if feature]
+    if not dry_run:
+        paths = _managed_paths()
+        config = load_config(paths)
+        config["features"] = normalized_features
+        save_config(paths, config)
     return {
         "status": "dry_run" if dry_run else ("needs_manual_steps" if manual_needed else "ok"),
         "client": client,
-        "requested_features": list(features),
+        "requested_features": normalized_features,
         "launcher": launcher.to_mapping(),
         "managed": launcher.managed,
         "non_interactive": yes,
@@ -137,7 +143,9 @@ def run_rollback(*, target_version: str | None) -> dict[str, Any]:
 
 def _record_update_result(paths: ManagedPaths, result: dict[str, Any]) -> dict[str, Any]:
     config = load_config(paths)
-    config["last_checked_at"] = result.get("checked_at") or config.get("last_checked_at")
+    if result.get("checked_at") is not None:
+        config["last_checked_at"] = result.get("checked_at")
+    config["update_scheduled_at"] = None
     config["last_status"] = result.get("status")
     config["last_error"] = result.get("error") if result.get("status") == "error" else None
     if result.get("latest_version"):
@@ -177,7 +185,9 @@ def run_update_apply() -> dict[str, Any]:
             if check.get("status") != "update_available":
                 return check
             latest_version = check.get("latest_version")
-            outcome = install_managed_version(paths, latest_version)
+            config = load_config(paths)
+            features = list(config.get("features") or [])
+            outcome = install_managed_version(paths, latest_version, features=features)
     except TimeoutError:
         return _record_update_result(
             paths,

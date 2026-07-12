@@ -246,7 +246,7 @@ resolve_current_hwp_document()
 
 - 패키지 버전: `0.1.0` (Pre-Alpha)
 - 런타임 MCP 도구: **46 tools**
-- 최신 로컬 검증: **307 passed, 15 skipped**
+- 최신 로컬 검증: **312 passed, 15 skipped**
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending

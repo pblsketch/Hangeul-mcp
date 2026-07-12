@@ -252,3 +252,20 @@ def test_default_launcher_uses_absolute_module_command_when_unmanaged(monkeypatc
     assert launcher.command == sys.executable
     assert launcher.args == ["-m", "hangeul_mcp.server"]
     assert launcher.managed is False
+
+def test_managed_launcher_uses_managed_base_python(tmp_path, monkeypatch):
+    managed_root = tmp_path / "managed"
+    current = managed_root / "current.json"
+    base_python = managed_root / "base" / "venv" / "bin" / "python"
+    current.parent.mkdir(parents=True, exist_ok=True)
+    current.write_text("{}", encoding="utf-8")
+    base_python.parent.mkdir(parents=True, exist_ok=True)
+    base_python.write_text("python", encoding="utf-8")
+    monkeypatch.setenv("HANGEUL_MCP_MANAGED_ROOT", str(managed_root))
+    monkeypatch.setattr(client_config.sys, "platform", "linux")
+
+    launcher = client_config.determine_launcher()
+
+    assert launcher.command == str(base_python)
+    assert launcher.args == ["-m", "hangeul_mcp.launcher"]
+    assert launcher.managed is True

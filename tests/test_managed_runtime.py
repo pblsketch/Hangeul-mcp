@@ -247,6 +247,28 @@ def test_launcher_schedules_daily_update_for_stale_pypi_install(tmp_path, monkey
     assert calls["cwd"] == str(paths.root_dir)
 
 
+def test_launcher_schedules_notify_check_without_apply(tmp_path, monkeypatch):
+    paths = managed.ManagedPaths.from_root(tmp_path)
+    managed.ensure_managed_dirs(paths)
+    managed.save_config(paths, {"auto": "notify", "channel": "stable", "last_checked_at": 1})
+    managed.save_current_state(
+        paths,
+        {"current_version": "0.1.0", "previous_version": None, "install_source": "bootstrap"},
+    )
+    calls = {}
+
+    def fake_popen(argv, cwd=None, stdout=None, stderr=None, close_fds=None):
+        calls["argv"] = list(argv)
+        return object()
+
+    monkeypatch.setattr(launcher, "get_base_runtime_command", lambda: ["/base/python", "-m", "hangeul_mcp.server"])
+    monkeypatch.setattr(launcher, "is_update_check_stale", lambda last_checked_at: True)
+
+    result = launcher.maybe_schedule_daily_update(paths, popen=fake_popen)
+
+    assert result["status"] == "scheduled"
+    assert calls["argv"] == ["/base/python", "-m", "hangeul_mcp.manage", "update", "--check"]
+
 def test_launcher_skips_daily_update_for_bootstrap_install(tmp_path, monkeypatch):
     paths = managed.ManagedPaths.from_root(tmp_path)
     managed.ensure_managed_dirs(paths)

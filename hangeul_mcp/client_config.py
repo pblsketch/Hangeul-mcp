@@ -62,13 +62,22 @@ def get_managed_root() -> Path:
 def managed_install_available() -> bool:
     launcher_spec = importlib.util.find_spec("hangeul_mcp.launcher")
     current_file = get_managed_root() / "current.json"
-    return launcher_spec is not None and current_file.exists()
+    try:
+        from hangeul_mcp.managed import ManagedPaths
+
+        base_python = ManagedPaths.from_root(get_managed_root()).base_python_path()
+    except ImportError:
+        base_python = None
+    return launcher_spec is not None and current_file.exists() and (base_python is None or base_python.exists())
 
 
 def determine_launcher() -> LauncherSpec:
     if managed_install_available():
+        from hangeul_mcp.managed import ManagedPaths
+
+        base_python = ManagedPaths.from_root(get_managed_root()).base_python_path()
         return LauncherSpec(
-            command=sys.executable,
+            command=str(base_python),
             args=["-m", "hangeul_mcp.launcher"],
             managed=True,
         )

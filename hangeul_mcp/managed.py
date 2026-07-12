@@ -56,6 +56,13 @@ class ManagedPaths:
     def version_dir(self, version: str) -> Path:
         return self.versions_dir / version
 
+    def base_python_path(self) -> Path:
+        base_dir = self.root_dir / "base" / "venv"
+        windows_python = base_dir / "Scripts" / "python.exe"
+        if windows_python.exists() or sys.platform == "win32":
+            return windows_python
+        return base_dir / "bin" / "python"
+
     def version_python_path(self, version: str) -> Path:
         version_dir = self.version_dir(version)
         windows_python = version_dir / "Scripts" / "python.exe"
@@ -270,6 +277,7 @@ def install_managed_version(
     runner: Callable[..., Any] | None = None,
     base_python: str | None = None,
     smoke_tester: Callable[[list[str]], dict[str, Any]] | None = None,
+    features: list[str] | None = None,
 ) -> dict[str, Any]:
     current_file_existed = paths.current_file.exists()
     ensure_managed_dirs(paths)
@@ -277,6 +285,11 @@ def install_managed_version(
     current_before = load_current_state(paths)
     run = runner or subprocess.run
     smoke = smoke_tester or smoke_mcp_command
+    feature_suffix = ""
+    if features:
+        normalized = [feature for feature in features if feature]
+        if normalized:
+            feature_suffix = "[" + ",".join(normalized) + "]"
 
     if version_dir.exists():
         shutil.rmtree(version_dir)
@@ -284,7 +297,7 @@ def install_managed_version(
     try:
         run([base_python or sys.executable, "-m", "venv", str(version_dir)], check=True, cwd=None, env=None, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         runtime_python = paths.version_python_path(version)
-        run([str(runtime_python), "-m", "pip", "install", f"{PACKAGE_NAME}=={version}"], check=True, cwd=None, env=None, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        run([str(runtime_python), "-m", "pip", "install", f"{PACKAGE_NAME}{feature_suffix}=={version}"], check=True, cwd=None, env=None, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         run([str(runtime_python), "-c", f"import {MODULE_NAME}"], check=True, cwd=None, env=None, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         smoke_result = smoke([str(runtime_python), "-m", MODULE_NAME])
         if not smoke_result.get("ok"):

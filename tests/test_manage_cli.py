@@ -54,6 +54,28 @@ def test_setup_cli_forwards_options(monkeypatch, capsys):
     assert payload["status"] == "dry_run"
 
 
+def test_run_setup_persists_requested_features(tmp_path, monkeypatch):
+    paths = ManagedPaths.from_root(tmp_path)
+    monkeypatch.setattr(manage, "_managed_paths", lambda: paths)
+
+    class FakeLauncher:
+        managed = False
+
+        def to_mapping(self):
+            return {"command": "python", "args": []}
+
+    monkeypatch.setattr(manage, "determine_launcher", lambda: FakeLauncher())
+    monkeypatch.setattr(
+        manage,
+        "setup_client_config",
+        lambda name, launcher, dry_run: {"client": name, "status": "configured", "changed": False},
+    )
+
+    result = manage.run_setup(client="codex", features=["live", "com"], dry_run=False, yes=False)
+
+    assert result["requested_features"] == ["live", "com"]
+    assert manage.load_config(paths)["features"] == ["live", "com"]
+
 def test_update_check_json_uses_structured_output(monkeypatch, capsys):
     monkeypatch.setattr(
         manage,
@@ -176,7 +198,7 @@ def test_run_update_apply_installs_latest_version(tmp_path, monkeypatch):
     monkeypatch.setattr(
         manage,
         "install_managed_version",
-        lambda managed_paths, version: {
+        lambda managed_paths, version, features=None: {
             "ok": True,
             "state": {"previous_version": "1.0.0"},
         },
@@ -193,6 +215,36 @@ def test_run_update_apply_installs_latest_version(tmp_path, monkeypatch):
         "checked_at": None,
         "latest_version": "1.1.0",
     }
+
+def test_run_update_apply_preserves_configured_features(tmp_path, monkeypatch):
+    paths = ManagedPaths.from_root(tmp_path)
+    paths.root_dir.mkdir(parents=True, exist_ok=True)
+    save_current_state(
+        paths,
+        {"current_version": "1.0.0", "previous_version": None, "install_source": "pypi"},
+    )
+    manage.save_config(paths, {"features": ["delegate", "render"]})
+    monkeypatch.setattr(manage, "_managed_paths", lambda: paths)
+    monkeypatch.setattr(
+        manage,
+        "run_update_check",
+        lambda: {
+            "status": "update_available",
+            "installed_version": "1.0.0",
+            "latest_version": "1.1.0",
+        },
+    )
+    seen = {}
+
+    def fake_install(managed_paths, version, features=None):
+        seen["features"] = features
+        return {"ok": True, "state": {"previous_version": "1.0.0"}}
+
+    monkeypatch.setattr(manage, "install_managed_version", fake_install)
+
+    manage.run_update_apply()
+
+    assert seen["features"] == ["delegate", "render"]
 
 
 def test_config_show_prints_structured_state(monkeypatch, capsys):

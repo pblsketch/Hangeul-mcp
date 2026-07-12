@@ -162,3 +162,12 @@ def test_collect_client_statuses_distinguishes_auto_and_manual_surfaces(tmp_path
     assert statuses["antigravity"]["registered"] is True
     assert any(surface["name"] == "workspace" and surface["mode"] == "manual_only" and surface["registered"] for surface in statuses["antigravity"]["surfaces"])
     assert statuses["antigravity"]["manual_commands"][1] == "Use /mcp in Antigravity CLI."
+
+def test_headless_extra_is_reported_as_unsupported(monkeypatch):
+    monkeypatch.setattr(doctor, "headless_status", lambda: {"available": False, "checked": {"pyhwp": False}})
+
+    status = doctor.collect_optional_extras_status()
+
+    assert status["hwp-headless"]["available"] is False
+    assert status["hwp-headless"]["status"] == "unsupported"
+    assert status["hwp-headless"]["checked"] == {"pyhwp": False}
