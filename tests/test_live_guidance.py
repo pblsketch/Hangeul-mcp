@@ -11,16 +11,24 @@ import asyncio
 from hangeul_mcp import server
 
 
+def _tool_descriptions():
+    return {t.name: (t.description or "") for t in asyncio.run(server.mcp.list_tools())}
+
+
 def test_hwp_status_idle_carries_guidance():
     st = server.hwp_status()
     assert st.get("connected") is False  # side-effect-free probe never attaches
     note = st.get("note", "")
     assert "side-effect" in note or "attach" in note, "idle status must explain itself"
-    assert "preview_cells_to_open_hwp" in st.get("next", ""), "idle status must name the next tool"
+    nxt = st.get("next", "")
+    assert "preview_cells_to_open_hwp" in nxt, "idle status must name the next tool"
+    assert "open_in_hwp" in nxt and "exact path" in nxt.lower(), (
+        "idle guidance must tell clients to attach by exact path before live apply"
+    )
 
 
 def test_live_tool_descriptions_state_value_only_boundary():
-    tools = {t.name: (t.description or "") for t in asyncio.run(server.mcp.list_tools())}
+    tools = _tool_descriptions()
     apply_named = tools["apply_to_open_hwp"].lower()
     assert "value" in apply_named and "format" in apply_named, (
         "apply_to_open_hwp description must state the value-only / no-formatting boundary"
@@ -34,21 +42,25 @@ def test_hwp_status_exposes_rot_instances_and_attach_boundary():
     st = server.hwp_status()
     assert isinstance(st.get("instances"), list), "instances must always be a list (empty off-Windows)"
     boundary = st.get("attach_boundary", "")
-    assert "open_in_hwp" in boundary and "attach" in boundary, (
-        "status must explain that hand-opened windows are not attachable and name open_in_hwp"
+    assert "open_in_hwp" in boundary and "exact path" in boundary.lower(), (
+        "status boundary must explain exact-path attach-first guidance"
+    )
+    assert "cannot be attached" not in boundary.lower() and "never register" not in boundary.lower(), (
+        "status boundary must not claim hand-opened docs are categorically unattainable"
     )
 
 
 def test_open_in_hwp_description_states_attach_boundary():
-    tools = {t.name: (t.description or "") for t in asyncio.run(server.mcp.list_tools())}
+    tools = _tool_descriptions()
     desc = tools["open_in_hwp"].lower()
-    assert "hand-opened" in desc and "attach" in desc
+    assert "hand-opened" in desc and "exact path" in desc and "attach" in desc
+    assert "cannot be attached" not in desc and "never register" not in desc
     apply_cells = tools["apply_cells_to_open_hwp"].lower()
     assert "open_if_needed" in apply_cells or "opens it" in apply_cells
 
 
 def test_live_tools_state_cold_start_and_inline_boundary():
-    tools = {t.name: (t.description or "") for t in asyncio.run(server.mcp.list_tools())}
+    tools = _tool_descriptions()
     assert "cold start" in tools["open_in_hwp"].lower()
     apply_cells = tools["apply_cells_to_open_hwp"].lower()
     assert "cold start" in apply_cells and "inline" in apply_cells

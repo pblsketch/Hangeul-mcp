@@ -2,9 +2,11 @@
 
 > 한글(HWP/HWPX) 양식을 인식하고, AI가 생성한 값을 **원본 서식을 보존한 채** 채워 넣는 **MCP 서버**.
 > Claude Desktop뿐 아니라 **Codex, Antigravity 2.0** 등 임의의 MCP 클라이언트에서 동작.
-> 최종 목표: **COM 라이브 반영** — 검토한 값을 열려 있는 한글 창에 원샷으로 밀어넣기.
+> 최종 목표: **COM 라이브 반영** — 검토한 값을 **정확한 문서 경로로 식별한** 열린 한글 문서에 원샷으로 밀어넣기(unsafe generic reconnect 금지).
 >
-> 상태: **계획 단계 (빌드 전, 사용자 승인 대기)**  ·  작성 2026-07-08
+> 상태: **계획/스펙 문서(코드베이스는 이미 존재하며, 현재 승인된 라이브 정책은 Batch A exact-path attach-first)**  ·  작성 2026-07-08
+
+> 감사용 구분: **Batch A(승인된 보수 범위)** = 헤드리스 워크플로우 + `connected:false` idle pre-attach 안내 + `open_in_hwp(path)`/`preview_cells_to_open_hwp(path, values)` 중심의 exact-path attach-first 정책. **Batch B(조건부 승격)** = 손으로 연 창까지 포함한 exact-path attach의 literal write-safe Windows 실기기 증거. Batch B는 추가 live-QA 캡처 전까지 pending이며, 이 계획 문서도 그 이상을 주장하지 않는다.
 
 ---
 
@@ -14,7 +16,7 @@
 - Korean HWP/HWPX 양식 문서를 파싱해 **필드(라벨·빈칸·타입·위치)를 구조화**한다.
 - AI(=클라이언트 LLM)가 생성한 값을 받아 **서식·쪽수를 훼손하지 않고** 채운다.
 - **MCP 표준(stdio)** 으로 노출해 Claude Desktop / Codex / Antigravity 2.0 등에서 공통 사용.
-- v1: **헤드리스**(파일 in → 채워진 파일 out). v2: **COM 라이브 반영**(열린 한글 창).
+- v1: **헤드리스**(파일 in → 채워진 파일 out). v2: **COM 라이브 반영**(exact-path attach-first로 식별한 열린 한글 문서).
 
 ### 비목표 (v1 범위 밖)
 - 텍스트 "생성" 자체는 서버가 하지 않는다 → **값 생성은 클라이언트 LLM의 몫**. 서버는 인식·채우기·반영이라는 *기계적 도구*만 제공.
@@ -135,16 +137,22 @@ Hangeul-mcp/
 - `extract_text(path, include_tables) -> markdown`  (보조)
 
 ### v2 (COM 라이브 — Windows+한글 전용)
-- `hwp_status() -> {available, running_docs:[...], version}`  (미지원 환경이면 available:false)
-- `apply_to_open_hwp(values, target_doc?) -> {applied:[], skipped:[]}`
-  - 내부: 서식정합 전처리 → pyhwpx `get_field_list` 매칭 → `put_field_text(dict)` 원샷
+- `hwp_status() -> {available, connected, instances:[...], attach_boundary, first_call_hint, version}`  (미지원 환경이면 available:false)
+- `open_in_hwp(path) -> {ok, opened, attached_existing, active_document, cold_start, elapsed_seconds}`
+- `preview_cells_to_open_hwp(path, values) -> {count, targets:[...], attach_metadata}`  (문서를 쓰지 않고 exact-path resolver 결과를 먼저 보여 줌)
+- `apply_to_open_hwp(path, values)` / `apply_to_open_hwp(values) -> {applied:[], skipped:[], opened?, attached_existing?}`
+  - 안전한 Batch A named-field 흐름은 `open_in_hwp(path)` 또는 `preview_cells_to_open_hwp(path, values)`로 exact-path attach를 먼저 확인한 뒤, **이미 제어 중인 active 문서에** `apply_to_open_hwp(values)`를 호출하는 것이다
+  - path 인자는 exact-path 단독 쓰기 경로가 아니라 guidance/보수적 refusal 용도다
+  - 내부 쓰기 단계는 서식정합 전처리 후 active 문서의 `get_field_list` 매칭 → `put_field_text(dict)` 원샷
   - 누름틀/셀필드 없는 양식이면 `needs_field_registration` 반환(안내)
+- `apply_cells_to_open_hwp(path, values, open_if_needed)` — preview의 attach metadata로 same-doc가 확인된 경우에만 셀 쓰기
 - `register_fields(path, mapping)` (선택) — 빈칸을 이름있는 누름틀로 1회 등록해 이후 반영을 견고하게
+- `live_reload(path)` (승인된 follow-up, 미구현 가능) — exact-path 문서 재확인/재attach를 단일 helper로 캡슐화
 
 **검토→반영 워크플로우** (클라이언트 프롬프트/Skill이 오케스트레이션)
 1. `analyze_form` → 필드 스키마
 2. 클라이언트 LLM이 필드별 값 생성(초안) → **사용자 검토**
-3. 승인 시 v1 `fill_form`(파일) 또는 v2 `apply_to_open_hwp`(열린 창)
+3. 승인 시 v1 `fill_form`(파일) 또는 v2 `open_in_hwp(path)`/`preview_cells_to_open_hwp(path, values)`로 exact-path를 확인한 뒤 legacy active-document `apply_to_open_hwp(values)`
 
 ---
 
@@ -153,7 +161,7 @@ Hangeul-mcp/
 - **M0 스캐폴드** — 리포 뼈대, 패키징, 라이선스, CI, 픽스처 이관
 - **M1 코어 엔진(v1 기반)** — owpml I/O, analyze, understand, inline, fill (프로토타입 이관+테스트화)
 - **M2 MCP 서버(v1 출시)** — FastMCP stdio, v1 툴 4종, 클라이언트 무관 설정 문서
-- **M3 COM 라이브(v2)** — pyhwpx 브릿지, apply_to_open_hwp, 환경 가드/폴백
+- **M3 COM 라이브(v2)** — pyhwpx 브릿지, exact-path resolver, `open_in_hwp` 진입점 + active-document `apply_to_open_hwp(values)` 가이드, 환경 가드/폴백
 - **M4 폴리시** — 검토→반영 Skill, 골든테스트 확대, .hwp 변환 정책, 배포
 
 각 마일스톤은 §8 PRD의 유저 스토리로 분해(prd.json).
@@ -181,12 +189,14 @@ Hangeul-mcp/
 
 ---
 
-## 10. 사용자 승인이 필요한 열린 질문
+## 10. 계획 단계에서만 열려 있던 질문 (현재는 역사적 맥락)
 
-1. 리포 **위치**(로컬 경로) 및 GitHub 공개/비공개?
-2. **python-hwpx 채택** vs 자체 엔진 유지 — 스파이크(US-002) 결과로 결정해도 되는지?
-3. v1 **필드 매칭 키**를 `label` 우선으로 할지 `field_id`(주소) 우선으로 할지 — 라벨 중복/병합 대비.
-4. `.hwp`(바이너리) 입력을 v1에서 **자동 HWPX 변환**까지 지원할지, v1은 HWPX 전용으로 둘지?
-5. 패키지/명령 이름: `hangeul-mcp` 실행명, PyPI 배포 여부.
+이 섹션은 **초기 계획 승인 당시의 의사결정 포인트 기록**이다. 현재 코드베이스 전체가 이 질문들 때문에 대기 중인 상태는 아니며, 실제 shipped 동작과 현재 정책은 README/HANDOFF/`docs/DECISIONS.md`가 기준이다.
 
-> 승인 시 M0→M1 순서로 ralph 빌드 루프를 재개한다. 이번 실행은 **여기까지(계획/스펙)** 로 정지.
+1. 리포 **위치** 및 GitHub 공개/비공개 여부 → 이미 결정되어 현재 canonical repo와 배포 문서에 반영됨.
+2. **python-hwpx 채택** vs 자체 엔진 유지 → 현재는 OWN 코어 + delegate substrate 병행 전략으로 정착했고, 자세한 경계는 ADR/README에 반영됨.
+3. v1 **필드 매칭 키** 우선순위 → 현재 구현/문서는 `field_id` 또는 `label` 입력을 모두 허용하는 방향으로 정리됨.
+4. `.hwp`(바이너리) 입력 범위 → 현재는 headless reader adapter gate 및 COM/변환 경계를 명시하는 정책으로 정리됨.
+5. 패키지/명령 이름 및 배포 여부 → `hangeul-mcp` 실행명과 현재 배포/설치 경로가 README에 반영됨.
+
+> 따라서 위 항목들은 **원래 계획 단계의 승인 질문 아카이브**이며, 현재 작업 판단은 최신 상태 문서와 실제 코드/검증 산출물을 따른다.

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from hangeul_core.hwp.live import apply_cells_to_open, preview_cells_to_open, resolve_cell_targets
 from hangeul_mcp import server
+import hangeul_mcp.tools_live as live_tools
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_form.hwpx"
 
@@ -57,6 +58,73 @@ def test_preview_cells_to_open_is_pure_and_returns_targets():
     assert res["count"] == 1
     assert res["targets"][0]["label"].replace(" ", "") == "성명"
     assert res["apply_tool"] == "apply_cells_to_open_hwp"
+
+
+
+def test_server_preview_reports_side_effect_free_attach_state(monkeypatch):
+    base = {
+        "available": True,
+        "count": 1,
+        "targets": [{"label": "성명", "field_id": "t1.r0.c0", "value": "홍길동"}],
+        "text_targets": [],
+        "body_targets": [],
+        "skipped": [],
+        "apply_tool": "apply_cells_to_open_hwp",
+    }
+
+    monkeypatch.setattr(live_tools, "_preview_cells_to_open", lambda path, values: dict(base))
+    monkeypatch.setattr(
+        live_tools,
+        "_exact_attach_candidates",
+        lambda path: [
+            {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"}
+        ],
+    )
+
+    res = server.preview_cells_to_open_hwp(str(FIXTURE), {"성명": "홍길동"})
+    assert res["ok"] is True
+    assert res["resolver"] == {
+        "side_effect_free": True,
+        "exact_path": str(FIXTURE),
+        "apply_to_open_hwp_state": "legacy_active_document",
+        "apply_cells_to_open_hwp_state": "pathful_exact_path",
+    }
+    assert res["attach_candidates"] == [
+        {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"}
+    ]
+
+
+def test_server_preview_preserves_duplicate_exact_path_candidates(monkeypatch):
+    monkeypatch.setattr(
+        live_tools,
+        "_preview_cells_to_open",
+        lambda path, values: {
+            "available": True,
+            "count": 1,
+            "targets": [{"label": "성명", "field_id": "t1.r0.c0", "value": "홍길동"}],
+            "text_targets": [],
+            "body_targets": [],
+            "skipped": [],
+            "apply_tool": "apply_cells_to_open_hwp",
+        },
+    )
+    monkeypatch.setattr(
+        live_tools,
+        "_exact_attach_candidates",
+        lambda path: [
+            {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
+            {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
+        ],
+    )
+
+    res = server.preview_cells_to_open_hwp(str(FIXTURE), {"성명": "홍길동"})
+
+    assert res["resolver"]["exact_path"] == str(FIXTURE)
+    assert res["attach_candidates"] == [
+        {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
+        {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
+    ]
+
 
 
 def test_hwp_status_never_dispatches_com(monkeypatch):

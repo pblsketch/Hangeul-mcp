@@ -8,6 +8,7 @@ actually make the requested file the active document.
 
 from hangeul_core.hwp.live import _apply_cells_connected, _same_doc, open_in_hwp
 from hangeul_mcp import server
+import hangeul_core.hwp.live_attach as live_attach_mod
 
 
 class _Active:
@@ -18,6 +19,13 @@ class _Active:
 class _Docs:
     def __init__(self, hwp):
         self.Active_XHwpDocument = _Active(hwp._active)
+        self._docs = [_Active(path) for path in hwp._attached_paths]
+        self.Count = len(self._docs)
+
+    def Item(self, idx):
+        if idx < 1 or idx > self.Count:
+            raise IndexError(idx)
+        return self._docs[idx - 1]
 
 
 class _HAction:
@@ -31,8 +39,9 @@ class _HAction:
 class FakeHwp:
     """Fake COM instance for the auto-open active-document guard (CRITICAL-1)."""
 
-    def __init__(self, active, *, open_result=True, open_sets_active=None):
+    def __init__(self, active, *, open_result=True, open_sets_active=None, attached_paths=None):
         self._active = active
+        self._attached_paths = list(attached_paths or [])
         self.open_result = open_result
         self.open_sets_active = open_sets_active
         self.opened = []
@@ -107,10 +116,64 @@ def test_same_doc_normalizes_separators_and_relative_segments(tmp_path):
     assert not _same_doc(str(tmp_path / "other.hwpx"), f)
 
 
+def test_has_exact_path_supports_one_based_document_collections(tmp_path):
+    src = tmp_path / "form.hwpx"
+    other = tmp_path / "other.hwpx"
+    src.write_bytes(b"x")
+    other.write_bytes(b"y")
+    hwp = FakeHwp(str(other), attached_paths=[str(other), str(src)])
+
+    assert live_attach_mod._has_exact_path(hwp, src) is True
+
+
 def test_open_in_hwp_missing_file_is_structured():
     res = open_in_hwp("no/such/file.hwpx")
     assert res["ok"] is False
     assert "not found" in res["error"]
+
+
+
+def test_open_in_hwp_attaches_unique_exact_path_candidate_without_reopen(monkeypatch, tmp_path):
+    src = tmp_path / "form.hwpx"
+    src.write_bytes(b"x")
+    hwp = FakeHwp(str(src))
+
+    monkeypatch.setattr(live_attach_mod, "load_pyhwpx", lambda: (lambda **kwargs: hwp, None))
+    monkeypatch.setattr(
+        live_attach_mod,
+        "list_rot_instances",
+        lambda: [{"moniker": "rot://1", "active_document": str(src), "open_documents": 1}],
+    )
+    monkeypatch.setattr(live_attach_mod, "suppress_dialogs", lambda hwp: None)
+    monkeypatch.setattr(live_attach_mod, "restore_dialogs", lambda hwp, previous_mode: None)
+
+    res = open_in_hwp(src)
+    assert res["ok"] is True
+    assert res["attached_existing"] is True
+    assert res["opened"] is False
+    assert hwp.opened == []
+
+
+def test_open_in_hwp_keeps_structured_fallback_when_no_exact_path_attach(monkeypatch, tmp_path):
+    src = tmp_path / "form.hwpx"
+    src.write_bytes(b"x")
+    hwp = FakeHwp("C:/other/unrelated.hwpx", open_result=True, open_sets_active=str(src))
+
+    monkeypatch.setattr(live_attach_mod, "load_pyhwpx", lambda: (lambda **kwargs: hwp, None))
+    monkeypatch.setattr(
+        live_attach_mod,
+        "list_rot_instances",
+        lambda: [{"moniker": "rot://1", "active_document": "C:/other/unrelated.hwpx", "open_documents": 1}],
+    )
+    monkeypatch.setattr(live_attach_mod, "suppress_dialogs", lambda hwp: None)
+    monkeypatch.setattr(live_attach_mod, "restore_dialogs", lambda hwp, previous_mode: None)
+
+    res = open_in_hwp(src)
+    assert res["ok"] is True
+    assert res["attached_existing"] is False
+    assert res["opened"] is True
+    assert res["resolution"] == "opened_in_automation_window"
+    assert hwp.opened == [str(src)]
 
 
 def test_open_in_hwp_tool_rejects_non_hwp_extensions(tmp_path):

@@ -1,0 +1,86 @@
+{
+  "target": "E:\\github\\Hangeul-mcp\\build\\evidence\\sample_form_hand_opened_live_qa.hwpx",
+  "launch": "Windows Shell Start-Process (not literal human double-click)",
+  "rot_before": [
+    {
+      "moniker": "!HwpObject.130.1",
+      "open_documents": 2,
+      "documents": [
+        {
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\tests\\fixtures\\sample_form.hwpx",
+          "normalized_path": "e:\\github\\hangeul-mcp\\tests\\fixtures\\sample_form.hwpx",
+          "is_active": false
+        },
+        {
+          "slot": 1,
+          "path": "E:\\github\\Hangeul-mcp\\build\\evidence\\sample_form_hand_opened_live_qa.hwpx",
+          "normalized_path": "e:\\github\\hangeul-mcp\\build\\evidence\\sample_form_hand_opened_live_qa.hwpx",
+          "is_active": true
+        }
+      ],
+      "active_document": "E:\\github\\Hangeul-mcp\\build\\evidence\\sample_form_hand_opened_live_qa.hwpx",
+      "normalized_active_document": "e:\\github\\hangeul-mcp\\build\\evidence\\sample_form_hand_opened_live_qa.hwpx"
+    }
+  ],
+  "preview": {
+    "available": true,
+    "ok": true,
+    "live_available": true,
+    "targets": [
+      {
+        "table": 2,
+        "row": 2,
+        "col": 3,
+        "value": "홍길동",
+        "label": "성명",
+        "field_id": "t2.r2.c3"
+      },
+      {
+        "table": 2,
+        "row": 2,
+        "col": 2,
+        "value": "교사",
+        "label": "직위",
+        "field_id": "t2.r2.c2"
+      }
+    ],
+    "text_targets": [],
+    "body_targets": [],
+    "skipped": [],
+    "count": 2,
+    "apply_tool": "apply_cells_to_open_hwp"
+  },
+  "apply": {
+    "available": true,
+    "connected": true,
+    "ok": true,
+    "state": "attached_existing",
+    "attached_existing": true,
+    "opened": false,
+    "active_document": "E:\\github\\Hangeul-mcp\\build\\evidence\\sample_form_hand_opened_live_qa.hwpx",
+    "applied": [
+      {
+        "label": "성명",
+        "field_id": "t2.r2.c3",
+        "value": "홍길동"
+      },
+      {
+        "label": "직위",
+        "field_id": "t2.r2.c2",
+        "value": "교사"
+      }
+    ],
+    "skipped": [],
+    "count": 2,
+    "cold_start": false,
+    "elapsed_seconds": 10.5
+  },
+  "fresh_active": "E:\\github\\Hangeul-mcp\\build\\evidence\\sample_form_hand_opened_live_qa.hwpx",
+  "fresh_text_prefix": "\r\n강 사 카 드\r\n\r\n\r\n소속\r\n직위\r\n성명\r\n주민등록번호\r\n전화번호\r\n근무처\r\n휴대전화\r\n\r\n교사\r\n홍길동\r\n\r\n\r\n\r\n통장\r\n계좌번호\r\n 은행명:  \r\n 계좌번호:      \r\n전자우편\r\n\r\n강의 원고\r\n&#8728; 종류(HWP, PPT, 기타)   &#8728; 매수(    매)   &#8728; 존재(새 원고, 기존 원고)\r\n강의일시\r\n  \r\n프로그램명\r\n &#8728;\r\n강의주제\r\n &#8728;\r\n사용하실 \r\n교육 기자재\r\n선택 : [   (예시) 빔프로젝터, 화이트보드 등  ]\r\n학    력\r\n &#8728;\r\n 을 졸업하시고\r\n경    력\r\n &#8728;\r\n 을 역임하셨으며\r\n &#8728;\r\n &#8728;\r\n현    직\r\n &#8728;\r\n 로 재직하고 계십니다.\r\n저서&#8228;논문\r\n &#8728;\r\n\r\n□&#160;개인정보&#160;수집·이용&#160;동의\r\n\r\n제공받는 자\r\n수집·이용목적\r\n항&#160;목\r\n이용 및 보유 기간\r\n경기도교육청\r\n성남도서관\r\n - 어린이독서회 프로그램 운영\r\n - 수당 등 각종 지급을 위한 거래처 관리\r\n-&#160;성명, 주민등록번호, 전화번호,\r\n 계좌번호\r\n5년\r\n\r\n&#160;  ※&#160;개인정보&#160;수집·이용에&#160;대한&#160;동의를&#160;거부할&#160;권리가&#160;있습니다.&#160;그러나&#160;동의를&#160;거부할&#160;경우\r\n     수당 등 각종 지급이 불가합니다.\r\n\r\n&#160;개인정보&#160;수집·이용&#160;동의\r\n□예&#160;&#160; &#160; &#160; &#160; &#160;□아니요\r\n\r\n\r\n□ 개인정보 제3자 제공 고지 \r\n    개인정보보호법&#160;제24조의2&#160;제1항제1호에&#160;따라&#160;정보주체의&#160;동의&#160;없이&#160;주민번호를&#160;수집·제공할&#160;수&#160;있습니다.\r\n\r\n제공받는&#160;자\r\n 이용목적\r\n항목\r\n수집·제공&#160;근거\r\n국세청\r\n소득세 징수\r\n연말",
+  "readback": {
+    "contains_name": true,
+    "contains_position": true
+  },
+  "success": true
+}

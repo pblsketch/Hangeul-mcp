@@ -3,14 +3,16 @@
 Layered deliberately: resolve/preview stay PURE (unit-testable, no COM), while
 apply drives the open window via the optional ``pyhwpx`` substrate (extra
 ``live``), attaching through the COM Running Object Table (validated on the
-desktop, not in headless CI). Hand-opened windows never register there — open
-documents via :func:`open_in_hwp` instead. empty_cell labels are filled as
-direct value inserts; inline blanks ride the file-fill mirror in
-:mod:`hangeul_core.hwp.live_inline`.
+desktop, not in headless CI). Live writes stay conservative: only automation-
+visible exact-path matches qualify, and hand-opened windows are not a safe
+anchor by themselves; use :func:`open_in_hwp` with the exact path first.
+empty_cell labels are filled as direct value inserts; inline blanks ride the
+file-fill mirror in :mod:`hangeul_core.hwp.live_inline`.
 """
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import sys
 import time
@@ -18,6 +20,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from hangeul_core.analyze import analyze
+from hangeul_core.body import resolve_body_targets
 from hangeul_core.hwp.com import (
     list_rot_instances,
     load_pyhwpx,
@@ -25,11 +28,12 @@ from hangeul_core.hwp.com import (
     same_doc as _same_doc,
     suppress_dialogs,
 )
-from hangeul_core.body import resolve_body_targets
+from hangeul_core.hwp.live_attach import _ensure_active_document, open_in_hwp
 from hangeul_core.hwp.live_body import apply_body_targets
 from hangeul_core.hwp.live_inline import apply_text_targets, compute_cell_text_replacements
 from hangeul_core.schema import label_key
 from hangeul_core.understand import understand
+
 
 
 def live_available() -> bool:
@@ -89,49 +93,7 @@ def resolve_cell_targets(
     return targets, skipped
 
 
-def open_in_hwp(path: str | Path, *, visible: bool = True) -> Dict:
-    """Open *path* in a CONTROLLABLE (automation-created) Hangul window.
 
-    Hand-opened windows never register in the COM ROT (observed 2026-07-10,
-    PENDING_DESKTOP_LIVE_QA.md), so the reliable live workflow is: open THROUGH
-    the automation instance here, then fill that window with the apply tools.
-    Leaves the window open; saves and closes nothing.
-    """
-    p = Path(path)
-    if not p.exists():
-        return {"available": True, "ok": False, "error": f"file not found: {p}"}
-    Hwp, err = load_pyhwpx()
-    if err:
-        return err
-    started = time.monotonic()
-    cold_start = not list_rot_instances()  # no instance -> this call launches Hangul
-    try:
-        hwp = Hwp(new=False, visible=visible, on_quit=False)
-    except Exception as exc:
-        return {"available": True, "connected": False, "error": str(exc)}
-    previous_mode = suppress_dialogs(hwp)
-    try:
-        opened = bool(hwp.open(str(p)))
-        active = str(hwp.XHwpDocuments.Active_XHwpDocument.FullName or "")
-    except Exception as exc:
-        return {
-            "available": True,
-            "connected": True,
-            "opened": False,
-            "cold_start": cold_start,
-            "error": str(exc),
-        }
-    finally:
-        restore_dialogs(hwp, previous_mode)
-    return {
-        "available": True,
-        "connected": True,
-        "ok": opened and _same_doc(active, p),
-        "opened": opened,
-        "active_document": active,
-        "cold_start": cold_start,
-        "elapsed_seconds": round(time.monotonic() - started, 1),
-    }
 
 
 def _resolve_all_targets(path: str | Path, values: Dict[str, str]):
@@ -141,7 +103,7 @@ def _resolve_all_targets(path: str | Path, values: Dict[str, str]):
     leftover = {u["key"]: values[u["key"]] for u in unresolved if u["key"] in values}
     if not leftover:
         return targets, [], [], unresolved
-    body_targets = resolve_body_targets(path, leftover)  # body field_ids (b{n})
+    body_targets = resolve_body_targets(path, leftover)
     body_ids = {t["field_id"] for t in body_targets}
     inline_leftover = {k: v for k, v in leftover.items() if k not in body_ids}
     text_targets, skipped = (
@@ -154,6 +116,7 @@ def preview_cells_to_open(path: str | Path, values: Dict[str, str]) -> Dict:
     targets, text_targets, body_targets, skipped = _resolve_all_targets(path, values)
     return {
         "available": True,
+        "ok": True,
         "live_available": live_available(),
         "targets": targets,
         "text_targets": text_targets,
@@ -175,8 +138,9 @@ def apply_cells_to_open(
     """Fill the OPEN (automation-controlled) Hangul document's cells live.
 
     Verifies the attached instance's ACTIVE document is *path* first (else a
-    different active doc would be corrupted); on mismatch opens *path* when
-    ``open_if_needed`` (default), else refuses — then edits the cell targets.
+    different active doc would be corrupted); only automation-visible exact-path
+    matches qualify. On mismatch opens *path* when ``open_if_needed``
+    (default), else refuses — then edits the cell targets.
     """
     Hwp, err = load_pyhwpx()
     if err:
@@ -185,16 +149,24 @@ def apply_cells_to_open(
     targets, text_targets, body_targets, skipped = _resolve_all_targets(path, values)
 
     started = time.monotonic()
-    cold_start = not list_rot_instances()  # no instance -> this call launches Hangul
+    cold_start = not list_rot_instances()
     try:
-        hwp = Hwp(new=False, visible=visible, on_quit=False)  # attach to running
+        hwp = Hwp(new=False, visible=visible, on_quit=False)
     except Exception as exc:
         return {"available": True, "connected": False, "error": str(exc)}
     previous_mode = suppress_dialogs(hwp)
     try:
         return _apply_cells_connected(
-            hwp, path, targets, text_targets, body_targets, skipped, clear=clear,
-            open_if_needed=open_if_needed, cold_start=cold_start, started=started,
+            hwp,
+            path,
+            targets,
+            text_targets,
+            body_targets,
+            skipped,
+            clear=clear,
+            open_if_needed=open_if_needed,
+            cold_start=cold_start,
+            started=started,
         )
     finally:
         restore_dialogs(hwp, previous_mode)
@@ -213,52 +185,20 @@ def _apply_cells_connected(
     cold_start: bool,
     started: float,
 ) -> Dict:
-    try:
-        active = str(hwp.XHwpDocuments.Active_XHwpDocument.FullName or "")
-    except Exception:
-        active = ""
-    opened_here = False
-    if not _same_doc(active, path):
-        if not open_if_needed:
-            return {
-                "available": True,
-                "connected": True,
-                "ok": False,
-                "active_document": active,
-                "error": (
-                    "attached instance's active document is not the requested file; "
-                    "pass open_if_needed=true or call open_in_hwp first "
-                    "(hand-opened windows are not attachable)"
-                ),
-            }
-        try:
-            opened_ok = bool(hwp.open(str(Path(path))))
-            active = str(hwp.XHwpDocuments.Active_XHwpDocument.FullName or "")
-        except Exception as exc:
-            return {"available": True, "connected": True, "ok": False, "error": str(exc)}
-        # open() can return True while the active document did NOT switch — editing
-        # then would corrupt whatever stayed active. Re-verify before any edit.
-        if not opened_ok or not _same_doc(active, path):
-            return {
-                "available": True,
-                "connected": True,
-                "ok": False,
-                "active_document": active,
-                "error": f"could not make {path} the active document in the automation instance",
-            }
-        opened_here = True
-
+    active, opened_here, error = _ensure_active_document(hwp, path, open_if_needed=open_if_needed)
+    if error is not None:
+        return error
     applied: List[dict] = []
     for t in targets:
         try:
-            if not hwp.get_into_nth_table(t["table"] - 1):  # 0-based ctrl index
+            if not hwp.get_into_nth_table(t["table"] - 1):
                 skipped.append({"key": t["label"], "reason": "table not found live"})
                 continue
-            if not hwp.goto_addr(t["row"] + 1, t["col"] + 1, select_cell=True):  # 1-based
+            if not hwp.goto_addr(t["row"] + 1, t["col"] + 1, select_cell=True):
                 skipped.append({"key": t["label"], "reason": "cell address not reachable"})
                 continue
             if clear:
-                hwp.HAction.Run("Delete")  # clear selected cell content
+                hwp.HAction.Run("Delete")
             hwp.insert_text(t["value"])
             applied.append({"label": t["label"], "field_id": t["field_id"], "value": t["value"]})
         except Exception as exc:  # pragma: no cover - live COM only
@@ -270,7 +210,11 @@ def _apply_cells_connected(
     return {
         "available": True,
         "connected": True,
+        "ok": True,
+        "state": "opened_new" if opened_here else "attached_existing",
+        "attached_existing": not opened_here,
         "opened": opened_here,
+        "active_document": active,
         "applied": applied,
         "skipped": skipped,
         "count": len(applied),

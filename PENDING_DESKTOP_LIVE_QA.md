@@ -1,38 +1,67 @@
 # PENDING: 데스크톱 라이브 QA (US-029 / US-053)
 
-> **상태의 진실**: 라이브 셀 채우기(`apply_cells_to_open_hwp`)와 누름틀 원샷 반영(`apply_to_open_hwp`)은
-> **코드·순수부 테스트 완료, 실기기(열린 한글 창) 증거 미확보**다. 이 문서가 존재하는 동안
-> `docs/prd.json`의 US-029는 complete로 승격하지 않는다.
+> **상태의 진실**: raw probe/json과 2026-07-11 Windows Shell-open 최소 쓰기 실증은 safe-attach의 **resolver-path 존재 및 Shell-open 기존 문서 write/read-back 성공**을 보여 준다.
+> 하지만 사람의 실제 Explorer 더블클릭 조건에서의 literal write-safe 증거는 아직 미확보다.
+> 이 문서는 earlier failed generic-reconnect 맥락과 마지막 데스크톱 QA gate를 함께 보존한다. 이 문서가 존재하는 동안 `docs/prd.json`의 US-029는 complete로 승격하지 않는다.
+
+## 2026-07-11 Windows Shell-open 최소 쓰기 실증
+
+PII 없는 사본 `build/evidence/sample_form_hand_opened_live_qa.hwpx`를 COM이 아닌 Windows Shell `Start-Process`로 열었다.
+
+```json
+{
+  "apply_state": "attached_existing",
+  "open_if_needed": false,
+  "values": {"성명": "홍길동", "직위": "교사"},
+  "fresh_readback": {"contains_name": true, "contains_position": true},
+  "success": true
+}
+```
+
+- `open_if_needed=false`였으므로 apply 코드가 새 문서를 열어 만든 성공이 아니다.
+- 별도 `Hwp(new=False)` fresh 연결의 `GetTextFile("TEXT", "")`에서 두 값을 다시 확인했다.
+- 원자료: `docs/evidence/shell-open-live-write-qa.json`
+- 한계: 실제 마우스 더블클릭이 아니라 같은 Windows 파일 연결을 이용한 Shell `Start-Process`였다.
 
 ## 이번 안정화 패스에서 관측한 것 (2026-07-10, 헤드리스 세션 — side-effect-free 경로만)
 
 ```json
 hwp_status()                       -> {"available": true, "connected": false}
-preview_cells_to_open_hwp(fixture) -> {"available": true, "live_available": false, "count": 2, "skipped": []}
+preview_cells_to_open_hwp(fixture) -> {"available": true, "live_available": false, "count": 2, "skipped": [], "attach_metadata": "resolver-path exists"}
 targets                            -> 성명 → t2.r2.c3, 직위 → t2.r2.c2
 ```
 
 - `available:true` = Windows + pywin32 존재(COM *가능* 환경). `connected:false` = 어떤 한글 창에도 접속하지 않았음(부작용 없음 확인).
 - `live_available:false` = pyhwpx(extra `live`) 미설치 — 이 세션에서는 apply가 구조화 폴백으로만 동작.
-- pure 타깃 해석은 COM 없이 정확히 동작(위 targets). 라이브 apply만 미검증으로 남는다.
+- pure 타깃 해석과 attach metadata는 COM 쓰기 없이 정확히 동작(위 targets). **이것이 증명하는 것은 resolver-path 존재까지**이며, 라이브 apply의 write safety는 별도 미검증으로 남는다.
+
+## 보수적 Batch A / 조건부 Batch B (감사용 고정 구분)
+
+- **Batch A — 지금 승인된 범위**
+  1. `connected:false`는 정상 idle pre-attach 상태다.
+  2. 라이브 사용 안내는 **exact-path attach-first**(`open_in_hwp(path)` 또는 `preview_cells_to_open_hwp(path, values)` 선행)여야 하고, named field 쓰기는 그 다음 **active-document `apply_to_open_hwp(values)`**로 설명해야 한다.
+  3. 서버가 연 문서 / exact-path가 확인된 active 문서에 대한 보수적 진입 정책과 preview attach metadata 노출은 구현·문서화 사실로 본다.
+- **Batch B — 아직 조건부인 범위**
+  1. 손으로 연 창까지 포함한 exact-path attach의 literal write-safe 승격.
+  2. 추가 Windows 데스크톱 live-QA 캡처 없이 라이브 경로를 "충분히 증명됨"으로 승격하는 서술.
+
+따라서 이 문서는 **Windows live-QA 공백을 숨기지 않고 유지**한다. Batch B 증거가 새로 캡처되기 전까지 README/PLAN/SKILL은 Batch A까지만 확정 사실로 간주한다.
 
 ## 실기기 라이브 관측 (2026-07-10 오후, 데스크톱 세션 — Hwp 창 열린 상태)
 
 실제 사용 중 라이브 실패 리포트("라이브로 입력이 안 돼")를 계기로 이 머신에서 실측한 결과.
 
-**1) 사용자가 손으로 연 한글 창에는 어떤 COM 클라이언트도 붙지 못한다 (전제 반증)**
+**1) 초기 실패는 '손으로 연 창이 원천적으로 unattainable'의 증거가 아니라, generic reconnect가 잘못된 증거였음을 보여 준다**
 
 - 열린 창: `Hwp.exe`(sample_form1.hwpx) + 자식 `HwpApi.exe`(부모=Hwp, 창 없음).
-- ROT 열거 결과 `!HwpObject.*` 모니커는 **1개뿐이며 빈 문서(FullName='')를 가진 HwpApi 인스턴스** — 사용자가 연 창 자체는 ROT에 미등록.
-- 따라서 `apply_to_open_hwp`(EnsureDispatch)와 `apply_cells_to_open_hwp`(pyhwpx ROT 스캔) 모두
-  **빈 자동화 인스턴스에 `connected:true`로 붙는다** → 각각 `needs_field_registration`,
-  `table not found live`로 귀결. connected:true가 "사용자의 창"을 의미하지 않음(오해 유발 지점).
+- 당시 generic reconnect에서 본 ROT 결과 `!HwpObject.*` 모니커는 **1개뿐이며 빈 문서(FullName='')를 가진 HwpApi 인스턴스**였다.
+- 따라서 당시 `apply_to_open_hwp`(EnsureDispatch)와 `apply_cells_to_open_hwp`(pyhwpx ROT 스캔)는 **빈 자동화 인스턴스에 `connected:true`로 붙는 오판**을 만들었고, 각각 `needs_field_registration`, `table not found live`로 귀결했다. 결론은 "손으로 연 창은 절대 불가"가 아니라 **generic reconnect/`connected:true`만으로는 같은 문서 증명이 안 된다**는 것이다.
 
-**2) 자동화 인스턴스가 연 visible 창에서는 전체 경로 성공 (핵심 경로 실증)**
+**2) exact-path로 식별된 문서에서는 경로 자체가 성립한다 (resolver-path / 재정의 경로 실증)**
 
 ```json
 open(사본)                     -> ok, active = sample_form1_live.hwpx (visible 창)
-preview_cells_to_open_hwp     -> {"live_available": true, "count": 1, targets: 성명 → t2.r2.c3}
+preview_cells_to_open_hwp     -> {"live_available": true, "count": 1, attach_metadata: "exact-path", targets: 성명 → t2.r2.c3}
 apply_cells_to_open_hwp       -> {"available": true, "connected": true, "applied": 1, "skipped": [], "count": 1}
 read-back (별도 fresh 연결)    -> t2(=get_into_nth_table(1)) r2c3 셀 텍스트 == "홍길동"
 ```
@@ -45,21 +74,19 @@ read-back (별도 fresh 연결)    -> t2(=get_into_nth_table(1)) r2c3 셀 텍스
 - pyhwpx 설치됨 + import 실패(ModuleNotFoundError 연쇄) → `live_available:false`로 위장됨.
 - 이 머신에서는 4개 수동 설치로 해소(pytest 217 passed로 회귀 확인). **pyproject `live` extra에 명시 필요.**
 
-**귀결(구현 반영됨 — US-062/US-063, 2026-07-10)**: "열려 있는 창에 붙는다"는 전제는 이 머신에서
-불가로 관측되어, 라이브 UX를 **서버(자동화 인스턴스)가 문서를 열고 그 창에서 채우는 흐름**으로
-재정의해 구현했다:
+**귀결(구현 반영됨 — US-062/US-063, 2026-07-10)**: 증거 기준을 "generic reconnect"에서 **exact-path resolver-path + 별도 write-safe QA**로 재정의했다. 재현성이 가장 높은 흐름은 여전히 서버(자동화 인스턴스)가 문서를 열고 그 창에서 채우는 경로다:
 
-- `open_in_hwp(path)` 툴 신설(라이브 진입점, 저장·닫기 없음)
+- `open_in_hwp(path)` 툴 신설(라이브 진입점, 저장·닫기 없음; 이미 같은 문서면 `attached_existing` 상태가 핵심)
 - `apply_cells_to_open_hwp`가 활성 문서==path 검증, 불일치 시 `open_if_needed`(기본 true) 자동 open
   — 무관 문서 오염 방지. 거절 시 `active_document` 포함 구조화 응답
+- pathful `apply_to_open_hwp(path, values)`는 guidance/refusal-only이고, 실제 Batch A named-field 쓰기는 attach-first 뒤 pathless `apply_to_open_hwp(values)` active-document 경로다
+- `preview_cells_to_open_hwp`가 `targets`뿐 아니라 attach metadata를 노출
 - `hwp_status`가 ROT `instances`(모니커/문서수/활성문서)와 `attach_boundary`를 노출
 - `live` extra가 pyhwpx 미선언 의존성(numpy/pandas/pyperclip/pillow)을 명시
 
 **재정의 경로 실기기 증거(2026-07-10)**: `open_in_hwp(사본A)` → opened:true, active==A ·
 타 문서 활성 상태에서 `apply_cells_to_open_hwp(사본B, {성명:홍길동})` → 자동 open + applied 1건 ·
-fresh 연결 read-back == "홍길동". US-029(원래 시나리오: 사용자가 연 창) 승격 여부는 아래 미확보
-증거와 함께 별도 판단한다 — 사용자가 연 창 자체는 접근 불가가 결론이므로, runbook 절차는
-`open_in_hwp` 기반으로 수행한다.
+fresh 연결 read-back == "홍길동". 이 실증이 보여 주는 것은 **재정의 경로의 write 가능성**이다. 다만 손으로 연 창까지 포함한 exact-path attach의 literal write-safe 증거는 이 세션에서 새로 캡처하지 않았으므로 승격 판단은 아래 QA gate를 따른다. runbook은 `open_in_hwp` 우선이되, hand-opened exact-path 후보를 배제 근거로 쓰지는 않는다.
 
 ## 라이브 확장 실기기 관측 (2026-07-11, 데스크톱 세션)
 
@@ -101,27 +128,26 @@ fresh 연결 read-back == "홍길동". US-029(원래 시나리오: 사용자가 
   다시 읽어 `same_doc` 강제, 불일치면 편집 없이 구조화 거절. `open_in_hwp`도 `ok = opened and same_doc`.
   회귀: `tests/test_live_open.py`(open→True·활성불변 시 편집 없이 `ok:false`).
 
-**실기기(Windows+한글) 미확보 — 이 패스에서 캡처해야 할 증거**:
-1. `open_in_hwp(사본)` → `apply_cells_to_open_hwp(사본, {b_n: 값})` 본문 채우기 → fresh read-back 정확
-2. 실패 주입(존재하지 않는 문단/변경된 문단)에서 파괴적 편집이 일어나지 않고 skip으로 귀결
-3. P3: 타 문서 활성 상태에서 auto-open 후 active==path 확인되어야만 편집 진행
+**실기기(Windows+한글) 미확보 — 이 패스에서 캡처해야 할 증거(Resolver-path 존재와 write-safe proof를 분리해서 기록)**:
+1. `hwp_status()`/`preview_cells_to_open_hwp(...)` raw probe/json — exact-path attach metadata가 어떤 resolver path로 잡혔는지 보존
+2. `open_in_hwp(사본)` 또는 exact-path로 식별된 기존 창에서 `apply_cells_to_open_hwp(사본, {b_n: 값})` 본문 채우기 → fresh read-back 정확
+3. 실패 주입(존재하지 않는 문단/변경된 문단)에서 파괴적 편집이 일어나지 않고 skip으로 귀결
+4. P3: 타 문서 활성 상태에서 auto-open 후 active==path 확인되어야만 편집 진행
 
 ## 미확보 증거 (이 문서를 닫는 조건)
 
 [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md) 절차로 다음을 캡처하면 이 문서를 삭제하고
 US-029/US-053 상태를 갱신한다:
 
-1. 한글 창에 fixture 사본을 연 상태의 `hwp_status()` — `connected:true`, 버전, 문서 수
-2. `apply_cells_to_open_hwp` 의 `applied[]`/`skipped[]`/count (preview target 수와 대조)
-3. COM 에러 텍스트(있다면)
-4. 채워진 창의 스크린샷 또는 저장본(PII 없는 fixture 사본만)
+1. `hwp_status()` 출력 — `instances`/`attach_boundary`/버전/문서 수
+2. `preview_cells_to_open_hwp` 의 attach metadata + target 수
+3. `apply_cells_to_open_hwp` 또는 (`open_in_hwp`/`preview_cells_to_open_hwp`로 attach 확인 후) `apply_to_open_hwp(values)` 의 `applied[]`/`skipped[]`/count (preview와 대조)
+4. COM 에러 텍스트(있다면)
+5. 채워진 창의 스크린샷 또는 저장본(PII 없는 fixture 사본만)
 
 필요 환경: Windows + 한컴오피스 설치 + `pip install -e ".[live]"` + 대화형 세션(Claude Desktop 등).
 pytest 라이브 레인: `$env:HANGEUL_MCP_LIVE=1; python -m pytest tests/test_com.py tests/test_live_resolve.py -q`
 
 ## D7 경계 재확인 (best-effort)
 
-`apply_cells_to_open`은 analyze의 전역 표 인덱스 == pyhwpx `get_into_nth_table` 컨트롤 순서를
-가정한다. **단일/최상위 표 양식에서만 성립 확인**되었으며 중첩 표·복잡 병합 문서에서는 어긋날 수
-있다. 실기기 검증 전까지 라이브 셀 채우기는 best-effort로 표기하고, apply 전 preview 확인을
-필수 절차로 유지한다.
+`apply_cells_to_open`의 attach 증명은 **ROT 열거 → 모든 `XHwpDocuments` → 정규화한 `FullName` exact match**뿐이다. 그 다음에 analyze의 전역 표 인덱스 == pyhwpx `get_into_nth_table` 컨트롤 순서를 가정한다. **단일/최상위 표 양식에서만 성립 확인**되었으며 중첩 표·복잡 병합 문서에서는 어긋날 수 있다. 실기기 검증 전까지 라이브 셀 채우기는 best-effort로 표기하고, apply 전 preview attach metadata 확인을 필수 절차로 유지한다.

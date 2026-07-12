@@ -12,24 +12,157 @@ happens only when :meth:`connect` is called explicitly.
 
 from __future__ import annotations
 
-import os
+import ntpath
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Sequence
+
+
+def normalize_live_path(path: str | Path) -> str:
+    """Normalize a live-attach path for exact Windows-style FullName matching."""
+    raw = str(path or "").strip()
+    if not raw:
+        return ""
+    return ntpath.normcase(ntpath.normpath(ntpath.abspath(raw.replace("/", "\\"))))
 
 
 def same_doc(active_fullname: str, path: str | Path) -> bool:
-    """True when an attached instance's active document IS the requested file
-    (normcase/normpath so Windows separator/case differences don't mismatch)."""
-    if not active_fullname:
-        return False
-
-    def canon(p: str | Path) -> str:
-        return os.path.normcase(os.path.normpath(os.path.abspath(str(p))))
-
-    return canon(active_fullname) == canon(path)
+    """True when an attached instance's active document IS the requested file."""
+    normalized_active = normalize_live_path(active_fullname)
+    return bool(normalized_active) and normalized_active == normalize_live_path(path)
 
 
+def _document_fullname(doc) -> str:
+    try:
+        return str(doc.FullName or "")
+    except Exception:
+        return ""
+
+
+def _document_index_base(docs, count: int) -> int:
+    if count <= 0:
+        return 0
+    try:
+        docs.Item(0)
+        return 0
+    except Exception:
+        return 1
+
+
+def inspect_open_documents(docs) -> List[dict]:
+    """Read XHwpDocuments metadata without opening, attaching, or switching docs."""
+    try:
+        count = int(docs.Count)
+    except Exception:
+        return []
+    active_path = _document_fullname(getattr(docs, "Active_XHwpDocument", None))
+    active_normalized = normalize_live_path(active_path)
+    base = _document_index_base(docs, count)
+    documents: List[dict] = []
+    for slot in range(count):
+        entry: dict = {"slot": slot}
+        try:
+            fullname = _document_fullname(docs.Item(slot + base))
+            entry["path"] = fullname
+            entry["normalized_path"] = normalize_live_path(fullname)
+            entry["is_active"] = bool(
+                active_normalized and entry["normalized_path"] == active_normalized
+            )
+        except Exception as exc:
+            entry["inspect_error"] = str(exc)
+        documents.append(entry)
+    if active_path and not any(doc.get("is_active") for doc in documents):
+        documents.insert(
+            0,
+            {
+                "slot": None,
+                "path": active_path,
+                "normalized_path": active_normalized,
+                "is_active": True,
+                "source": "Active_XHwpDocument",
+            },
+        )
+    return documents
+
+
+def inspect_attached_documents(hwp) -> List[dict]:
+    """Read document metadata from an already-attached automation instance."""
+    try:
+        docs = hwp.XHwpDocuments
+    except Exception:
+        return []
+    return inspect_open_documents(docs)
+
+
+def active_attached_document_path(hwp) -> str:
+    for doc in inspect_attached_documents(hwp):
+        if doc.get("is_active"):
+            return str(doc.get("path") or "")
+    return ""
+
+
+def find_attached_exact_path_documents(hwp, path: str | Path) -> List[dict]:
+    """Return automation-visible attached documents whose FullName exactly matches *path*."""
+    requested = normalize_live_path(path)
+    if not requested:
+        return []
+    return [
+        doc
+        for doc in inspect_attached_documents(hwp)
+        if str(doc.get("normalized_path") or "") == requested
+    ]
+
+
+def find_rot_exact_path_candidates(
+    path: str | Path, instances: Sequence[dict] | None = None
+) -> List[dict]:
+    """Return ROT documents whose FullName exactly matches *path* after normalization."""
+    requested = normalize_live_path(path)
+    if not requested:
+        return []
+    if instances is None:
+        instances = list_rot_instances()
+    candidates: List[dict] = []
+    for instance in instances:
+        moniker = str(instance.get("moniker") or "")
+        documents = instance.get("documents") or []
+        matched = False
+        for doc in documents:
+            doc_path = str((doc or {}).get("path") or "")
+            if not doc_path or normalize_live_path(doc_path) != requested:
+                continue
+            candidates.append(
+                {
+                    "state": "attached_existing",
+                    "path": doc_path,
+                    "source": "rot_exact_path",
+                    "moniker": moniker,
+                    "is_active": bool(doc.get("is_active")),
+                }
+            )
+            matched = True
+        if matched or documents:
+            continue
+        active_document = str(instance.get("active_document") or "")
+        if same_doc(active_document, path):
+            candidates.append(
+                {
+                    "state": "attached_existing",
+                    "path": active_document,
+                    "source": "rot_exact_path",
+                    "moniker": moniker,
+                    "is_active": True,
+                }
+            )
+    return candidates
+
+
+def pick_rot_exact_path_candidate(
+    path: str | Path, instances: Sequence[dict] | None = None
+) -> dict | None:
+    """Return the unique exact-path ROT match, else None."""
+    candidates = find_rot_exact_path_candidates(path, instances)
+    return candidates[0] if len(candidates) == 1 else None
 def normalize_field_values(values: Dict[str, str]) -> Dict[str, str]:
     """Light preprocessing before PutFieldText.
 
@@ -82,9 +215,9 @@ def list_rot_instances() -> List[dict]:
     """Enumerate running HwpObject automation instances (side-effect-free).
 
     Reads the COM Running Object Table and inspects only objects Hangul already
-    registered there — it never creates an instance. Hand-opened Hangul windows
-    do NOT register in the ROT (observed 2026-07-10, PENDING_DESKTOP_LIVE_QA.md),
-    so this listing shows exactly what live tools could attach to.
+    registered there — it never creates an instance. Returned metadata is limited
+    to the moniker plus observed XHwpDocuments/FullName values so callers can do
+    exact-path attach resolution without claiming more than the ROT revealed.
     Returns [] off-Windows or without pywin32.
     """
     if sys.platform != "win32":
@@ -112,7 +245,13 @@ def list_rot_instances() -> List[dict]:
                 hwp = win32.Dispatch(obj.QueryInterface(pythoncom.IID_IDispatch))
                 docs = hwp.XHwpDocuments
                 entry["open_documents"] = int(docs.Count)
-                entry["active_document"] = str(docs.Active_XHwpDocument.FullName or "")
+                entry["documents"] = inspect_open_documents(docs)
+                active_document = next(
+                    (doc.get("path", "") for doc in entry["documents"] if doc.get("is_active")),
+                    "",
+                )
+                entry["active_document"] = active_document
+                entry["normalized_active_document"] = normalize_live_path(active_document)
             except Exception as exc:
                 entry["inspect_error"] = str(exc)
             instances.append(entry)

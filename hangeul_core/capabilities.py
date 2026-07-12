@@ -112,12 +112,11 @@ def describe_capabilities() -> Dict[str, Any]:
                 requires=["Windows", "Hangul", "pywin32", "pyhwpx"],
                 note=(
                     "Open Hangul document control is optional and never required for file-mode "
-                    "HWPX work. Live tools INSERT VALUES only (누름틀/cells) — formatting/styling "
-                    "edits are file-mode delegate operations. hwp_status and preview are "
-                    "side-effect-free; hwp_status connected:false is the normal idle state, "
-                    "not a failure. Hand-opened Hangul windows are not attachable (never in the "
-                    "COM ROT) — open documents via open_in_hwp for live fill."
-                ),
+                    "HWPX work. Live tools insert VALUE content only; formatting/styling edits stay "
+                    "in file-mode tools. hwp_status and preview are side-effect-free, and connected:false "
+                    "is the normal idle state. Safe live attach is exact-path based: use open_in_hwp(path) "
+                    "before apply so the requested document is active in the automation-visible window."
+                )
             ),
             _capability(
                 "hwp_headless",
