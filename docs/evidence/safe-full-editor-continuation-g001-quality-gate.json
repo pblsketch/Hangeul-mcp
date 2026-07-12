@@ -1,0 +1,151 @@
+{
+  "architectReview": {
+    "architectureStatus": "CLEAR",
+    "productStatus": "CLEAR",
+    "codeStatus": "CLEAR",
+    "recommendation": "APPROVE",
+    "evidence": "Architect final review cleared the text edit-session control plane, additive current-document picker metadata, and the final fail-closed restore delta without reopening any live-routing blocker.",
+    "commands": [
+      "agent://27-ArchitectG001Final",
+      "agent://29-ArchitectG001Delta"
+    ],
+    "blockers": []
+  },
+  "executorQa": {
+    "status": "passed",
+    "e2eStatus": "passed",
+    "redTeamStatus": "passed",
+    "evidence": "Leader-ran focused package verification covered OWN edit-session preview/apply/restore, FastMCP registration/capabilities, current-document picker metadata, mixed-route partial-apply behavior, docs count drift, and Windows artifact scaffold honesty. Critic approval: agent://30-CriticG001Delta.",
+    "e2eCommands": [
+      "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest tests/test_live_regression.py tests/test_maintainability.py tests/test_edit.py tests/test_edit_session.py tests/test_delegate_edit_session.py tests/test_server.py tests/test_capabilities.py tests/test_live_current_document.py tests/test_live_resolve.py -q"
+    ],
+    "redTeamCommands": [
+      "uv run --no-project --with pyflakes env PYTHONPATH=. python3 -m pyflakes hangeul_core hangeul_mcp tests scripts/windows_live_regression_harness.py",
+      "python3 -m json.tool docs/prd.json > /dev/null && python3 -m json.tool docs/evidence/windows-live-regression-template.json > /dev/null && python3 scripts/windows_live_regression_harness.py --help"
+    ],
+    "artifactRefs": [
+      {
+        "id": "g001-verification",
+        "kind": "package-test-report",
+        "path": "docs/evidence/safe-full-editor-continuation-g001-verification.json",
+        "description": "Focused pytest, pyflakes, docs JSON validation, and harness CLI evidence for the continuation checkpoint"
+      }
+    ],
+    "contractCoverage": [
+      {
+        "id": "edit-session-own-contract",
+        "contractRef": "SAFE_FULL_EDITOR_EXPANSION_RALPLAN.md#phase-1-and-phase-2",
+        "obligation": "OWN text replacement must use immutable preview, explicit substrate tagging, single-session apply, and journal/snapshot restore without inventing rich-live undo semantics.",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "package-surface"
+        ],
+        "adversarialCaseRefs": [
+          "modified-target-restore-refusal",
+          "deleted-target-restore-refusal"
+        ]
+      },
+      {
+        "id": "current-document-picker-contract",
+        "contractRef": "SAFE_FULL_EDITOR_EXPANSION_RALPLAN.md#phase-3",
+        "obligation": "Current-document wrappers must preserve fail-closed routing while exposing additive human-readable picker metadata only.",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "package-surface"
+        ],
+        "adversarialCaseRefs": [
+          "mixed-route-partial-apply",
+          "saved-hwp-preview-rejection"
+        ]
+      },
+      {
+        "id": "windows-evidence-scope-contract",
+        "contractRef": "SAFE_FULL_EDITOR_EXPANSION_RALPLAN.md#phase-5a-and-phase-6",
+        "obligation": "Windows/Hangul live evidence must stay honest: scaffold future capture artifacts without claiming literal desktop write-safe proof.",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "package-surface"
+        ],
+        "adversarialCaseRefs": [
+          "missing-windows-evidence-no-overclaim"
+        ]
+      }
+    ],
+    "surfaceEvidence": [
+      {
+        "id": "package-surface",
+        "contractRef": "focused package verification",
+        "surface": "package",
+        "invocation": "pytest focused package lane + pyflakes + docs json + harness cli help",
+        "verdict": "passed",
+        "artifactRefs": [
+          "g001-verification"
+        ]
+      }
+    ],
+    "adversarialCases": [
+      {
+        "id": "modified-target-restore-refusal",
+        "contractRef": "edit-session restore safety",
+        "scenario": "The applied target bytes drift after apply before restore is requested.",
+        "expectedBehavior": "restore_edit_session refuses to overwrite the changed target and raises a fail-closed error.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "g001-verification"
+        ]
+      },
+      {
+        "id": "deleted-target-restore-refusal",
+        "contractRef": "edit-session restore safety",
+        "scenario": "A newly created target is deleted after apply before restore is requested.",
+        "expectedBehavior": "restore_edit_session refuses to silently recreate or ignore the deletion and raises a fail-closed error.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "g001-verification"
+        ]
+      },
+      {
+        "id": "mixed-route-partial-apply",
+        "contractRef": "current-document mixed route safety",
+        "scenario": "Named-field apply succeeds but the cell leg fails during a mixed current-document apply.",
+        "expectedBehavior": "The wrapper returns partial_apply_error with explicit named_result/cell_result and invalidates the token.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "g001-verification"
+        ]
+      },
+      {
+        "id": "saved-hwp-preview-rejection",
+        "contractRef": "current-document saved .hwpx boundary",
+        "scenario": "The current active document is a saved .hwp file rather than a saved .hwpx file.",
+        "expectedBehavior": "preview_current_hwp_document stops at preview_requires_hwpx and does not mint a token.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "g001-verification"
+        ]
+      },
+      {
+        "id": "missing-windows-evidence-no-overclaim",
+        "contractRef": "Windows evidence honesty",
+        "scenario": "The Linux session can validate package behavior and artifact scaffolds but cannot capture literal Windows/Hangul desktop writes.",
+        "expectedBehavior": "Docs, PRD, and harness artifacts keep desktop proof pending instead of claiming completion.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "g001-verification"
+        ]
+      }
+    ],
+    "blockers": []
+  },
+  "iteration": {
+    "status": "passed",
+    "evidence": "The prior architect/critic blockers were fixed at source, the focused package lane was rerun cleanly at 76 passed, and the current docs/harness outputs remain honest about pending Windows literal write-safe evidence.",
+    "fullRerun": true,
+    "rerunCommands": [
+      "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest tests/test_live_regression.py tests/test_maintainability.py tests/test_edit.py tests/test_edit_session.py tests/test_delegate_edit_session.py tests/test_server.py tests/test_capabilities.py tests/test_live_current_document.py tests/test_live_resolve.py -q",
+      "uv run --no-project --with pyflakes env PYTHONPATH=. python3 -m pyflakes hangeul_core hangeul_mcp tests scripts/windows_live_regression_harness.py",
+      "python3 -m json.tool docs/prd.json > /dev/null && python3 -m json.tool docs/evidence/windows-live-regression-template.json > /dev/null && python3 scripts/windows_live_regression_harness.py --help"
+    ],
+    "blockers": []
+  }
+}
