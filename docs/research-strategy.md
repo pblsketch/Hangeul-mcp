@@ -177,7 +177,7 @@
 
 - **entrypoint 분리**: MCP 클라이언트가 쓰는 `hangeul-mcp`는 stdio 전용으로 남기고, 설치/설정/진단/업데이트는 `hangeul-mcp-manage setup`, `hangeul-mcp-manage doctor --json`, `hangeul-mcp-manage update --check` 같은 별도 관리 CLI로 분리하는 편이 안전하다. stdout 오염 없이 MCP 초기화 계약을 지키기 쉽다.
 - **managed vs unmanaged**: managed install은 stable launcher가 user-data state(`current.json`, `versions/`)를 읽어 현재 runtime을 실행하고, unmanaged install은 클라이언트 설정에 절대 경로 `sys.executable -m hangeul_mcp.server`를 직접 기록하는 방식이 맞다. 현재 managed launcher의 기본 표면은 절대 경로 Python + `-m hangeul_mcp.launcher`이며, bare `hangeul-mcp`는 installer shim이 있을 때만 convenience 경로다.
-- **업데이트 메타데이터**: 최신 버전 확인은 PyPI JSON API를 1차 source로 삼되, 아직 PyPI publication이 검증되지 않았으므로 404/미게시 상태를 성공처럼 포장하지 않는다. 이 경우 `not_published` 또는 구조화된 네트워크 오류가 정직한 응답이다.
+- **업데이트 메타데이터**: 최신 버전 확인은 PyPI JSON API를 1차 source로 삼는다. 0.1.1 publication은 검증됐지만 404/미게시·네트워크 장애를 성공처럼 포장하지 않으며, 이 경우 `not_published` 또는 구조화된 네트워크 오류가 정직한 응답이다.
 - **정책 집행**: `notify|daily|off`는 단순 저장으로 끝나면 안 된다. `daily`는 launcher 기동 시 24h TTL을 보고 background `update`를 bounded next-run 방식으로 스케줄하고, `off`는 자동 실행을 금지하며, `notify`는 명시적 `update`/`update --check`만 허용해야 한다.
 - **source allowlist**: updater는 임의 index URL이나 임의 package name을 사용자 설정에서 받아 실행하지 않고, allowlisted package source와 고정된 배포 식별자만 사용해야 한다.
 - **stable/beta 채널 의미**: `stable`은 최종 semver release만, `beta`는 `a`/`b`/`rc` prerelease까지 포함한다. 채널 설명과 release workflow 문구가 이 의미를 벗어나면 안 된다.

@@ -51,15 +51,31 @@ analyze_form("신청서.hwpx")
 
 Python 3.10 이상이 필요합니다.
 
-### 권장: 관리형 설치 + 관리 CLI
+### 가장 간단한 설치: PyPI + 관리 CLI
 
-PyPI 배포는 아직 이 저장소에서 검증되지 않았습니다. 따라서 가장 안전한 시작 경로는 **관리형 설치 스크립트를 먼저 내려받아 내용을 검토한 뒤 실행**하고, 이후 `hangeul-mcp-manage`로 클라이언트 연결과 진단을 처리하는 것입니다.
+`hangeul-mcp`는 PyPI에 게시되어 있습니다. Python 3.10 이상에서 다음 명령으로 설치합니다.
+
+```bash
+pip install --upgrade hangeul-mcp
+```
+
+Windows에서 열린 한글 문서에 연결하려면 live extra를 함께 설치합니다.
+
+```powershell
+py -m pip install --upgrade "hangeul-mcp[live]"
+hangeul-mcp-manage setup --client all
+hangeul-mcp-manage doctor
+```
+
+### Windows 관리형 설치와 자동 업데이트
+
+자동 업데이트·rollback까지 사용하려면 **관리형 설치 스크립트를 먼저 내려받아 내용을 검토한 뒤** 게시된 버전을 지정해 실행합니다.
 
 ```powershell
 # 1) 저장소에서 scripts/install.ps1를 로컬에 저장 또는 내려받기
 # 2) 내용을 검토
 # 3) 로컬 파일로 실행
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Version 0.1.2 -Client all
 ```
 
 설치 뒤에는 관리 CLI로 MCP 등록과 상태 점검을 진행합니다.
@@ -79,7 +95,7 @@ hangeul-mcp-manage setup --client antigravity
 
 클라이언트별 공식 MCP 문서 기준 검증 결과와 자동화 범위는 `docs/clients/README.md`에 기록돼 있습니다. 특히 Codex의 project-local `.codex/config.toml`이 이미 존재하면, 관리 CLI는 임의로 scope를 고르지 않고 수동 단계로 fail closed 합니다. Antigravity는 global `~/.gemini/config/mcp_config.json`만 자동 수정하며, workspace-local `.agents/mcp_config.json`이 이미 존재하면 역시 수동 단계로 남겨 둡니다.
 
-업데이트 확인은 관리 CLI로 수행합니다. PyPI에 실제 패키지가 아직 게시·검증되지 않은 상태에서는 `hangeul-mcp-manage update --check`가 `not_published` 또는 구조화된 오류를 정직하게 반환할 수 있습니다.
+업데이트 확인은 관리 CLI로 수행합니다. PyPI 메타데이터를 읽지 못하면 성공한 것처럼 처리하지 않고 `not_published` 또는 구조화된 네트워크 오류를 반환합니다.
 
 ### 관리 CLI: 업데이트·정책·롤백
 
@@ -94,7 +110,7 @@ hangeul-mcp-manage rollback
 - `update`는 관리형 install state가 있을 때만 다음 versioned runtime을 설치·검증한 뒤 `current.json`을 전환합니다.
 - `update-config --auto off|notify|daily --channel stable|beta`는 자동 정책을 저장합니다. `daily`는 launcher startup에서 24시간 TTL 기준으로 bounded background update를 스케줄합니다.
 - `rollback`은 `previous_version`이 남아 있는 managed runtime에 대해서만 지원됩니다. 수동 삭제되었거나 손상된 이전 runtime까지 복구를 보장하지는 않습니다.
-- 현재 저장소/다운로드 스크립트 기반 bootstrap install은 **PyPI publication이 실제로 가능해진 뒤** 자동 apply가 의미를 갖습니다. 그 전에는 `update --check`만 정직하게 사용하고, `update`/`daily` 자동 적용은 `unsupported_install_source` 또는 `not_published`로 멈춰야 정상입니다.
+- `-Version 0.1.2`처럼 PyPI 버전을 지정한 관리형 설치에서 versioned update와 rollback을 사용할 수 있습니다. Git checkout이나 source bootstrap 설치는 자동으로 덮어쓰지 않으며 `unsupported_install_source`로 멈추는 것이 정상입니다.
 ### 수동 설치 / 수동 설정 fallback
 
 관리형 설치를 쓰지 않는 경우에는 소스 기준으로 직접 설치하고, 클라이언트 설정에는 **절대 경로의 Python으로 서버 모듈을 호출하는 방식**을 권장합니다.
@@ -244,7 +260,7 @@ resolve_current_hwp_document()
 
 ## 개발 상태와 품질
 
-- 패키지 버전: `0.1.1` (Pre-Alpha)
+- 패키지 버전: `0.1.2` (Pre-Alpha)
 - 런타임 MCP 도구: **46 tools**
 - 최신 로컬 검증: **312 passed, 15 skipped**
 - Architect 최신 브랜치 리뷰: current branch evidence 참조

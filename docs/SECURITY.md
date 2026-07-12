@@ -16,7 +16,7 @@
 
 ## Honest publication/error handling
 
-- 현재 이 저장소는 PyPI publication이 아직 검증되지 않았다. 따라서 `update --check`는 package가 없으면 `not_published`를 반환해야 한다.
+- PyPI publication은 0.1.1부터 검증됐다. 그래도 PyPI unavailable/404 상황에서는 `update --check`가 성공을 추정하지 않고 `not_published` 또는 구조화된 네트워크 오류를 반환해야 한다.
 - PyPI unavailable, timeout, TLS failure, invalid JSON, 5xx 같은 경우도 성공으로 추정하지 않고 구조화된 오류 상태로 반환한다.
 - doctor JSON은 업데이트 확인 실패가 전체 진단을 망치지 않게 분리된 필드로 보고해야 한다.
 

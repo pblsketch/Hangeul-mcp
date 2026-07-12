@@ -48,4 +48,4 @@ args = []
 
 Project-local setup uses the same schema in `.codex/config.toml`.
 
-PyPI publication is not yet verified, so prefer the managed installer flow or a source install over PyPI-only instructions.
+PyPI publication is verified for `hangeul-mcp`. Install with `pip install --upgrade hangeul-mcp`, or use the reviewed managed installer with `-Version 0.1.2` when versioned update and rollback are required.

@@ -51,4 +51,4 @@ If a managed install already provides a stable launcher shim on PATH, this short
 
 Restart Claude Desktop after editing the config.
 
-PyPI publication is not yet verified, so prefer the managed installer flow or a source install over PyPI-only instructions.
+PyPI publication is verified for `hangeul-mcp`. Install with `pip install --upgrade hangeul-mcp`, or use the reviewed managed installer with `-Version 0.1.2` when versioned update and rollback are required.
