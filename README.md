@@ -72,6 +72,19 @@ python -m hangeul_mcp.server
 
 Hangeul-mcp는 표준 MCP stdio를 지원하는 클라이언트에서 사용할 수 있습니다. 실제 stdio 기동·도구 호출은 `tests/test_client_stdio.py`로 검증합니다.
 
+클라이언트를 재시작한 뒤에는 다음처럼 요청할 수 있습니다.
+
+```text
+이 HWPX 문서의 입력란을 분석해 줘.
+분석 결과를 보여 준 뒤, 내가 확인한 값으로 새 파일을 만들어 줘.
+```
+
+Windows 라이브 기능을 설치한 환경에서는 다음과 같은 요청도 가능합니다.
+
+```text
+지금 열려 있는 한글 문서를 분석하고, 실제 반영 전에 어디에 무엇을 넣을지 먼저 보여 줘.
+```
+
 ## 선택 기능 설치
 
 ```bash
@@ -191,6 +204,8 @@ resolve_current_hwp_document()
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending
 
 `skipped`에는 Windows·한글·Playwright·python-hwpx처럼 현재 환경에 없는 선택 의존성 테스트가 포함될 수 있습니다. 최신 자동 검증 산출물은 [`docs/evidence/`](docs/evidence/)에 있습니다.
+
+여기서 `66 pass`는 PRD 장부의 인수조건 boolean 수치이며 “사용자 기능 66개가 모두 완성됐다”는 뜻이 아닙니다. `desktop-live-pending`, `optional-gated`, `spike-pending` 항목도 별도로 존재하므로 실제 지원 범위는 위 상태표와 [`docs/prd.json`](docs/prd.json)을 함께 봐야 합니다.
 
 ### 아직 하지 않는 것
 
