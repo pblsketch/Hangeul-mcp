@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "kind": "package-test-report",
+  "feature": "safe-full-editor-continuation-g005",
+  "commands": [
+    {
+      "command": "uv run --no-project --with pytest --with pyflakes --with 'mcp>=1.2.0' --with 'python-hwpx>=2.24,<3' env PYTHONPATH=. python3 -m pytest -q",
+      "summary": "428 passed, 1 skipped, 1 warning"
+    },
+    {
+      "command": "uv run --no-project --with pyflakes env PYTHONPATH=. python3 -m pyflakes hangeul_core hangeul_mcp tests scripts/windows_live_regression_harness.py",
+      "summary": "clean"
+    },
+    {
+      "command": "python3 -m json.tool docs/prd.json && python3 -m json.tool docs/evidence/safe-full-editor-continuation-g001-verification.json && python3 -m json.tool docs/evidence/safe-full-editor-continuation-g001-quality-gate.json && python3 -m json.tool docs/evidence/windows-live-regression-template.json",
+      "summary": "docs/evidence JSON validation clean"
+    },
+    {
+      "command": "python3 - <<'PY'\nimport asyncio\nfrom hangeul_mcp import server\nprint(len(asyncio.run(server.mcp.list_tools())))\nPY",
+      "summary": "51 tools"
+    },
+    {
+      "command": "python3 -m hangeul_mcp.manage --help && python3 scripts/windows_live_regression_harness.py --help && git diff --check",
+      "summary": "CLI smoke and diff whitespace clean"
+    }
+  ],
+  "notes": [
+    "Continuation slice commits: d402996 and 38b9f25 on feat/safe-full-editor-expansion.",
+    "Architect approvals: 27-ArchitectG001Final and 29-ArchitectG001Delta.",
+    "Critic approval: 30-CriticG001Delta.",
+    "Windows/Hangul literal write-safe evidence remains pending and is not simulated; scaffold artifacts stay explicitly non-proof."
+  ]
+}
