@@ -244,7 +244,7 @@ resolve_current_hwp_document()
 
 ## 개발 상태와 품질
 
-- 패키지 버전: `0.1.0` (Pre-Alpha)
+- 패키지 버전: `0.1.1` (Pre-Alpha)
 - 런타임 MCP 도구: **46 tools**
 - 최신 로컬 검증: **312 passed, 15 skipped**
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
