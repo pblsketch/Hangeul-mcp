@@ -45,6 +45,7 @@ hwp-headless = []
 
 [project.scripts]
 hangeul-mcp = "hangeul_mcp.server:main"
+hangeul-mcp-manage = "hangeul_mcp.manage:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["hangeul_core", "hangeul_mcp"]

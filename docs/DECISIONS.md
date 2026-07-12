@@ -86,3 +86,12 @@
   - **TOC — keep-out(페이지번호 정확 TOC) / implement-later(제목 목록 변형)**: 페이지번호 있는 TOC는 렌더러 없이 정확할 수 없어(형식만 갖춘 오답 생성 위험) keep-out. `add_control`/`add_bookmark` 기반 "제목 목록(페이지번호 없음)" 변형만이 정직한 후보이며, 그것도 OWN 리서치 스토리로만 착수한다.
 - **불변식 제약(명시)**: 어느 경로든 바이트보존 테스트 약화 금지, D1(재발명 금지) 위반 금지. 제약과 충돌하면 미제공이 결론이다.
 - **재검토 트리거**: `tests/test_delegate_api_surface.py`의 soft tripwire가 상류 API 추가를 경고하면 이 ADR을 재평가한다(BC1 — CI를 red로 만들지 않는다).
+
+## D15. 관리 CLI는 stdio 서버와 분리하고, managed install은 stable launcher + versioned runtime으로 운영한다
+- **결정**: 기존 `hangeul-mcp` entrypoint는 MCP stdio 서버 기동 전용으로 유지하고, 설치/설정/진단/업데이트/롤백은 별도 콘솔 entrypoint `hangeul-mcp-manage`로 분리한다.
+- **이유**: stdio MCP 서버는 시작 직후 stdout을 프로토콜로 사용한다. 관리 명령의 사람용 출력·JSON 진단·업데이트 안내를 같은 entrypoint에 섞으면 클라이언트 초기화와 stdout 순도를 깨기 쉽다. 별도 CLI가 서버 계약을 가장 안전하게 보존한다.
+- **managed install substrate**: 클라이언트 설정은 패키지 실행 파일 자체가 아니라 **stable launcher**를 가리킨다. launcher는 user-data의 `current.json`을 읽어 `versions/<version>/` 아래의 **versioned runtime**을 다음 실행부터 dispatch하고, managed state가 없으면 base environment의 `sys.executable -m hangeul_mcp.server`로 안전 폴백한다.
+- **업데이트/롤백 경계**: updater는 새 버전을 별도 runtime 디렉터리에 설치·검증한 뒤 `current.json`만 원자적으로 전환한다. 런타임 in-place mutation은 금지한다. rollback은 최소 1개 previous runtime 복구를 목표로 하지만, 손상되었거나 이미 정리된 이전 runtime까지 무제한 복구를 보장하지는 않는다.
+- **정직성**: 업데이트 확인은 PyPI JSON 메타데이터를 우선 사용하되, 패키지가 아직 게시되지 않았거나 PyPI 응답이 불능이면 `not_published` 또는 구조화된 오류를 그대로 노출한다. 아직 verifiable publication이 없는데 성공을 추정하지 않는다.
+- **클라이언트 설정 원칙**: managed install이 아니면 각 클라이언트는 절대 경로 `sys.executable -m hangeul_mcp.server`를 사용한다. managed install일 때만 stable launcher를 사용해 런타임 전환을 캡슐화한다.
+- **extras 문서화 경계**: Windows live 문서는 `com`(pywin32)과 `live`(pyhwpx + numpy/pandas/pyperclip/pillow)가 **별도 optional extra**임을 기준으로 쓴다. `live`가 `com`을 자동 포함한다고 과장하지 않는다.

@@ -51,11 +51,59 @@ analyze_form("신청서.hwpx")
 
 Python 3.10 이상이 필요합니다.
 
+### 권장: 관리형 설치 + 관리 CLI
+
+PyPI 배포는 아직 이 저장소에서 검증되지 않았습니다. 따라서 가장 안전한 시작 경로는 **관리형 설치 스크립트를 먼저 내려받아 내용을 검토한 뒤 실행**하고, 이후 `hangeul-mcp-manage`로 클라이언트 연결과 진단을 처리하는 것입니다.
+
+```powershell
+# 1) 저장소에서 scripts/install.ps1를 로컬에 저장 또는 내려받기
+# 2) 내용을 검토
+# 3) 로컬 파일로 실행
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+```
+
+설치 뒤에는 관리 CLI로 MCP 등록과 상태 점검을 진행합니다.
+
+```bash
+hangeul-mcp-manage setup --client claude
+hangeul-mcp-manage doctor
+```
+
+여러 클라이언트를 함께 등록하거나 변경 사항만 미리 확인할 수도 있습니다.
+
+```bash
+hangeul-mcp-manage setup --client all --dry-run
+hangeul-mcp-manage setup --client codex
+hangeul-mcp-manage setup --client antigravity
+```
+
+클라이언트별 공식 MCP 문서 기준 검증 결과와 자동화 범위는 `docs/clients/README.md`에 기록돼 있습니다. 특히 Codex의 project-local `.codex/config.toml`이 이미 존재하면, 관리 CLI는 임의로 scope를 고르지 않고 수동 단계로 fail closed 합니다. Antigravity는 global `~/.gemini/config/mcp_config.json`만 자동 수정하며, workspace-local `.agents/mcp_config.json`이 이미 존재하면 역시 수동 단계로 남겨 둡니다.
+
+업데이트 확인은 관리 CLI로 수행합니다. PyPI에 실제 패키지가 아직 게시·검증되지 않은 상태에서는 `hangeul-mcp-manage update --check`가 `not_published` 또는 구조화된 오류를 정직하게 반환할 수 있습니다.
+
+### 관리 CLI: 업데이트·정책·롤백
+
+```bash
+hangeul-mcp-manage update --check
+hangeul-mcp-manage update
+hangeul-mcp-manage update-config --auto notify --channel stable
+hangeul-mcp-manage rollback
+```
+
+- `update --check`는 현재 runtime 기준 최신 버전 메타데이터만 조회합니다.
+- `update`는 관리형 install state가 있을 때만 다음 versioned runtime을 설치·검증한 뒤 `current.json`을 전환합니다.
+- `update-config --auto off|notify|daily --channel stable|beta`는 자동 정책을 저장합니다. `daily`는 launcher startup에서 24시간 TTL 기준으로 bounded background update를 스케줄합니다.
+- `rollback`은 `previous_version`이 남아 있는 managed runtime에 대해서만 지원됩니다. 수동 삭제되었거나 손상된 이전 runtime까지 복구를 보장하지는 않습니다.
+- 현재 저장소/다운로드 스크립트 기반 bootstrap install은 **PyPI publication이 실제로 가능해진 뒤** 자동 apply가 의미를 갖습니다. 그 전에는 `update --check`만 정직하게 사용하고, `update`/`daily` 자동 적용은 `unsupported_install_source` 또는 `not_published`로 멈춰야 정상입니다.
+### 수동 설치 / 수동 설정 fallback
+
+관리형 설치를 쓰지 않는 경우에는 소스 기준으로 직접 설치하고, 클라이언트 설정에는 **절대 경로의 Python으로 서버 모듈을 호출하는 방식**을 권장합니다.
+
 ```bash
 pip install git+https://github.com/pblsketch/Hangeul-mcp
 ```
 
-MCP 서버 실행 명령:
+기존 stdio 서버 진입점은 그대로 동작합니다.
 
 ```bash
 hangeul-mcp
@@ -63,7 +111,7 @@ hangeul-mcp
 python -m hangeul_mcp.server
 ```
 
-클라이언트 설정 예시는 다음 문서에 있습니다.
+수동 클라이언트 설정 예시는 다음 문서에 있습니다.
 
 - [Claude Desktop](docs/clients/claude-desktop.md)
 - [Codex](docs/clients/codex.md)
@@ -198,11 +246,17 @@ resolve_current_hwp_document()
 
 - 패키지 버전: `0.1.0` (Pre-Alpha)
 - 런타임 MCP 도구: **46 tools**
-- 최신 로컬 검증: **244 passed, 15 skipped**
-- Architect 최종 리뷰: CLEAR
-- Critic 최종 리뷰: 승인
+- 최신 로컬 검증: **307 passed, 15 skipped**
+- Architect 최신 브랜치 리뷰: current branch evidence 참조
+- Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending
 
+### 배포 채널과 release 증거 원칙
+
+- `stable` 채널은 최종 semver release만 대상으로 합니다.
+- `beta` 채널은 `a`/`b`/`rc` prerelease까지 포함합니다.
+- GitHub release automation은 **trusted publishing draft**입니다. workflow 성공만으로 PyPI 게시 성공을 주장하지 않습니다.
+- 실제 release를 공지할 때는 release notes와 함께 최소한 SHA256 checksum 또는 provenance 위치를 같이 제공해야 합니다.
 `skipped`에는 Windows·한글·Playwright·python-hwpx처럼 현재 환경에 없는 선택 의존성 테스트가 포함될 수 있습니다. 최신 자동 검증 산출물은 [`docs/evidence/`](docs/evidence/)에 있습니다.
 
 여기서 `66 pass`는 PRD 장부의 인수조건 boolean 수치이며 “사용자 기능 66개가 모두 완성됐다”는 뜻이 아닙니다. `desktop-live-pending`, `optional-gated`, `spike-pending` 항목도 별도로 존재하므로 실제 지원 범위는 위 상태표와 [`docs/prd.json`](docs/prd.json)을 함께 봐야 합니다.

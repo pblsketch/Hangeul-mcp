@@ -1,8 +1,43 @@
 # Claude Desktop
 
-Edit `claude_desktop_config.json`:
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+Verified against current official Claude MCP/Desktop docs on **2026-07-12**.
+
+- Official sources:
+  - https://docs.anthropic.com/en/docs/mcp
+  - https://modelcontextprotocol.io/docs/develop/connect-local-servers
+- Confidence: **high**
+- Exact schema verified: **JSON `mcpServers`**
+- Official paths verified:
+  - `~/Library/Application Support/Claude/claude_desktop_config.json`
+  - `%APPDATA%\Claude\claude_desktop_config.json`
+
+## Recommended setup
+
+```bash
+hangeul-mcp-manage setup --client claude
+hangeul-mcp-manage doctor
+```
+
+This repository only auto-manages the two official paths above. It does **not** invent a Linux Claude Desktop config path.
+
+Managed installs currently register a stable launcher command as an absolute managed Python plus `-m hangeul_mcp.launcher`. A bare `hangeul-mcp` command is only valid when the installer also exposes a shim on PATH.
+
+## Manual fallback
+
+If you are not using a managed install, configure Claude Desktop with an absolute Python path and the module entrypoint:
+
+```json
+{
+  "mcpServers": {
+    "hangeul-mcp": {
+      "command": "/absolute/path/to/python",
+      "args": ["-m", "hangeul_mcp.server"]
+    }
+  }
+}
+```
+
+If a managed install already provides a stable launcher shim on PATH, this shorter form is also valid:
 
 ```json
 {
@@ -14,17 +49,6 @@ Edit `claude_desktop_config.json`:
 }
 ```
 
-Module form (if the console script is not on PATH):
+Restart Claude Desktop after editing the config.
 
-```json
-{
-  "mcpServers": {
-    "hangeul-mcp": {
-      "command": "python",
-      "args": ["-m", "hangeul_mcp.server"]
-    }
-  }
-}
-```
-
-Restart Claude Desktop; the `hangeul-mcp` tools appear in the tools list.
+PyPI publication is not yet verified, so prefer the managed installer flow or a source install over PyPI-only instructions.

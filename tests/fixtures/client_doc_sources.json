@@ -1,0 +1,51 @@
+{
+  "accessed_on": "2026-07-12",
+  "clients": [
+    {
+      "id": "claude",
+      "doc": "docs/clients/claude-desktop.md",
+      "surface": "Claude Desktop",
+      "confidence": "high",
+      "urls": [
+        "https://docs.anthropic.com/en/docs/mcp",
+        "https://modelcontextprotocol.io/docs/develop/connect-local-servers"
+      ],
+      "paths": [
+        "~/Library/Application Support/Claude/claude_desktop_config.json",
+        "%APPDATA%\\Claude\\claude_desktop_config.json"
+      ],
+      "schema": "JSON `mcpServers`"
+    },
+    {
+      "id": "codex",
+      "doc": "docs/clients/codex.md",
+      "surface": "Codex CLI / ChatGPT desktop / IDE shared Codex host",
+      "confidence": "high",
+      "urls": [
+        "https://developers.openai.com/codex/mcp/",
+        "https://learn.chatgpt.com/docs/extend/mcp?surface=cli",
+        "https://learn.chatgpt.com/docs/config-file/config-reference"
+      ],
+      "paths": [
+        "~/.codex/config.toml",
+        ".codex/config.toml"
+      ],
+      "schema": "TOML `[mcp_servers.hangeul-mcp]`"
+    },
+    {
+      "id": "antigravity",
+      "doc": "docs/clients/antigravity.md",
+      "surface": "Antigravity 2.0 / IDE / CLI shared MCP config",
+      "confidence": "medium-high",
+      "urls": [
+        "https://antigravity.google/docs/mcp",
+        "https://codelabs.developers.google.com/google-workspace-mcp-antigravity"
+      ],
+      "paths": [
+        "~/.gemini/config/mcp_config.json",
+        ".agents/mcp_config.json"
+      ],
+      "schema": "JSON `mcpServers` with `command`/`args` for stdio and `serverUrl` for remote"
+    }
+  ]
+}

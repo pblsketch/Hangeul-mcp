@@ -173,6 +173,18 @@
 - **민감정보**: 공공/업무 양식엔 개인정보 다수. 로컬 처리 + 채팅 비노출(claw-hwp 방식) 설계.
 - **양식 인식의 롱테일**: 표가 아닌 자유 레이아웃, 밑줄 빈칸, 이미지화된 양식 등 예외가 많음 → 실패 케이스 로깅·점진 개선 루프 필수.
 
+## 6-1. 쉬운 설치·업데이트 관리면의 설계 메모
+
+- **entrypoint 분리**: MCP 클라이언트가 쓰는 `hangeul-mcp`는 stdio 전용으로 남기고, 설치/설정/진단/업데이트는 `hangeul-mcp-manage setup`, `hangeul-mcp-manage doctor --json`, `hangeul-mcp-manage update --check` 같은 별도 관리 CLI로 분리하는 편이 안전하다. stdout 오염 없이 MCP 초기화 계약을 지키기 쉽다.
+- **managed vs unmanaged**: managed install은 stable launcher가 user-data state(`current.json`, `versions/`)를 읽어 현재 runtime을 실행하고, unmanaged install은 클라이언트 설정에 절대 경로 `sys.executable -m hangeul_mcp.server`를 직접 기록하는 방식이 맞다. 현재 managed launcher의 기본 표면은 절대 경로 Python + `-m hangeul_mcp.launcher`이며, bare `hangeul-mcp`는 installer shim이 있을 때만 convenience 경로다.
+- **업데이트 메타데이터**: 최신 버전 확인은 PyPI JSON API를 1차 source로 삼되, 아직 PyPI publication이 검증되지 않았으므로 404/미게시 상태를 성공처럼 포장하지 않는다. 이 경우 `not_published` 또는 구조화된 네트워크 오류가 정직한 응답이다.
+- **정책 집행**: `notify|daily|off`는 단순 저장으로 끝나면 안 된다. `daily`는 launcher 기동 시 24h TTL을 보고 background `update`를 bounded next-run 방식으로 스케줄하고, `off`는 자동 실행을 금지하며, `notify`는 명시적 `update`/`update --check`만 허용해야 한다.
+- **source allowlist**: updater는 임의 index URL이나 임의 package name을 사용자 설정에서 받아 실행하지 않고, allowlisted package source와 고정된 배포 식별자만 사용해야 한다.
+- **stable/beta 채널 의미**: `stable`은 최종 semver release만, `beta`는 `a`/`b`/`rc` prerelease까지 포함한다. 채널 설명과 release workflow 문구가 이 의미를 벗어나면 안 된다.
+- **release artifact 정직성**: trusted publishing workflow는 draft여도 release notes, SHA256 checksum 또는 provenance 위치를 같이 문서화해야 한다. workflow green만으로 PyPI 수락 증거라고 말하면 안 된다.
+- **extras 설명 원칙**: 현재 pyproject 기준 optional extras는 `com`, `delegate`, `render`, `live`, `hwp-headless`, `dev`다. 특히 `com`은 Windows COM bridge용 `pywin32`, `live`는 pyhwpx 기반 live workflow용 extra다. 둘은 관련은 있지만 같은 extra가 아니며, 문서도 그 관계를 과장하면 안 된다.
+- **rollback/backup 경계**: rollback은 versioned runtime 전환 범위 안에서만 현실적이다. client config backup에는 잠재 secret이 들어갈 수 있으므로 내용 로그 금지와 최소 보존 원칙이 필요하다.
+
 ---
 
 ## 7. 다음 액션 (권장 즉시 실행)
