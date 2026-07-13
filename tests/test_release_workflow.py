@@ -1,4 +1,4 @@
-"""Focused coverage for the release workflow draft."""
+"""Focused coverage for the verified release workflow."""
 
 from pathlib import Path
 
@@ -37,7 +37,7 @@ def test_release_workflow_uses_trusted_publishing_gate():
 
 def test_release_workflow_stays_honest_about_publish_state():
     text = _workflow().lower()
-    assert "trusted publishing draft" in text
-    assert "environment approval" in text
+    assert "trusted publishing is configured" in text
+    assert "registry and clean-install verification" in text
     assert "publication success" not in text
     assert "already published" not in text

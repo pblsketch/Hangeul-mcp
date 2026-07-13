@@ -27,7 +27,9 @@ def test_run_with_timeout_reports_timeout_and_keeps_session_responsive(tmp_path)
 
 
 def test_run_with_timeout_returns_successful_result():
-    res = run_with_timeout(time.sleep, 0.0, timeout_seconds=0.5)
+    # Process spawn can exceed 0.5s on loaded Windows/WSL CI hosts. This test
+    # verifies the successful worker path rather than the sub-second deadline.
+    res = run_with_timeout(time.sleep, 0.0, timeout_seconds=3.0)
     assert res["ok"] is True
     assert res["timed_out"] is False
     assert res["result"] is None

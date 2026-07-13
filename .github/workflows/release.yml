@@ -35,7 +35,7 @@ jobs:
           path: dist/
 
   publish:
-    name: Publish to PyPI (trusted publishing draft)
+    name: Publish to PyPI (trusted publishing)
     runs-on: ubuntu-latest
     needs: build
     permissions:
@@ -53,6 +53,5 @@ jobs:
         with:
           packages-dir: dist/
 
-# This workflow is a trusted publishing draft.
-# Publishing remains gated by PyPI project registration and environment approval.
-# Successful workflow completion is not proof that PyPI accepted artifacts.
+# PyPI Trusted Publishing is configured for this workflow and the `pypi`
+# environment. Workflow success must still be followed by registry and clean-install verification.
