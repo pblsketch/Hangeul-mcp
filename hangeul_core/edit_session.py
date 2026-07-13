@@ -4,7 +4,7 @@ import hashlib
 import json
 import shutil
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from types import MappingProxyType
@@ -27,8 +27,8 @@ class EditPlan:
     substrate: str
     source_path: str
     source_sha256: str
-    mapping: Mapping[str, str] = MappingProxyType({})
-    counts: Mapping[str, int] = MappingProxyType({})
+    mapping: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    counts: Mapping[str, int] = field(default_factory=lambda: MappingProxyType({}))
     total: int = 0
     changed_entries: tuple[str, ...] = ()
     audit: tuple[str, ...] = ()
@@ -44,7 +44,7 @@ class EditSession:
     target_path: str
     journal_path: str
     snapshot_path: str
-    counts: Mapping[str, int] = MappingProxyType({})
+    counts: Mapping[str, int] = field(default_factory=lambda: MappingProxyType({}))
     total: int = 0
     changed_entries: tuple[str, ...] = ()
     audit: tuple[str, ...] = ()

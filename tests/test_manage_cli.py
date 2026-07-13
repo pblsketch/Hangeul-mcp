@@ -5,7 +5,8 @@ from hangeul_mcp import manage
 from hangeul_mcp.managed import ManagedPaths, save_current_state
 
 
-def test_version_command_prints_package_version(capsys):
+def test_version_command_prints_package_version(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(manage, "_managed_paths", lambda: ManagedPaths.from_root(tmp_path))
     assert manage.main(["version"]) == 0
     out = capsys.readouterr().out.strip()
     assert out == __version__
