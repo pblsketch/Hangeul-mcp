@@ -23,6 +23,8 @@ def test_four_tools_registered():
         "render_preview",
         "preview_search_and_replace",
         "preview_batch_replace",
+        "preview_addressed_edits",
+        "apply_addressed_edits",
         "apply_edit_session",
         "restore_edit_session",
         "extract_hwp_text",

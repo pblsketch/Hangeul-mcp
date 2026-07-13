@@ -63,8 +63,20 @@ def search_and_replace(
     find: str,
     replace: str,
     out_path: Optional[str | Path] = None,
+    *,
+    scope: str = "",
 ) -> ReplaceResult:
-    """Replace every occurrence of *find* with *replace* (byte-preserving)."""
+    """Replace occurrences of *find* with *replace* (byte-preserving).
+
+    Ambiguous multi-occurrence replacements fail closed unless ``scope="all"``.
+    Use ``preview_search_and_replace`` when the caller wants an authoritative
+    preview/apply flow instead of a one-shot global replace.
+    """
+    probe = batch_replace(path, {find: replace}, None)
+    if probe.total > 1 and scope != "all":
+        raise RuntimeError("ambiguous search_and_replace match set; pass scope='all' or use preview_search_and_replace")
+    if out_path is None:
+        return probe
     return batch_replace(path, {find: replace}, out_path)
 
 

@@ -7,6 +7,8 @@ from pathlib import Path
 from hangeul_core.edit import batch_replace, search_and_replace
 from hangeul_core.locate import replace_literals
 from hangeul_core.owpml import HwpxPackage
+from hangeul_mcp import server
+
 
 _NS = (
     'xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" '
@@ -75,7 +77,7 @@ def test_search_and_replace_counts_and_value(tmp_path):
     src = tmp_path / "s.hwpx"
     _build(src)
     out = tmp_path / "o.hwpx"
-    res = search_and_replace(src, "2025", "2026", out)
+    res = search_and_replace(src, "2025", "2026", out, scope="all")
     assert res.counts == {"2025": 2} and res.total == 2
     assert "2026년 계획 (2026 기준)" in _section(out)
 
@@ -118,7 +120,7 @@ def test_edit_byte_preservation_and_wellformed(tmp_path):
     src = tmp_path / "s.hwpx"
     _build(src)
     out = tmp_path / "o.hwpx"
-    search_and_replace(src, "2025", "2026", out)
+    search_and_replace(src, "2025", "2026", out, scope="all")
     a, b = HwpxPackage.open(src), HwpxPackage.open(out)
     for name in a.names():
         if name == "Contents/section0.xml":
@@ -131,3 +133,12 @@ def test_edit_byte_preservation_and_wellformed(tmp_path):
     assert sec_bytes.lstrip().startswith(
         b'<?xml version="1.0" encoding="UTF-8" standalone="yes"'
     )
+
+def test_server_search_and_replace_fails_closed_without_scope_all(tmp_path):
+    src = tmp_path / "s.hwpx"
+    _build(src)
+    out = tmp_path / "o.hwpx"
+    res = server.search_and_replace(str(src), "2025", "2026", str(out))
+    assert res["ok"] is False
+    assert res["state"] == "ambiguous_match"
+    assert res["scope_required"] == "all"

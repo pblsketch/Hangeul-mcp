@@ -261,9 +261,9 @@ def fill(
     cells = {c.field_id: c for c in result.all_cells()}
     fields = understand(path).fields + list(_inline(path)) + detect_checkbox(path)
     by_id = {f.field_id: f for f in fields}
-    by_label: Dict[str, object] = {}
+    by_label: Dict[str, List[object]] = {}
     for f in fields:
-        by_label.setdefault(label_key(f.label), f)
+        by_label.setdefault(label_key(f.label), []).append(f)
 
     # Section-wide {placeholder} tokens are resolved separately from the
     # cell-based path: keys matching a token name (or "ph:<name>") are routed
@@ -341,7 +341,20 @@ def fill(
             body_edits.setdefault(sname, {})[local] = value.replace("\n", " ")
             body_keys[(sname, local)] = key
             continue
-        fld = by_id.get(key) or by_label.get(label_key(key))
+        fld = by_id.get(key)
+        if fld is None:
+            label_matches = by_label.get(label_key(key), [])
+            if len(label_matches) > 1:
+                skipped.append(
+                    {
+                        "key": key,
+                        "reason": "ambiguous_label",
+                        "candidate_field_ids": [match.field_id for match in label_matches],
+                        "candidate_labels": [match.label for match in label_matches],
+                    }
+                )
+                continue
+            fld = label_matches[0] if label_matches else None
         if fld is None:
             skipped.append({"key": key, "reason": "no matching field"})
             continue
@@ -498,7 +511,12 @@ def fill(
         pkg.replace("Contents/header.xml", header.encode("utf-8"))
 
     wrote = False
-    if out_path is not None and not dry_run:
+    blocked_by_ambiguity = any(item.get("reason") == "ambiguous_label" for item in skipped)
+    should_write = not blocked_by_ambiguity and (bool(sections) or header_changed or bool(skipped))
+    if blocked_by_ambiguity:
+        filled = []
+
+    if out_path is not None and not dry_run and should_write:
         if backup:
             op = Path(out_path)
             if op.exists():

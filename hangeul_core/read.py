@@ -118,11 +118,22 @@ def find_cell_by_label(path: str | Path, label: str) -> Dict:
     result = analyze(path)
     key = label_key(label)
     label_cells = [c.field_id for c in result.all_cells() if label_key(c.text) == key]
-    fld = understand(path).by_label(label)
+    value_fields = [f for f in understand(path).fields if label_key(f.label) == key]
+    if len(value_fields) > 1:
+        return {
+            "label": label,
+            "label_cells": label_cells,
+            "value_field_id": None,
+            "state": "ambiguous_label",
+            "candidate_field_ids": [f.field_id for f in value_fields],
+            "candidate_labels": [f.label for f in value_fields],
+        }
+    fld = value_fields[0] if value_fields else None
     return {
         "label": label,
         "label_cells": label_cells,
         "value_field_id": fld.field_id if fld else None,
+        "state": "resolved" if fld else "missing",
     }
 
 

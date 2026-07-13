@@ -4,14 +4,6 @@ from typing import Any, Dict
 
 from hangeul_core import delegate as _delegate
 from hangeul_core.convert import ensure_hwpx
-from hangeul_core.edit import (
-    apply_edit_session as _apply_edit_session,
-    batch_replace as _batch_replace,
-    preview_batch_replace as _preview_batch_replace,
-    preview_search_and_replace as _preview_search_and_replace,
-    restore_edit_session as _restore_edit_session,
-    search_and_replace as _search_and_replace,
-)
 from hangeul_core.mailmerge import mail_merge as _mail_merge
 from hangeul_core.render import render_preview as _render_preview
 
@@ -37,23 +29,6 @@ def _hwpx_path(path: str) -> tuple[str | None, Dict[str, Any] | None]:
         return None, {"available": True, "error": str(exc)}
 
 
-def _plan_payload(plan) -> Dict[str, Any]:
-    return {
-        "available": True,
-        "ok": True,
-        "session_id": plan.session_id,
-        "kind": plan.kind,
-        "substrate": plan.substrate,
-        "source_path": plan.source_path,
-        "source_sha256": plan.source_sha256,
-        "counts": dict(plan.counts),
-        "total": plan.total,
-        "changed_entries": list(plan.changed_entries),
-        "audit": list(plan.audit),
-    }
-
-
-
 def register_delegate_tools(mcp) -> Dict[str, Any]:
     @mcp.tool()
     def hwpx_to_html(path: str) -> Dict[str, Any]:
@@ -68,80 +43,6 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
             return _unavailable()
         path, error = _hwpx_path(path)
         return error or _delegate_op("markdown", _delegate.to_markdown, path)
-
-    @mcp.tool()
-    def search_and_replace(path: str, find: str, replace: str, out_path: str) -> Dict[str, Any]:
-        try:
-            path = ensure_hwpx(path)
-        except RuntimeError as exc:
-            return {"error": str(exc), "total": 0}
-        res = _search_and_replace(path, find, replace, out_path)
-        return {"counts": res.counts, "total": res.total, "out_path": res.out_path}
-
-    @mcp.tool()
-    def batch_replace(path: str, replacements: Dict[str, str], out_path: str) -> Dict[str, Any]:
-        try:
-            path = ensure_hwpx(path)
-        except RuntimeError as exc:
-            return {"error": str(exc), "total": 0}
-        res = _batch_replace(path, replacements, out_path)
-        return {"counts": res.counts, "total": res.total, "out_path": res.out_path}
-
-    @mcp.tool()
-    def preview_search_and_replace(path: str, find: str, replace: str) -> Dict[str, Any]:
-        try:
-            path = ensure_hwpx(path)
-        except RuntimeError as exc:
-            return {"available": True, "ok": False, "error": str(exc), "total": 0}
-        return _plan_payload(_preview_search_and_replace(path, find, replace))
-
-    @mcp.tool()
-    def preview_batch_replace(path: str, replacements: Dict[str, str]) -> Dict[str, Any]:
-        try:
-            path = ensure_hwpx(path)
-        except RuntimeError as exc:
-            return {"available": True, "ok": False, "error": str(exc), "total": 0}
-        return _plan_payload(_preview_batch_replace(path, replacements))
-
-    @mcp.tool()
-    def apply_edit_session(session_id: str, out_path: str = "") -> Dict[str, Any]:
-        try:
-            session = _apply_edit_session(session_id, out_path or None)
-        except Exception as exc:
-            return {"available": True, "ok": False, "error": str(exc)}
-        return {
-            "available": True,
-            "ok": True,
-            "session_id": session.session_id,
-            "kind": session.kind,
-            "substrate": session.substrate,
-            "source_path": session.source_path,
-            "target_path": session.target_path,
-            "journal_path": session.journal_path,
-            "snapshot_path": session.snapshot_path,
-            "counts": dict(session.counts),
-            "total": session.total,
-            "changed_entries": list(session.changed_entries),
-            "audit": list(session.audit),
-        }
-
-    @mcp.tool()
-    def restore_edit_session(journal_path: str) -> Dict[str, Any]:
-        try:
-            result = _restore_edit_session(journal_path)
-        except Exception as exc:
-            return {"available": True, "ok": False, "error": str(exc)}
-        return {
-            "available": True,
-            "ok": True,
-            "session_id": result.session_id,
-            "substrate": result.substrate,
-            "target_path": result.target_path,
-            "journal_path": result.journal_path,
-            "snapshot_path": result.snapshot_path,
-            "restored": result.restored,
-            "target_exists": result.target_exists,
-        }
 
     @mcp.tool()
     def add_paragraph(path: str, text: str, out_path: str, section_index: int = -1) -> Dict[str, Any]:
@@ -206,9 +107,15 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
         if not _delegate.hwpx_available():
             return _unavailable()
         path, error = _hwpx_path(path)
-        return error or _delegate_op("", _delegate.set_page_size, path, out_path,
-                                     width=(width or None), height=(height or None),
-                                     orientation=(orientation or None))
+        return error or _delegate_op(
+            "",
+            _delegate.set_page_size,
+            path,
+            out_path,
+            width=(width or None),
+            height=(height or None),
+            orientation=(orientation or None),
+        )
 
     @mcp.tool()
     def set_page_margins(path: str, out_path: str, left: int = -1, right: int = -1, top: int = -1, bottom: int = -1, header: int = -1, footer: int = -1, gutter: int = -1) -> Dict[str, Any]:
@@ -216,13 +123,22 @@ def register_delegate_tools(mcp) -> Dict[str, Any]:
             return _unavailable()
         path, error = _hwpx_path(path)
 
-        def unset(v: int):  # -1 sentinel means "leave unchanged"
+        def unset(v: int):
             return None if v < 0 else v
 
-        return error or _delegate_op("", _delegate.set_page_margins, path, out_path,
-                                     left=unset(left), right=unset(right), top=unset(top),
-                                     bottom=unset(bottom), header=unset(header),
-                                     footer=unset(footer), gutter=unset(gutter))
+        return error or _delegate_op(
+            "",
+            _delegate.set_page_margins,
+            path,
+            out_path,
+            left=unset(left),
+            right=unset(right),
+            top=unset(top),
+            bottom=unset(bottom),
+            header=unset(header),
+            footer=unset(footer),
+            gutter=unset(gutter),
+        )
 
     @mcp.tool()
     def set_columns(path: str, out_path: str, col_count: int = 2) -> Dict[str, Any]:
