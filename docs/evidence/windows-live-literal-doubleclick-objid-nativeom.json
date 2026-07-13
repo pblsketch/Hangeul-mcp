@@ -1,0 +1,261 @@
+{
+  "pids": [
+    43280,
+    60568
+  ],
+  "window_count": 28,
+  "results": [
+    {
+      "hwnd": 13044520,
+      "parent": null,
+      "pid": 60568,
+      "class": "ATL:5FEEEE28",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 44632988,
+      "parent": null,
+      "pid": 60568,
+      "class": "HwndWrapper[hwp.exe;;de807646-ede0-4ff3-ad7e-71c0c6d29a5a]",
+      "title": "windows-live-qa-sample.hwpx [E:\\github\\Hangeul-mcp\\build\\evidence\\] - 한글",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 39523076,
+      "parent": null,
+      "pid": 43280,
+      "class": "GDI+ Hook Window Class",
+      "title": "GDI+ Window (HwpApi.exe)",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 4786436,
+      "parent": null,
+      "pid": 60568,
+      "class": "HwndWrapper[hwp.exe;;18352c59-3627-463c-bfb2-3c6ea248aab1]",
+      "title": "MediaContextNotificationWindow",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 15732344,
+      "parent": null,
+      "pid": 60568,
+      "class": "GDI+ Hook Window Class",
+      "title": "GDI+ Window (hwp.exe)",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 6098040,
+      "parent": null,
+      "pid": 60568,
+      "class": "HwndWrapper[hwp.exe;;96f1ef1c-1d47-4878-850a-797aebe9ad55]",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 6818046,
+      "parent": null,
+      "pid": 60568,
+      "class": "OleDdeWndClass",
+      "title": "DDE Server Window",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 28773996,
+      "parent": null,
+      "pid": 60568,
+      "class": "MessageWindowClass+b5cc12e1-1723-4d07-bac0-6a4dff2057a1",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 7279382,
+      "parent": null,
+      "pid": 60568,
+      "class": "HwndWrapper[hwp.exe;;957c5b7c-6e33-45f0-9421-1faa71574cc4]",
+      "title": "SystemResourceNotifyWindow",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 8851172,
+      "parent": null,
+      "pid": 60568,
+      "class": "HwndWrapper[hwp.exe;;5c55ed5a-5581-46ed-91dd-98d9ae2cf5f1]",
+      "title": "MediaContextNotificationWindow",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 98701790,
+      "parent": null,
+      "pid": 60568,
+      "class": "HwndWrapper[hwp.exe;;6ccabe47-abf5-4f88-aeee-f9d8af0bc64c]",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 30479368,
+      "parent": null,
+      "pid": 60568,
+      "class": "HwndWrapper[hwp.exe;;056882cd-c202-4f14-8270-37216d95b432]",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 52040028,
+      "parent": null,
+      "pid": 60568,
+      "class": "HNC_DIALOG",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 14094342,
+      "parent": null,
+      "pid": 60568,
+      "class": "HNC_DIALOG",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 5114874,
+      "parent": null,
+      "pid": 60568,
+      "class": "CiceroUIWndFrame",
+      "title": "CiceroUIWndFrame",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 8393142,
+      "parent": null,
+      "pid": 60568,
+      "class": "MSCTFIME UI",
+      "title": "MSCTFIME UI",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 22548812,
+      "parent": null,
+      "pid": 60568,
+      "class": "IME",
+      "title": "Default IME",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 90575462,
+      "parent": null,
+      "pid": 43280,
+      "class": "IME",
+      "title": "Default IME",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 47649752,
+      "parent": null,
+      "pid": 60568,
+      "class": "IME",
+      "title": "Default IME",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 65539358,
+      "parent": null,
+      "pid": 60568,
+      "class": "CiceroUIWndFrame",
+      "title": "CiceroUIWndFrame",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 31527606,
+      "parent": null,
+      "pid": 60568,
+      "class": "IME",
+      "title": "Default IME",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 7539578,
+      "parent": null,
+      "pid": 60568,
+      "class": "HncInputManager130",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 30017340,
+      "parent": 44632988,
+      "pid": 60568,
+      "class": "HwpRulerTabButtonWnd",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 46666302,
+      "parent": 44632988,
+      "pid": 60568,
+      "class": "HwpRulerWnd",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 33753944,
+      "parent": 44632988,
+      "pid": 60568,
+      "class": "HwpRulerWnd",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 1707068,
+      "parent": 44632988,
+      "pid": 60568,
+      "class": "HwpMainEditWnd",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 50005954,
+      "parent": 44632988,
+      "pid": 60568,
+      "class": "msctls_progress32",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    },
+    {
+      "hwnd": 5051056,
+      "parent": 65539358,
+      "pid": 60568,
+      "class": "MSCTFComposition",
+      "title": "",
+      "hr": "0x80004005",
+      "ptr": "0x0"
+    }
+  ]
+}

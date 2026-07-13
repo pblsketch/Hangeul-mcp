@@ -1,8 +1,25 @@
 # PENDING: 데스크톱 라이브 QA (US-029 / US-053)
 
 > **상태의 진실**: raw probe/json과 2026-07-11 Windows Shell-open 최소 쓰기 실증은 safe-attach의 **resolver-path 존재 및 Shell-open 기존 문서 write/read-back 성공**을 보여 준다.
-> 하지만 사람의 실제 Explorer 더블클릭 조건에서의 literal write-safe 증거는 아직 미확보다.
+> 2026-07-13 사람의 실제 Explorer 더블클릭 조건을 새로 실측했으나, 문서 창은 존재해도 COM ROT가 비어 있었고 OBJID_NATIVEOM도 모든 Hwp/HwpApi 창에서 `E_FAIL`이었다. 따라서 literal double-click current-document attach는 이 환경에서 **실패 확정**이며, 구현은 쓰기 없이 `no_open_documents`로 fail-closed 했다.
 > 이 문서는 earlier failed generic-reconnect 맥락과 마지막 데스크톱 QA gate를 함께 보존한다. 이 문서가 존재하는 동안 `docs/prd.json`의 live stories(`apply_to_open_hwp`, `apply_cells_to_open_hwp`, saved `.hwpx` current-document pathless UX)는 complete로 승격하지 않는다.
+
+## 2026-07-13 literal Explorer 더블클릭 실측
+
+PII 없는 사본 `build/evidence/windows-live-qa-sample.hwpx`를 사용자가 탐색기에서 직접 더블클릭했다.
+
+- Win32 창 확인: `windows-live-qa-sample.hwpx [E:\github\Hangeul-mcp\build\evidence\] - 한글`
+- `Hwp.exe`와 `HwpApi.exe` 실행 확인
+- ROT 전체 열거: `[]`
+- `hwp_status()`: `available:true`, `connected:false`, `instances:[]`
+- `resolve_current_hwp_document()`: `state:no_open_documents`, `candidates:[]`
+- Hwp/HwpApi 최상위·자식 창 28개에 `AccessibleObjectFromWindow(OBJID_NATIVEOM, IID_IDispatch)` 호출: 전부 `0x80004005 (E_FAIL)`, 반환 포인터 0
+- preview token 미발급, apply/save/read-back 미실행
+- QA 사본 SHA-256은 원본 fixture와 동일하여 변경 없음
+
+판정: 실제 Explorer 더블클릭 창은 automation-visible COM 객체를 제공하지 않았다. 현재 ROT 기반 current-document UX가 이를 지원한다고 주장하지 않는다. 안전한 대안은 `open_in_hwp(path)`로 automation-visible 세션을 연 뒤 exact-path preview/apply를 사용하는 것이다.
+
+원자료: `docs/evidence/windows-live-literal-doubleclick-result.md` 및 같은 접두사의 JSON 파일들.
 
 ## 2026-07-11 Windows Shell-open 최소 쓰기 실증
 

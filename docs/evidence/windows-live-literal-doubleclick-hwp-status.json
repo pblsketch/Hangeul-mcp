@@ -1,0 +1,9 @@
+{
+  "available": true,
+  "connected": false,
+  "instances": [],
+  "attach_boundary": "live tools use exact-path attach against automation-visible COM ROT instances; use open_in_hwp(path) first so the requested exact path is active before live apply",
+  "first_call_hint": "if instances is empty, the first open_in_hwp/apply call LAUNCHES Hangul — cold start can take tens of seconds (responses carry cold_start/elapsed_seconds); later calls take a few seconds",
+  "note": "connected:false is the normal idle state: hwp_status is side-effect-free and never attaches to Hangul. It does NOT mean live fill is unreachable.",
+  "next": "file mode works with any absolute path (analyze_form / extract_text / fill_form); live cell fill: open_in_hwp(path) for the exact path, preview_cells_to_open_hwp (pure preview), then apply_cells_to_open_hwp"
+}

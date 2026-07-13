@@ -1,0 +1,17 @@
+{
+  "target": "E:\\github\\Hangeul-mcp\\build\\evidence\\windows-live-qa-sample.hwpx",
+  "values": {
+    "성명": "홍길동",
+    "직위": "교사"
+  },
+  "resolve": {
+    "state": "no_open_documents",
+    "selection_basis": "none",
+    "candidates": [],
+    "available": true,
+    "ok": true,
+    "inventory_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "matching_count": 0,
+  "qa_state": "blocked_target_not_unique"
+}
