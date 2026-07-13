@@ -2,7 +2,7 @@
 
 ## 결론
 
-**FAIL-CLOSED / 쓰기 미실행.** 사용자가 탐색기에서 직접 연 `windows-live-qa-sample.hwpx` 창은 실제로 확인됐지만, 이 세션은 COM ROT에 automation 객체를 등록하지 않았다. 따라서 Hangeul-mcp의 current-document resolver는 후보를 얻지 못했고, preview/apply/read-back으로 진행하지 않았다.
+**이 독립 프로브에서는 FAIL-CLOSED / 쓰기 미실행.** 사용자가 탐색기에서 직접 연 `windows-live-qa-sample.hwpx` 창은 실제로 확인됐지만, 별도 Python 프로세스가 관측한 COM ROT에는 automation 객체가 없었다. 따라서 그 프로세스의 current-document resolver는 후보를 얻지 못했고 preview/apply/read-back으로 진행하지 않았다. 사용자는 Claude Desktop의 장기 실행 MCP 서버에서는 직접 연 문서 인식이 성공했다고 보고했으므로, 이 결과를 일반적 attach 불가능의 증거로 확대하지 않는다.
 
 이 결과는 “한글 창이 없다”는 뜻이 아니다. **창은 있지만 automation-visible COM 객체가 없다**는 뜻이다.
 
@@ -93,11 +93,11 @@ IDispatch 성공 = 0건
 
 ## 제품 의미
 
-Literal Explorer double-click 세션을 현재의 ROT 기반 resolver가 자동으로 선택·편집할 수 있다고 주장하면 안 된다. 이 환경에서 안전하게 지원되는 우회는 다음이다.
+이 결과만으로 literal Explorer double-click 세션을 현재의 ROT 기반 resolver가 항상 선택·편집할 수 있다고 주장할 수도, 항상 불가능하다고 주장할 수도 없다. Claude Desktop 성공과 독립 프로브 실패가 갈리는 조건을 재현해야 한다. 현재 가장 결정적인 안전 우회는 다음이다.
 
 1. `open_in_hwp(path)`로 automation-visible 세션을 먼저 연다.
 2. exact-path preview/apply를 사용한다.
-3. 사용자가 손으로 연 창을 그대로 제어해야 한다면 별도 공식 Hancom attach API가 발견되기 전까지 unsupported로 유지한다.
+3. 사용자가 손으로 연 창 흐름은 Claude Desktop의 실제 MCP 서버 프로세스 안에서 선행 COM 호출 여부와 ROT 상태를 함께 캡처해 조건부 지원 범위를 확정한다.
 
 ## 원자료
 
