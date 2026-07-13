@@ -258,6 +258,7 @@ def test_preview_current_mints_token_for_named_field(monkeypatch, tmp_path):
     assert res["preview"]["named_field_keys"] == ["성명"]
     assert res["candidate"]["picker_label"] == f"named.hwpx — {src.parent}"
     assert res["candidate"]["picker_detail"] == "Current · Saved .hwpx · Writable"
+    assert res["server_instance_id"]
 
 
 def test_preview_current_reports_route_conflict(monkeypatch, tmp_path):
@@ -293,6 +294,35 @@ def test_preview_current_uses_real_body_fixture(monkeypatch):
 def test_apply_current_rejects_stale_preview_token():
     res = live_current.apply_to_current_hwp_document("missing-token")
     assert res["state"] == "stale_preview_token"
+
+
+def test_apply_current_rejects_foreign_server_token_without_local_session(monkeypatch):
+    monkeypatch.setattr(HwpBridge, "available", staticmethod(lambda: True))
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: [])
+    foreign = f"other-server.{live_current._server_instance_id()}"
+    res = live_current.apply_to_current_hwp_document(foreign)
+    assert res["state"] == "wrong_server_instance"
+
+
+def test_apply_current_rejects_wrong_server_instance(monkeypatch, tmp_path):
+    src = tmp_path / "named.hwpx"
+    _build_named_field(src)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
+    preview = live_current.preview_current_hwp_document({"성명": "홍길동"})
+    live_current._PREVIEW_TOKENS[preview["preview_token"]]["server_instance_id"] = "other-server"
+    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert res["state"] == "wrong_server_instance"
+
+def test_apply_current_rejects_seeded_mixed_token(monkeypatch, tmp_path):
+    src = tmp_path / "named.hwpx"
+    _build_named_field(src)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
+    preview = live_current.preview_current_hwp_document({"성명": "홍길동"})
+    token = live_current._PREVIEW_TOKENS[preview["preview_token"]]
+    token["route"] = "mixed"
+    token["cell_keys"] = ["직위"]
+    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert res["state"] == "mixed_route_unsupported"
 
 
 def test_apply_current_detects_active_race(monkeypatch, tmp_path):
@@ -332,7 +362,7 @@ def test_apply_current_named_field_uses_exact_path_helper(monkeypatch, tmp_path)
     assert res["state"] == "applied_named_field"
     assert res["applied"] == ["성명"]
 
-def test_preview_current_supports_mixed_route(monkeypatch, tmp_path):
+def test_preview_current_rejects_mixed_route(monkeypatch, tmp_path):
     src = tmp_path / "named.hwpx"
     _build_named_field(src)
     monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
@@ -349,62 +379,10 @@ def test_preview_current_supports_mixed_route(monkeypatch, tmp_path):
         },
     )
     res = live_current.preview_current_hwp_document({"성명": "홍길동", "직위": "교사"})
-    assert res["state"] == "preview_ready"
-    assert res["route"] == "mixed"
-    assert res["preview"]["named_field_keys"] == ["성명"]
-
-
-
-def test_apply_current_mixed_route_reports_partial_apply(monkeypatch, tmp_path):
-    src = tmp_path / "named.hwpx"
-    _build_named_field(src)
-    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
-    monkeypatch.setattr(
-        live_current,
-        "preview_cells_to_open",
-        lambda path, values: {
-            "available": True,
-            "ok": True,
-            "targets": [{"label": "직위", "field_id": "t1.r0.c1", "value": "교사"}],
-            "text_targets": [],
-            "body_targets": [],
-            "skipped": [],
-        },
-    )
-    preview = live_current.preview_current_hwp_document({"성명": "홍길동", "직위": "교사"})
-    monkeypatch.setattr(
-        live_current,
-        "apply_named_fields_exact_path",
-        lambda path, values: {
-            "available": True,
-            "connected": True,
-            "ok": True,
-            "state": "attached_existing",
-            "applied": ["성명"],
-            "skipped": [],
-            "count": 1,
-            "active_document": str(path),
-        },
-    )
-    monkeypatch.setattr(
-        live_current,
-        "apply_cells_to_open",
-        lambda path, values: {
-            "available": True,
-            "ok": False,
-            "state": "reload_blocked_existing",
-            "warning": "reload blocked",
-        },
-    )
-
-    first = live_current.apply_to_current_hwp_document(preview["preview_token"])
-    second = live_current.apply_to_current_hwp_document(preview["preview_token"])
-
-    assert first["state"] == "partial_apply_error"
-    assert first["partial_apply"] is True
-    assert first["detail_state"] == "reload_blocked_existing"
-    assert first["named_result"]["applied"] == ["성명"]
-    assert second["state"] == "stale_preview_token"
+    assert res["state"] == "mixed_route_unsupported"
+    assert res["named_field_keys"] == ["성명"]
+    assert res["cell_keys"] == ["직위"]
+    assert "preview_token" not in res
 
 def test_apply_current_reports_stale_candidate(monkeypatch, tmp_path):
     src = tmp_path / "named.hwpx"
@@ -517,104 +495,6 @@ def test_apply_current_consumes_successful_preview_token(monkeypatch, tmp_path):
     assert second["state"] == "stale_preview_token"
 
 
-def test_apply_current_mixed_success(monkeypatch, tmp_path):
-    src = tmp_path / "named.hwpx"
-    _build_named_field(src)
-    monkeypatch.setattr(HwpBridge, "available", staticmethod(lambda: True))
-    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
-    monkeypatch.setattr(
-        live_current,
-        "preview_cells_to_open",
-        lambda path, values: {
-            "available": True,
-            "ok": True,
-            "targets": [{"label": "직위", "field_id": "t1.r0.c1", "value": "교사"}],
-            "text_targets": [],
-            "body_targets": [],
-            "skipped": [],
-        },
-    )
-    preview = live_current.preview_current_hwp_document({"성명": "홍길동", "직위": "교사"})
-    monkeypatch.setattr(
-        live_current,
-        "apply_named_fields_exact_path",
-        lambda path, values: {
-            "available": True,
-            "connected": True,
-            "ok": True,
-            "state": "attached_existing",
-            "applied": ["성명"],
-            "skipped": [],
-            "count": 1,
-            "active_document": str(path),
-        },
-    )
-    monkeypatch.setattr(
-        live_current,
-        "apply_cells_to_open",
-        lambda path, values: {
-            "available": True,
-            "ok": True,
-            "state": "attached_existing",
-            "applied": [{"label": "직위", "field_id": "t1.r0.c1", "value": "교사"}],
-            "skipped": [],
-            "count": 1,
-            "active_document": str(path),
-        },
-    )
-    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
-    assert res["state"] == "applied_mixed"
-    assert res["count"] == 2
-
-
-def test_apply_current_invalidates_token_after_partial_mixed_failure(monkeypatch, tmp_path):
-    src = tmp_path / "named.hwpx"
-    _build_named_field(src)
-    monkeypatch.setattr(HwpBridge, "available", staticmethod(lambda: True))
-    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _instance("rot://1", _doc(src)))
-    monkeypatch.setattr(
-        live_current,
-        "preview_cells_to_open",
-        lambda path, values: {
-            "available": True,
-            "ok": True,
-            "targets": [{"label": "직위", "field_id": "t1.r0.c1", "value": "교사"}],
-            "text_targets": [],
-            "body_targets": [],
-            "skipped": [],
-        },
-    )
-    preview = live_current.preview_current_hwp_document({"성명": "홍길동", "직위": "교사"})
-    monkeypatch.setattr(
-        live_current,
-        "apply_named_fields_exact_path",
-        lambda path, values: {
-            "available": True,
-            "connected": True,
-            "ok": True,
-            "state": "attached_existing",
-            "applied": ["성명"],
-            "skipped": [],
-            "count": 1,
-            "active_document": str(path),
-        },
-    )
-    monkeypatch.setattr(
-        live_current,
-        "apply_cells_to_open",
-        lambda path, values: {
-            "available": True,
-            "ok": False,
-            "state": "error",
-            "error": "cell apply failed",
-        },
-    )
-    first = live_current.apply_to_current_hwp_document(preview["preview_token"])
-    second = live_current.apply_to_current_hwp_document(preview["preview_token"])
-    assert first["state"] == "partial_apply_error"
-    assert first["partial_apply"] is True
-    assert first["detail_state"] == "error"
-    assert second["state"] == "stale_preview_token"
 
 
 def test_classify_live_write_blocker_detects_read_only():

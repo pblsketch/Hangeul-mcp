@@ -10,6 +10,8 @@ from hangeul_core.hwp.com import find_rot_exact_path_candidates, list_rot_instan
 from hangeul_core.hwp.live import apply_cells_to_open as _apply_cells_to_open
 from hangeul_core.hwp.live import open_in_hwp as _open_in_hwp
 from hangeul_core.hwp.live import preview_cells_to_open as _preview_cells_to_open
+from hangeul_core.live_timeout import run_with_timeout
+from hangeul_core.runtime_info import attach_ladder, feature_flags, runtime_identity
 from hangeul_core.hwp.rot_attach import apply_named_fields_exact_path as _apply_named_fields_exact_path
 from hangeul_mcp.live_current import (
     apply_to_current_hwp_document as _apply_to_current_hwp_document,
@@ -21,6 +23,27 @@ from hangeul_mcp.live_current import (
 def _exact_attach_candidates(path: Path) -> List[Dict[str, Any]]:
     return [dict(item) for item in find_rot_exact_path_candidates(path)]
 
+
+def _open_in_hwp_worker(path: str, visible: bool) -> Dict[str, Any]:
+    return _open_in_hwp(Path(path), visible=visible)
+
+
+def _run_open_in_hwp_timed(path: str, visible: bool, timeout_seconds: float) -> Dict[str, Any]:
+    outcome = run_with_timeout(_open_in_hwp_worker, path, visible, timeout_seconds=timeout_seconds)
+    if outcome["ok"]:
+        result = dict(outcome["result"])
+        result.setdefault("timeout_seconds", timeout_seconds)
+        return result
+    return {
+        "available": True,
+        "ok": False,
+        "state": outcome.get("state", "timeout_outcome_unknown"),
+        "may_have_partially_applied": outcome.get("may_have_partially_applied", True),
+        "timeout_seconds": timeout_seconds,
+        "elapsed_seconds": outcome.get("elapsed_seconds"),
+        "requested_path": path,
+        "error": outcome.get("error", "operation timed out in isolated worker"),
+    }
 
 def register_live_tools(mcp) -> Dict[str, Any]:
     @mcp.tool()
@@ -34,7 +57,15 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         -> `preview_current_hwp_document` -> `apply_to_current_hwp_document`).
         """
         st = HwpBridge().status()
-        st["instances"] = list_rot_instances()
+        instances = list_rot_instances()
+        st.update(runtime_identity())
+        st["feature_flags"] = feature_flags()
+        st["instances"] = instances
+        st["attach_ladder"] = attach_ladder(
+            rot_visible=bool(instances),
+            com_object_acquired=False,
+            document_identity_proven=False,
+        )
         st["attach_boundary"] = (
             "live tools use exact-path attach against automation-visible COM ROT instances; "
             "use open_in_hwp(path) first so the requested exact path is active before live apply"
@@ -57,7 +88,7 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         return st
 
     @mcp.tool()
-    def open_in_hwp(path: str, visible: bool = True) -> Dict[str, Any]:
+    def open_in_hwp(path: str, visible: bool = True, timeout_seconds: float = 0.0) -> Dict[str, Any]:
         """Open a .hwp/.hwpx file in a CONTROLLABLE Hangul window.
 
         Hand-opened windows are not a safe exact-path live-attach anchor on their
@@ -65,12 +96,15 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         window first, then apply_to_open_hwp / apply_cells_to_open_hwp. Leaves the
         window open; saves and closes nothing. If Hangul is not running, this
         launches it — cold start can take tens of seconds
-        (see cold_start/elapsed_seconds in the response). Modal dialogs are
-        auto-answered during the call so it cannot hang on an invisible prompt.
+        (see cold_start/elapsed_seconds in the response). When timeout_seconds > 0,
+        the call runs in an isolated worker and returns timeout_outcome_unknown on
+        timeout because open state may be partially applied.
         """
         p = Path(path)
         if p.suffix.lower() not in (".hwp", ".hwpx"):
             return {"available": True, "ok": False, "error": "open_in_hwp accepts .hwp or .hwpx files"}
+        if timeout_seconds > 0:
+            return _run_open_in_hwp_timed(str(p), visible, timeout_seconds)
         return _open_in_hwp(p, visible=visible)
 
     @mcp.tool()
@@ -85,8 +119,10 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         use the file-mode delegate tools and produce a new file instead. Legacy
         mode is pathless and writes to the active automation document. When
         path=... is provided, this tool performs broker-targeted exact-path live
-        apply and refuses to guess across multiple automation brokers.
+        apply and refuses to guess across multiple automation brokers. This path
+        does not currently expose a timeout_seconds worker-isolation contract.
         """
+
         if path is not None:
             p = Path(path)
             if p.suffix.lower() not in (".hwp", ".hwpx"):
@@ -215,7 +251,8 @@ def register_live_tools(mcp) -> Dict[str, Any]:
 
         The token is authoritative: this tool accepts no fresh values or target
         hints, and it revalidates the selected broker and exact target before
-        mutating the live document.
+        mutating the live document. This path does not currently expose a
+        timeout_seconds worker-isolation contract.
         """
         return _apply_to_current_hwp_document(preview_token)
 

@@ -25,6 +25,7 @@ from hangeul_core.hwp.current_document import (
 )
 from hangeul_core.hwp.live import apply_cells_to_open, preview_cells_to_open
 from hangeul_core.hwp.rot_attach import apply_named_fields_exact_path
+from hangeul_core.runtime_info import runtime_identity
 
 
 _PREVIEW_TOKEN_TTL_SECONDS = 300
@@ -42,6 +43,19 @@ def _purge_preview_tokens(now: int | None = None) -> None:
 
 def _live_current_available() -> bool:
     return HwpBridge.available() or bool(list_rot_instances())
+
+
+def _server_instance_id() -> str:
+    return str(runtime_identity()["server_instance_id"])
+
+
+def _mint_preview_token() -> str:
+    return f"{_server_instance_id()}.{secrets.token_urlsafe(18)}"
+
+
+def _preview_token_server_instance_id(preview_token: str) -> str | None:
+    server_id, sep, _rest = preview_token.partition(".")
+    return server_id if sep and server_id else None
 
 
 
@@ -201,6 +215,16 @@ def preview_current_hwp_document(
             "named_field_keys": route_plan["named_field_keys"],
             "cell_keys": route_plan["cell_keys"],
         }
+    if route_plan["route"] == "mixed":
+        return {
+            "available": True,
+            "ok": False,
+            "state": "mixed_route_unsupported",
+            "candidate": candidate,
+            "candidates": resolution.get("candidates") or [],
+            "named_field_keys": route_plan["named_field_keys"],
+            "cell_keys": route_plan["cell_keys"],
+        }
     preview = _preview_summary(route_plan["route"], route_plan["named_field_keys"], cell_preview)
     issued_at = int(time.time())
     expires_at = issued_at + _PREVIEW_TOKEN_TTL_SECONDS
@@ -211,6 +235,7 @@ def preview_current_hwp_document(
         "normalized_path": candidate.get("normalized_path"),
         "moniker": candidate.get("moniker"),
         "slot": candidate.get("slot"),
+        "server_instance_id": _server_instance_id(),
         "inventory_digest": resolution["inventory_digest"],
         "value_digest": hashlib.sha256(
             json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -224,12 +249,14 @@ def preview_current_hwp_document(
         "named_field_keys": list(route_plan["named_field_keys"]),
         "cell_keys": list(route_plan["cell_keys"]),
     }
-    token = secrets.token_urlsafe(18)
+    token = _mint_preview_token()
+
     _PREVIEW_TOKENS[token] = token_payload
     return {
         "available": True,
         "ok": True,
         "state": "preview_ready",
+        "server_instance_id": _server_instance_id(),
         "selection_basis": resolution.get("selection_basis", "none"),
         "candidate": candidate,
         "candidates": resolution.get("candidates") or [],
@@ -270,10 +297,15 @@ def _normalize_apply_error(route: str, result: Dict[str, Any]) -> Dict[str, Any]
 
 def apply_to_current_hwp_document(preview_token: str) -> Dict[str, Any]:
     now = int(time.time())
+    token_server_instance = _preview_token_server_instance_id(preview_token)
+    if token_server_instance and token_server_instance != _server_instance_id():
+        return {"available": True, "ok": False, "state": "wrong_server_instance"}
     _purge_preview_tokens(now)
     token = _PREVIEW_TOKENS.get(preview_token)
     if token is None:
         return {"available": True, "ok": False, "state": "stale_preview_token"}
+    if token.get("server_instance_id") != _server_instance_id():
+        return {"available": True, "ok": False, "state": "wrong_server_instance"}
 
     resolution = resolve_current_hwp_document()
     if resolution.get("state") == "unavailable":
@@ -309,37 +341,8 @@ def apply_to_current_hwp_document(preview_token: str) -> Dict[str, Any]:
         return {**result, "available": True, "ok": True, "state": "applied_cells", "candidate": candidate}
 
     if route == "mixed":
-        named_result = _apply_named_route(candidate, token)
-        if not named_result.get("ok"):
-            return _normalize_apply_error(route, named_result)
-        cell_result = _apply_cell_route(candidate, token)
-        if not cell_result.get("ok"):
-            _PREVIEW_TOKENS.pop(preview_token, None)
-            normalized = _normalize_apply_error(route, {**cell_result, "named_result": named_result})
-            return {
-                **normalized,
-                "available": normalized.get("available", True),
-                "ok": False,
-                "state": "partial_apply_error",
-                "detail_state": normalized.get("state"),
-                "partial_apply": True,
-                "candidate": candidate,
-                "named_result": named_result,
-                "cell_result": cell_result,
-            }
         _PREVIEW_TOKENS.pop(preview_token, None)
-        return {
-            "available": True,
-            "ok": True,
-            "state": "applied_mixed",
-            "candidate": candidate,
-            "named_result": named_result,
-            "cell_result": cell_result,
-            "applied": list(named_result.get("applied") or []) + list(cell_result.get("applied") or []),
-            "skipped": list(named_result.get("skipped") or []) + list(cell_result.get("skipped") or []),
-            "count": int(named_result.get("count") or len(named_result.get("applied") or []))
-            + int(cell_result.get("count") or len(cell_result.get("applied") or [])),
-        }
+        return {"available": True, "ok": False, "state": "mixed_route_unsupported", "candidate": candidate}
     return {"available": True, "ok": False, "state": "error", "error": f"unsupported preview route: {route}"}
 
 

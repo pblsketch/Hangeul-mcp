@@ -37,6 +37,8 @@ def test_file_capability_lists_edit_session_tools():
         "batch_replace",
         "preview_search_and_replace",
         "preview_batch_replace",
+        "preview_addressed_edits",
+        "apply_addressed_edits",
         "apply_edit_session",
         "restore_edit_session",
     } <= set(file_cap["tools"])
@@ -54,6 +56,23 @@ def test_live_capability_lists_current_document_tools():
         "preview_current_hwp_document",
         "apply_to_current_hwp_document",
     } <= set(live["tools"])
+
+def test_runtime_observability_fields_present():
+    res = server.describe_capabilities()
+    runtime = res["runtime"]
+    assert runtime["version"]
+    assert runtime["build_identifier"]
+    assert runtime["server_instance_id"]
+    assert isinstance(runtime["pid"], int) and runtime["pid"] > 0
+    assert runtime["started_at"].endswith("Z")
+    assert runtime["tool_schema_version"] == 1
+    assert runtime["session_scope"] == "this stdio process"
+    assert runtime["survives_restart"] is False
+    flags = res["feature_flags"]
+    assert flags["body_paragraph"] is True
+    assert flags["raw_cell_editing"] is True
+    assert flags["occurrence_editing"] is False
+    assert flags["live_addressed_editing"] is False
 
 
 def test_project_does_not_depend_on_llm_api_sdks():

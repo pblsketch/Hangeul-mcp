@@ -193,9 +193,12 @@ pip install -e ".[live]"
 
 - `search_and_replace`, `batch_replace`, `mail_merge`
 - `preview_search_and_replace`, `preview_batch_replace`, `apply_edit_session`, `restore_edit_session`
+- `preview_addressed_edits`, `apply_addressed_edits`
   - preview는 변경 엔트리/개수 audit를 먼저 보여 줍니다.
   - apply는 단일 session 기준으로 journal/snapshot을 남깁니다.
+  - one-shot `search_and_replace`는 2회 이상 일치 시 기본적으로 fail-closed이며, 전체 치환은 `scope="all"`을 명시해야 합니다.
   - rich formatting/image/undo를 가장하지 않고 **텍스트 치환 경로만** 다룹니다.
+
 
 `python-hwpx` 위임 기능:
 
@@ -238,8 +241,11 @@ resolve_current_hwp_document()
 - `resolve_current_hwp_document()` 후보에는 `picker_title`/`picker_subtitle`/`picker_badges`/`picker_label`이 들어 있어 사람이 보고 고를 수 있습니다.
 - preview에서 받은 일회용 token 없이는 쓰지 않습니다.
 - apply 직전에 COM 객체·문서 슬롯·전체 경로를 다시 확인합니다.
-- 문서가 바뀌거나 닫혔거나 token이 재사용되면 쓰지 않고 구조화된 오류를 반환합니다.
+- preview token은 **해당 stdio 서버 인스턴스 범위**이며, 문서가 바뀌거나 닫혔거나 token이 재사용되면 쓰지 않고 구조화된 오류를 반환합니다.
+
 - 사용자가 연 문서를 자동 저장·닫기·재열기하지 않습니다.
+- `find_text_occurrences()`는 읽기용 위치 탐색입니다. 실제 수정은 `preview_addressed_edits(path, edits)` → `apply_addressed_edits(session_id, out_path)`로 다시 확정합니다.
+
 
 ### 라이브 기능의 정직한 검증 상태
 
@@ -256,6 +262,7 @@ resolve_current_hwp_document()
 - 사람이 파일 탐색기에서 직접 더블클릭한 문서의 current-document token 흐름 전체 캡처
 - 복잡한 중첩 표에서의 라이브 셀 매핑 확대 검증
 - 일부 본문 라이브 안전장치의 추가 실기기 실패 주입 검증
+- worker timeout 격리는 현재 `open_in_hwp(timeout_seconds=...)` 경로에만 연결돼 있습니다. 다른 live apply 경로는 아직 동일한 timeout 계약을 약속하지 않습니다.
 
 따라서 라이브 기능은 파일 모드보다 보수적으로 사용해야 합니다. 원자료와 완료 조건은 [`PENDING_DESKTOP_LIVE_QA.md`](PENDING_DESKTOP_LIVE_QA.md), 절차는 [`docs/live-qa-runbook.md`](docs/live-qa-runbook.md)에서 확인할 수 있습니다.
 
@@ -270,8 +277,9 @@ resolve_current_hwp_document()
 ## 개발 상태와 품질
 
 - 패키지 버전: `0.1.2` (Pre-Alpha)
-- 런타임 MCP 도구: **51 tools**
-- 최신 로컬 검증: **428 passed, 1 skipped**
+- 런타임 MCP 도구: **58 tools**
+
+- 최신 로컬 검증: **448 passed, 1 skipped**
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending
@@ -332,7 +340,7 @@ Hangeul-mcp/
 
 ```
 
-FastMCP stdio 서버에는 현재 51개의 도구가 등록됩니다 `(51 tools)`.
+FastMCP stdio 서버에는 현재 58개의 도구가 등록됩니다 `(58 tools)`.
 
 ## 관련 문서
 

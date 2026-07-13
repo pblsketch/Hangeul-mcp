@@ -76,3 +76,17 @@ def test_capabilities_live_note_states_boundaries():
     note = live["note"].lower()
     assert "value" in note and ("format" in note or "styling" in note)
     assert "connected:false" in note or "side-effect" in note
+
+def test_hwp_status_exposes_runtime_observability_fields():
+    caps = server.describe_capabilities()
+    st = server.hwp_status()
+    assert st["server_instance_id"] == caps["runtime"]["server_instance_id"]
+    assert st["pid"] == caps["runtime"]["pid"]
+    assert st["started_at"] == caps["runtime"]["started_at"]
+    assert st["tool_schema_version"] == 1
+    assert st["session_scope"] == "this stdio process"
+    assert st["survives_restart"] is False
+    assert st["feature_flags"]["raw_cell_editing"] is True
+    assert st["feature_flags"]["live_addressed_editing"] is False
+    ladder = st["attach_ladder"]
+    assert {"window_detected", "rot_visible", "com_object_acquired", "document_identity_proven"} <= set(ladder)

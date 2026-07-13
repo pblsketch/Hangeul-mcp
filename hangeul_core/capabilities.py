@@ -9,6 +9,7 @@ from hangeul_core.hwp import HwpBridge
 from hangeul_core.hwp.live import live_available
 from hangeul_core.hwp_headless import headless_status
 from hangeul_core.render import render_available
+from hangeul_core.runtime_info import feature_flags, runtime_identity
 
 
 def _module_available(name: str) -> bool:
@@ -52,7 +53,9 @@ def describe_capabilities() -> Dict[str, Any]:
         "runtime": {
             "python": sys.version.split()[0],
             "platform": sys.platform,
+            **runtime_identity(),
         },
+        "feature_flags": feature_flags(),
         "capabilities": [
             _capability(
                 "file_hwpx",
@@ -63,16 +66,23 @@ def describe_capabilities() -> Dict[str, Any]:
                     "fill_form",
                     "extract_text",
                     "find_text",
+                    "find_text_occurrences",
                     "get_document_outline",
                     "get_table_map",
+                    "inspect_editable_regions",
+                    "get_paragraph_map",
                     "find_cell_by_label",
                     "verify_fill",
+                    "verify_targets",
+                    "plan_template_completion",
                     "validate_hwpx",
                     "scan_pii",
                     "search_and_replace",
                     "batch_replace",
                     "preview_search_and_replace",
                     "preview_batch_replace",
+                    "preview_addressed_edits",
+                    "apply_addressed_edits",
                     "apply_edit_session",
                     "restore_edit_session",
                 ],
@@ -126,7 +136,8 @@ note=(
     "in file-mode tools. hwp_status and preview are side-effect-free, and connected:false "
     "is the normal idle state. Safe live attach is exact-path based: use open_in_hwp(path) "
     "before apply, or use the saved-.hwpx current-document resolve/preview/apply flow "
-    "for tokenized pathless UX."
+    "for tokenized pathless UX. Worker timeout isolation is currently wired only for "
+    "open_in_hwp(timeout_seconds=...)."
 )
             ),
             _capability(
