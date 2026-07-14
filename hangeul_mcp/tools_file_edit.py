@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+import re
+from typing import Any, Dict, Literal
+
+from pydantic import BaseModel, Field
 
 import hangeul_core.addressed as _addressed
 from hangeul_core.addressed import apply_addressed_edits as _apply_addressed_edits
@@ -51,6 +54,56 @@ def _requires_distinct_out_path(path: str, out_path: str) -> bool:
     if not out_path.strip():
         return True
     return _addressed._same_document_path(path, out_path)
+
+
+class AddressedEdit(BaseModel):
+    """One structural edit. Kind and operation are inferred when omitted."""
+
+    target: str = Field(
+        description=(
+            "Exact target from inspect_editable_regions: tN.rN.cN for a whole cell, "
+            "tN.rN.cN.pN for one paragraph inside a cell, or bN for a body paragraph. "
+            "Do not pass sN.pN.occN occurrence IDs here."
+        ),
+        examples=["t2.r4.c2.p1"],
+    )
+    value: str = Field(description="Complete replacement text for this exact target")
+    expected_text: str = Field(
+        default="",
+        description="Optional current text copied from inspection; mismatch fails closed",
+    )
+    kind: Literal["cell", "paragraph", "body_para"] | None = Field(
+        default=None,
+        description="Usually omit; inferred from target",
+    )
+    operation: Literal["replace_text", "preserve_marker_replace_tail"] | None = Field(
+        default=None,
+        description="Usually omit; defaults to replace_text. preserve_marker_replace_tail is only for bN.",
+    )
+
+
+_CELL_TARGET = re.compile(r"^t\d+\.r\d+\.c\d+$")
+_PARAGRAPH_TARGET = re.compile(r"^t\d+\.r\d+\.c\d+\.p\d+$")
+_BODY_TARGET = re.compile(r"^b\d+$")
+
+
+def _normalize_addressed_edits(edits: list[AddressedEdit]) -> list[dict]:
+    normalized: list[dict] = []
+    for edit in edits:
+        item = edit.model_dump() if isinstance(edit, BaseModel) else dict(edit)
+        target = str(item.get("target") or "")
+        inferred = (
+            "cell" if _CELL_TARGET.fullmatch(target)
+            else "paragraph" if _PARAGRAPH_TARGET.fullmatch(target)
+            else "body_para" if _BODY_TARGET.fullmatch(target)
+            else None
+        )
+        if not item.get("kind") and inferred:
+            item["kind"] = inferred
+        if not item.get("operation"):
+            item["operation"] = "replace_text"
+        normalized.append({key: value for key, value in item.items() if value is not None})
+    return normalized
 
 
 def register_file_edit_tools(mcp) -> Dict[str, Any]:
@@ -114,7 +167,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
         }
 
     @mcp.tool()
-    def preview_addressed_edits(path: str, edits: list) -> Dict[str, Any]:
+    def preview_addressed_edits(path: str, edits: list[AddressedEdit]) -> Dict[str, Any]:
         """Resolve STRUCTURAL addressed edits in file mode without writing output.
 
         `edits` do NOT require `{}` named fields. Use structural addresses for
@@ -137,7 +190,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
                 "error": str(exc),
                 "counts": {"requested": len(list(edits)), "resolved": 0, "applied": 0, "skipped": 0, "unresolved": 0},
             }
-        return {"available": True, **_preview_addressed_edits(path, list(edits))}
+        return {"available": True, **_preview_addressed_edits(path, _normalize_addressed_edits(edits))}
 
     @mcp.tool()
     def apply_addressed_edits(session_id: str, out_path: str) -> Dict[str, Any]:
@@ -159,7 +212,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
         return {"available": True, **_apply_addressed_edits(session_id, out_path)}
 
     @mcp.tool()
-    def complete_addressed_template(path: str, edits: list, out_path: str, verify: bool = True) -> Dict[str, Any]:
+    def complete_addressed_template(path: str, edits: list[AddressedEdit], out_path: str, verify: bool = True) -> Dict[str, Any]:
         """Complete a whole template in ONE addressed file-mode call and write a new copy.
 
         Gather or generate all values first, then send one `edits` array here —
@@ -199,7 +252,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
                 "error": "complete_addressed_template is unavailable in hangeul_core.addressed",
                 "counts": {"requested": len(list(edits)), "resolved": 0, "applied": 0, "skipped": 0, "unresolved": 0, "verified": 0},
             }
-        return {"available": True, **complete(path, list(edits), out_path, verify=verify)}
+        return {"available": True, **complete(path, _normalize_addressed_edits(edits), out_path, verify=verify)}
 
     @mcp.tool()
     def restore_edit_session(journal_path: str) -> Dict[str, Any]:

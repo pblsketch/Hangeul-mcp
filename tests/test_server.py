@@ -107,7 +107,14 @@ def test_complete_addressed_template_delegates_to_core(monkeypatch, tmp_path):
 
     def _complete(path, edits, out_path, verify=True):
         assert path == str(FIXTURE)
-        assert edits == [{"target": "t1.r1.c1", "value": "홍길동"}]
+        assert edits == [
+            {
+                "target": "t1.r1.c1",
+                "value": "홍길동",
+                "kind": "cell",
+                "operation": "replace_text",
+            }
+        ]
         assert out_path == str(out)
         assert verify is False
         return {"ok": True, "state": "applied", "target_path": out_path, "counts": {"verified": 0}}
