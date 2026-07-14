@@ -83,6 +83,7 @@ def describe_capabilities() -> Dict[str, Any]:
                     "preview_batch_replace",
                     "preview_addressed_edits",
                     "apply_addressed_edits",
+                    "complete_addressed_template",
                     "apply_edit_session",
                     "restore_edit_session",
                 ],

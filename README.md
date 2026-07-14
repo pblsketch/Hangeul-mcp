@@ -20,18 +20,21 @@ Hangeul-mcp 자체에는 문장을 생성하는 AI가 없습니다. Claude Deskt
 
 ### 가장 안전하고 완성도가 높은 사용법
 
-원본을 직접 수정하지 않는 **파일 모드**입니다.
+원본을 직접 수정하지 않는 **파일 모드 fast path**입니다.
 
 ```text
-analyze_form("신청서.hwpx")
-→ 사용자가 채울 값 검토
-→ fill_form("신청서.hwpx", values, "신청서_완성.hwpx")
-→ validate_hwpx("신청서_완성.hwpx")
-→ verify_fill("신청서_완성.hwpx", expected)
+inspect_editable_regions("신청서.hwpx", compact=true)
+→ 한 번만 구조를 검토
+→ AI가 채울 모든 값과 addressed edits를 한 번에 생성
+→ complete_addressed_template("신청서.hwpx", edits, "신청서_완성.hwpx")
+→ 결과를 열기 전에 verify/validate가 통과했는지 확인
+→ 검증된 "신청서_완성.hwpx" 열기
 ```
 
 - 새 파일로 저장하므로 원본을 보존합니다.
-- 자체 채우기 엔진은 변경한 텍스트 외 HWPX 엔트리 payload를 보존하도록 설계했습니다.
+- whole-template completion은 **값을 전부 모은 뒤 한 번에** `complete_addressed_template(...)`로 보내는 경로를 기준으로 설명합니다.
+- 같은 문서가 이미 한글 창에 열려 있어도 이 fast path는 **그 창을 직접 수정하지 않고** `out_path` 새 파일만 만듭니다.
+- 수동 검토가 더 중요하면 `preview_addressed_edits(path, edits)` → `apply_addressed_edits(session_id, out_path)`로 preview→apply session을 유지합니다.
 - 표·페이지·이미지 같은 위임 편집은 `python-hwpx`가 문서를 재직렬화하므로 **바이트 보존이 아니라 재검증 통과**를 기준으로 합니다.
 
 ## 어떤 양식을 이해하나요?
@@ -175,12 +178,19 @@ pip install -e ".[live]"
 
 ### 1. HWPX 양식 채우기
 
-- `analyze_form(path)` — 입력 가능한 필드와 위치 찾기
-- `fill_form(path, values, out_path, ...)` — 새 HWPX 파일 생성
-- `validate_hwpx(path)` — 패키지·XML 무결성 검사
-- `verify_fill(path, expected)` — 값이 실제로 들어갔는지 확인
-- `analyze_formfit(path, values)` — 셀 넘침 가능성 추정
+기본 fast path:
+- `inspect_editable_regions(path, compact=True)` — 파일 모드 structural target을 한 번에 파악
+- `complete_addressed_template(path, edits, out_path, verify=True)` — 값을 모두 모은 뒤 새 HWPX 파일을 한 번에 생성
+- `validate_hwpx(path)` / `verify_fill(path, expected)` — 결과 무결성과 반영 여부 확인
+- 필요하면 `analyze_form(path)`, `analyze_formfit(path, values)` — 라벨 기반 필드와 넘침 가능성 추가 점검
 
+수동 addressed session:
+- `preview_addressed_edits(path, edits)` — 변경 엔트리/개수 audit 먼저 확인
+- `apply_addressed_edits(session_id, out_path)` — 검토한 session만 새 파일로 반영
+- `find_text_occurrences()`는 읽기용 위치 탐색이며, repeated text는 반드시 explicit scope로 다시 확정합니다.
+
+기존 라벨 기반 fill:
+- `fill_form(path, values, out_path, ...)` — named field/placeholder 중심의 새 HWPX 파일 생성
 ### 2. 읽기·검색·감사
 
 - `extract_text`, `find_text`
@@ -190,18 +200,16 @@ pip install -e ".[live]"
 ### 3. 파일 편집·생성
 
 자체 바이트 보존 엔진:
-
 - `search_and_replace`, `batch_replace`, `mail_merge`
 - `preview_search_and_replace`, `preview_batch_replace`, `apply_edit_session`, `restore_edit_session`
-- `preview_addressed_edits`, `apply_addressed_edits`
+- `preview_addressed_edits`, `apply_addressed_edits`, `complete_addressed_template`
   - preview는 변경 엔트리/개수 audit를 먼저 보여 줍니다.
   - apply는 단일 session 기준으로 journal/snapshot을 남깁니다.
+  - `complete_addressed_template`는 값을 모두 모은 뒤 whole-template completion을 한 번에 끝내는 file fast path입니다.
   - one-shot `search_and_replace`는 2회 이상 일치 시 기본적으로 fail-closed이며, 전체 치환은 `scope="all"`을 명시해야 합니다.
   - rich formatting/image/undo를 가장하지 않고 **텍스트 치환 경로만** 다룹니다.
 
-
 `python-hwpx` 위임 기능:
-
 - HTML/Markdown 변환
 - 문단·표·이미지 추가
 - 표 병합·병합 해제·셀 음영
@@ -214,7 +222,7 @@ pip install -e ".[live]"
 
 ### 4. 열린 한글 문서에 라이브 입력
 
-Windows + 한컴오피스 한글이 필요합니다.
+Windows + 한컴오피스 한글이 필요합니다. 이 경로는 **같은 한글 창을 직접 수정하는 live mode**이고, 위 file fast path와 다릅니다.
 
 **경로를 알고 있을 때**
 
@@ -242,9 +250,8 @@ resolve_current_hwp_document()
 - preview에서 받은 일회용 token 없이는 쓰지 않습니다.
 - apply 직전에 COM 객체·문서 슬롯·전체 경로를 다시 확인합니다.
 - preview token은 **해당 stdio 서버 인스턴스 범위**이며, 문서가 바뀌거나 닫혔거나 token이 재사용되면 쓰지 않고 구조화된 오류를 반환합니다.
-
 - 사용자가 연 문서를 자동 저장·닫기·재열기하지 않습니다.
-- `find_text_occurrences()`는 읽기용 위치 탐색입니다. 실제 수정은 `preview_addressed_edits(path, edits)` → `apply_addressed_edits(session_id, out_path)`로 다시 확정합니다.
+- 파일 모드 addressed completion이 목적이면 live apply로 섞지 말고 `inspect_editable_regions(...)` → `complete_addressed_template(...)` 또는 `preview_addressed_edits(...)` → `apply_addressed_edits(...)`를 사용한 뒤, **검증된 출력 파일을 나중에 여는 방식**으로 분리합니다.
 
 
 ### 라이브 기능의 정직한 검증 상태
@@ -277,9 +284,9 @@ resolve_current_hwp_document()
 ## 개발 상태와 품질
 
 - 패키지 버전: `0.2.1` (Pre-Alpha)
-- 런타임 MCP 도구: **58 tools**
+- 런타임 MCP 도구: **59 tools**
 
-- 최신 로컬 검증: **448 passed, 1 skipped**
+- 최신 로컬 검증: **481 passed, 1 skipped**
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending
@@ -340,7 +347,7 @@ Hangeul-mcp/
 
 ```
 
-FastMCP stdio 서버에는 현재 58개의 도구가 등록됩니다 `(58 tools)`.
+FastMCP stdio 서버에는 현재 59개의 도구가 등록됩니다 `(59 tools)`.
 
 ## 관련 문서
 

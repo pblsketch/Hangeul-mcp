@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
+from hangeul_core import addressed as addressed_core
 from hangeul_core.addressed import (
     apply_addressed_edits,
+    complete_addressed_template,
     get_paragraph_map,
     inspect_editable_regions,
     plan_template_completion,
@@ -452,6 +455,17 @@ def test_preview_and_apply_addressed_safety_states(tmp_path):
         src,
         [{"target": "t1.r0.c0", "kind": "cell", "operation": "replace_text", "value": "교과서", "expected_text": "자료"}],
     )
+    missing_out_path = apply_addressed_edits(preview["session_id"])
+    assert missing_out_path["state"] == "invalid_output_path"
+    same_out_path = apply_addressed_edits(preview["session_id"], src)
+    assert same_out_path["state"] == "invalid_output_path"
+    aliased_same_out_path = apply_addressed_edits(preview["session_id"], src.parent / "." / src.name)
+    assert aliased_same_out_path["state"] == "invalid_output_path"
+    hardlink_alias = src.parent / "hardlink-alias.hwpx"
+    hardlink_alias.unlink(missing_ok=True)
+    hardlink_alias.hardlink_to(src)
+    hardlink_same_out_path = apply_addressed_edits(preview["session_id"], hardlink_alias)
+    assert hardlink_same_out_path["state"] == "invalid_output_path"
     applied = apply_addressed_edits(preview["session_id"], out)
     assert applied["ok"] is True
     again = apply_addressed_edits(preview["session_id"], out)
@@ -464,6 +478,100 @@ def test_preview_and_apply_addressed_safety_states(tmp_path):
     _build_duplicate_label_fixture(src)
     stale = apply_addressed_edits(stale_preview["session_id"], out)
     assert stale["state"] == "stale_preview"
+def test_complete_addressed_template_fail_closed_states(tmp_path):
+    src = tmp_path / "regions.hwpx"
+    out = tmp_path / "completed.hwpx"
+    _build_region_fixture(src)
+
+    ambiguous = complete_addressed_template(
+        src,
+        [
+            {"target": "t1.r0.c0.p2", "kind": "paragraph", "operation": "replace_text", "value": "교과서", "expected_text": "추가"},
+            {"target": "t1.r0.c0.p2", "kind": "paragraph", "operation": "replace_text", "value": "중복", "expected_text": "추가"},
+        ],
+        out,
+    )
+    assert ambiguous["ok"] is False
+    assert ambiguous["state"] == "ambiguous_target"
+    assert ambiguous["counts"] == {"requested": 2, "resolved": 1, "applied": 0, "verified": 0, "skipped": 1, "unresolved": 1}
+    assert ambiguous["coverage_ratio"] == 0.5
+    assert ambiguous["unresolved"] == [{"target": "t1.r0.c0.p2", "reason": "duplicate_target"}]
+    assert ambiguous["failures"] == []
+    assert not out.exists()
+
+    same_path = complete_addressed_template(
+        src,
+        [{"target": "t1.r0.c0.p1", "kind": "paragraph", "operation": "replace_text", "value": "교과서", "expected_text": "자료"}],
+        src,
+    )
+    assert same_path["ok"] is False
+    assert same_path["state"] == "failed"
+    assert same_path["failures"] == [{"reason": "output_path_matches_source"}]
+    assert same_path["counts"] == {"requested": 1, "resolved": 0, "applied": 0, "verified": 0, "skipped": 1, "unresolved": 0}
+
+    aliased_same_path = complete_addressed_template(
+        src,
+        [{"target": "t1.r0.c0.p1", "kind": "paragraph", "operation": "replace_text", "value": "교과서", "expected_text": "자료"}],
+        src.parent / "." / src.name,
+    )
+    assert aliased_same_path["ok"] is False
+    assert aliased_same_path["state"] == "failed"
+    assert aliased_same_path["failures"] == [{"reason": "output_path_matches_source"}]
+
+
+def test_complete_addressed_template_reports_verification_mismatch(tmp_path):
+    src = tmp_path / "regions.hwpx"
+    out = tmp_path / "completed.hwpx"
+    _build_region_fixture(src)
+
+    real_apply = addressed_core.apply_addressed_edits
+
+    def tampered_apply(session_id, out_path=None):
+        applied = real_apply(session_id, out_path)
+        if applied.get("ok"):
+            section = _section_text(Path(applied["target_path"])).replace("교과서", "검증실패")
+            _write_hwpx(Path(applied["target_path"]), section)
+        return applied
+
+    with patch.object(addressed_core, "apply_addressed_edits", side_effect=tampered_apply):
+        report = complete_addressed_template(
+            src,
+            [{"target": "t1.r0.c0.p1", "kind": "paragraph", "operation": "replace_text", "value": "교과서", "expected_text": "자료"}],
+            out,
+        )
+
+    assert report["ok"] is False
+    assert report["state"] == "failed"
+    assert report["counts"] == {"requested": 1, "resolved": 1, "applied": 1, "verified": 0, "skipped": 0, "unresolved": 0}
+    assert report["coverage_ratio"] == 0.0
+    assert report["failures"] == [
+        {
+            "target": "t1.r0.c0.p1",
+            "reason": "verification_mismatch",
+            "expected_text": "교과서",
+            "actual_text": "검증실패",
+        }
+    ]
+    assert report["target_sha256"] == addressed_core._sha256_path(out)
+
+
+def test_complete_addressed_template_without_verify_reports_applied_coverage(tmp_path):
+    src = tmp_path / "regions.hwpx"
+    out = tmp_path / "completed.hwpx"
+    _build_region_fixture(src)
+
+    report = complete_addressed_template(
+        src,
+        [{"target": "t1.r0.c0.p1", "kind": "paragraph", "operation": "replace_text", "value": "교과서", "expected_text": "자료"}],
+        out,
+        verify=False,
+    )
+
+    assert report["ok"] is True
+    assert report["state"] == "applied"
+    assert report["counts"] == {"requested": 1, "resolved": 1, "applied": 1, "verified": 0, "skipped": 0, "unresolved": 0}
+    assert report["coverage_ratio"] == 1.0
+    assert report["target_sha256"] == addressed_core._sha256_path(out)
 def test_duplicate_label_fill_fails_closed(tmp_path):
     src = tmp_path / "duplicate.hwpx"
     out = tmp_path / "out.hwpx"

@@ -28,6 +28,33 @@ describe_capabilities()
 
 ## 파일 양식 채우기 흐름
 
+### 기본 addressed fast path
+
+```text
+detect_format(path)
+scan_pii(path)
+inspect_editable_regions(path, compact=true)
+→ AI가 채울 모든 값과 addressed edits를 한 번에 생성
+complete_addressed_template(path, edits, out_path, verify=true)
+verify_fill(out_path, expected)
+render_preview(out_path, preview_png)   # optional
+```
+
+이 흐름은 **파일 기반 HWPX 모드**다. 열린 한글 창을 건드리지 않고, 검증된 새 출력 파일을 만든 뒤 필요하면 그 결과를 연다.
+
+### 수동 addressed review→apply
+
+```text
+inspect_editable_regions(path, compact=true)
+preview_addressed_edits(path, edits)
+apply_addressed_edits(session_id, out_path)
+verify_fill(out_path, expected)
+```
+
+반복 텍스트나 구조 주소를 사람이 먼저 audit해야 할 때 쓰는 경로다. whole-template completion을 셀마다 여러 번 호출하는 대신, values/edits를 한 번에 모아 session 또는 one-shot으로 마무리한다.
+
+### 기존 라벨 기반 fill 흐름
+
 ```text
 detect_format(path)
 scan_pii(path)
@@ -39,7 +66,7 @@ verify_fill(out_path, expected)
 render_preview(out_path, preview_png)
 ```
 
-이 흐름은 HWPX 파일을 직접 수정한다. 한글 프로그램이 열려 있을 필요는 없다.
+이 흐름도 HWPX 파일을 직접 다루는 file mode다. 한글 프로그램이 열려 있을 필요는 없다.
 
 ## 새 문서 생성 흐름
 
@@ -61,6 +88,8 @@ preview_cells_to_open_hwp(path, values)
 apply_cells_to_open_hwp(path, values)    # cell/inline/body exact-path live apply
 ```
 
+이 경로는 **same-window live editing**이다. 파일 모드 fast path처럼 새 `out_path`를 만드는 것이 아니라, 이미 열린 한글 창을 직접 수정한다.
+
 `preview_cells_to_open_hwp`는 COM을 호출하지 않는다. 열린 한글 창을 건드리지 않고, 어떤 표/행/열에 값이 들어갈지만 미리 보여준다.
 
 ## 현재 문서(pathless) live 흐름 — saved `.hwpx` only
@@ -72,6 +101,8 @@ apply_to_current_hwp_document(preview_token)
 ```
 
 현재 문서 pathless UX는 **저장된 `.hwpx` current document만** 지원한다. saved `.hwp` current document는 `preview_requires_hwpx`로 fail-closed 하고, apply는 preview에서 발급한 token만 받는다.
+
+파일 템플릿 completion이 목적이면 live 모드에서 일부만 쓰고 file 모드로 되돌아가기보다, 처음부터 `inspect_editable_regions` → `complete_addressed_template` 또는 `preview_addressed_edits` → `apply_addressed_edits`로 분리하는 것이 안전하다.
 
 ## 개인정보 경계
 

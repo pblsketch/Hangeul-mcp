@@ -69,31 +69,37 @@ def _capacity_hint(value, header: str) -> "int | None":
 
 def understand(path: str | Path) -> FormSchema:
     """Produce a FormSchema of label -> value-cell fields (empty_cell kind)."""
-    result = analyze(path)
+    from hangeul_core.edit_session import _sha256_path
     from hangeul_core.owpml import HwpxPackage
 
-    header = HwpxPackage.open(path).read("Contents/header.xml").decode("utf-8")
-    fields = []
-    claimed = set()  # value cell field_ids already mapped
+    source = Path(path)
+    for _ in range(2):
+        source_sha256 = _sha256_path(source)
+        result = analyze(source)
+        header = HwpxPackage.open(source).read("Contents/header.xml").decode("utf-8")
+        fields = []
+        claimed = set()  # value cell field_ids already mapped
 
-    for table in result.tables:
-        grid = _occupancy(table.cells)
-        for cell in table.cells:
-            if cell.is_empty or not _looks_like_label(cell.text):
-                continue
-            value = _value_cell(cell, grid)
-            if value is None or value.field_id in claimed:
-                continue
-            claimed.add(value.field_id)
-            fields.append(
-                Field(
-                    field_id=value.field_id,
-                    label=normalize_label(cell.text),
-                    label_id=cell.field_id,
-                    kind=KIND_EMPTY_CELL,
-                    para_bullet=value.para_bullet,
-                    char_spacing=value.char_spacing,
-                    capacity_hint=_capacity_hint(value, header),
+        for table in result.tables:
+            grid = _occupancy(table.cells)
+            for cell in table.cells:
+                if cell.is_empty or not _looks_like_label(cell.text):
+                    continue
+                value = _value_cell(cell, grid)
+                if value is None or value.field_id in claimed:
+                    continue
+                claimed.add(value.field_id)
+                fields.append(
+                    Field(
+                        field_id=value.field_id,
+                        label=normalize_label(cell.text),
+                        label_id=cell.field_id,
+                        kind=KIND_EMPTY_CELL,
+                        para_bullet=value.para_bullet,
+                        char_spacing=value.char_spacing,
+                        capacity_hint=_capacity_hint(value, header),
+                    )
                 )
-            )
-    return FormSchema(fmt=result.fmt, fields=fields)
+        if _sha256_path(source) == source_sha256:
+            return FormSchema(fmt=result.fmt, fields=fields, source_sha256=source_sha256)
+    raise RuntimeError("source file changed during understand read; retry")

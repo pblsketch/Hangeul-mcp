@@ -5,6 +5,8 @@ import json
 import re
 import shutil
 import uuid
+import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
@@ -43,6 +45,36 @@ class _AddressedSession:
 
 
 _SESSIONS: Dict[str, _AddressedSession] = {}
+_INSPECTION_CACHE_MAX = 32
+_INSPECTION_CACHE: "OrderedDict[tuple[str, str], str]" = OrderedDict()
+
+def _inspection_cache_key(path: str | Path, source_sha256: str) -> tuple[str, str]:
+    return (str(Path(path).resolve()), source_sha256)
+
+def _inspection_cache_get(path: str | Path, source_sha256: str) -> Dict[str, object] | None:
+    key = _inspection_cache_key(path, source_sha256)
+    payload = _INSPECTION_CACHE.get(key)
+    if payload is None:
+        return None
+    _INSPECTION_CACHE.move_to_end(key)
+    return json.loads(payload)
+
+def _inspection_cache_put(path: str | Path, source_sha256: str, value: Dict[str, object]) -> None:
+    key = _inspection_cache_key(path, source_sha256)
+    _INSPECTION_CACHE[key] = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    _INSPECTION_CACHE.move_to_end(key)
+    while len(_INSPECTION_CACHE) > _INSPECTION_CACHE_MAX:
+        _INSPECTION_CACHE.popitem(last=False)
+
+def _same_document_path(left: str | Path, right: str | Path) -> bool:
+    left_path = Path(left)
+    right_path = Path(right)
+    try:
+        if left_path.exists() and right_path.exists() and right_path.samefile(left_path):
+            return True
+    except OSError:
+        pass
+    return left_path.resolve() == right_path.resolve()
 
 
 def _esc(text: str) -> str:
@@ -149,164 +181,226 @@ def _cell_paragraph_entry(section: str, cell, ordinal: int) -> tuple[tuple[int, 
         return None
     return span, tc_xml, paragraphs[ordinal - 1]
 
-
-def inspect_editable_regions(path: str | Path) -> Dict[str, object]:
-    source = Path(path)
-    pkg = HwpxPackage.open(source)
-    section_index = _section_index_map(pkg)
-    source_sha256 = _sha256_path(source)
-    regions: List[dict] = []
-    unsupported_controls: List[dict] = []
-
-    global_body = 0
-    for sname in _section_names(pkg):
-        section_items = _body_paragraphs_in_section(pkg.read(sname).decode("utf-8"), section_index[sname])
-        for item in section_items:
-            global_body += 1
-            regions.append(
-                {
-                    "target": f"b{global_body}",
-                    "kind": "body_para",
-                    "container": "body",
-                    "section": sname,
-                    "section_index": section_index[sname],
-                    "paragraph_target": item["target"],
-                    "paragraph_targets": [item["target"]],
-                    "paragraph_id": item["paragraph_id"],
-                    "paragraph_ordinal": item["paragraph_ordinal"],
-                    "text": item["text"],
-                    "snippet": _snippet(item["text"]),
-                    "editable": True,
-                    "aliases": [item["target"]],
-                    "source_sha256": source_sha256,
-                }
-            )
-
-    result = analyze(source)
-    for cell in result.all_cells():
-        if not cell.section:
-            continue
-        if cell.has_nested_table:
-            unsupported_controls.append(
-                {
-                    "target": cell.field_id,
-                    "kind": "cell",
-                    "container": "table_cell",
-                    "section": cell.section,
-                    "section_index": section_index[cell.section],
-                    "table": cell.table,
-                    "row": cell.row,
-                    "col": cell.col,
-                    "text": cell.text,
-                    "snippet": _snippet(cell.text),
-                    "editable": False,
-                    "reason": "nested_table",
-                    "source_sha256": source_sha256,
-                }
-            )
-            continue
-        section = pkg.read(cell.section).decode("utf-8")
-        span = _find_cell_span(section, cell.table_in_section, cell.row, cell.col)
-        if span is None:
-            continue
-        tc_xml = section[span[0]:span[1]]
-        paragraphs = _paragraph_blocks(tc_xml)
-        if not paragraphs:
-            continue
-        regions.append(
-            {
-                "target": cell.field_id,
-                "kind": "cell",
-                "container": "table_cell",
-                "section": cell.section,
-                "section_index": section_index[cell.section],
-                "table": cell.table,
-                "row": cell.row,
-                "col": cell.col,
-                "paragraph_targets": [f"{cell.field_id}.p{item['ordinal']}" for item in paragraphs],
-                "paragraph_ids": [item["paragraph_id"] for item in paragraphs],
-                "paragraph_count": len(paragraphs),
-                "text": cell.text,
-                "snippet": _snippet(cell.text),
-                "editable": True,
-                "aliases": [],
-                "source_sha256": source_sha256,
-            }
-        )
-
-    return {
-        "source_path": str(source),
-        "source_sha256": source_sha256,
-        "counts": {"regions": len(regions), "unsupported": len(unsupported_controls)},
-        "regions": regions,
-        "unsupported_controls": unsupported_controls,
+def _compact_region_item(item: dict) -> dict:
+    compact = {
+        "target": item["target"],
+        "kind": item["kind"],
+        "text": item["text"],
+        "snippet": item["snippet"],
     }
+    for key in (
+        "paragraph_target",
+        "paragraph_targets",
+        "paragraph_count",
+        "table",
+        "row",
+        "col",
+        "aliases",
+        "paragraph_id",
+        "paragraph_ordinal",
+        "paragraph_ids",
+        "reason",
+        "editable",
+    ):
+        if key in item:
+            compact[key] = item[key]
+    return compact
+
+
+def inspect_editable_regions(path: str | Path, compact: bool = False) -> Dict[str, object]:
+    source = Path(path)
+    for _ in range(2):
+        source_sha256 = _sha256_path(source)
+        cached = _inspection_cache_get(source, source_sha256)
+        if cached is None:
+            pkg = HwpxPackage.open(source)
+            section_index = _section_index_map(pkg)
+            regions: List[dict] = []
+            unsupported_controls: List[dict] = []
+
+            global_body = 0
+            for sname in _section_names(pkg):
+                section_items = _body_paragraphs_in_section(pkg.read(sname).decode("utf-8"), section_index[sname])
+                for item in section_items:
+                    global_body += 1
+                    regions.append(
+                        {
+                            "target": f"b{global_body}",
+                            "kind": "body_para",
+                            "container": "body",
+                            "section": sname,
+                            "section_index": section_index[sname],
+                            "paragraph_target": item["target"],
+                            "paragraph_targets": [item["target"]],
+                            "paragraph_id": item["paragraph_id"],
+                            "paragraph_ordinal": item["paragraph_ordinal"],
+                            "text": item["text"],
+                            "snippet": _snippet(item["text"]),
+                            "editable": True,
+                            "aliases": [item["target"]],
+                            "source_sha256": source_sha256,
+                        }
+                    )
+
+            result = analyze(source)
+            for cell in result.all_cells():
+                if not cell.section:
+                    continue
+                if cell.has_nested_table:
+                    unsupported_controls.append(
+                        {
+                            "target": cell.field_id,
+                            "kind": "cell",
+                            "container": "table_cell",
+                            "section": cell.section,
+                            "section_index": section_index[cell.section],
+                            "table": cell.table,
+                            "row": cell.row,
+                            "col": cell.col,
+                            "text": cell.text,
+                            "snippet": _snippet(cell.text),
+                            "editable": False,
+                            "reason": "nested_table",
+                            "source_sha256": source_sha256,
+                        }
+                    )
+                    continue
+                section = pkg.read(cell.section).decode("utf-8")
+                span = _find_cell_span(section, cell.table_in_section, cell.row, cell.col)
+                if span is None:
+                    continue
+                tc_xml = section[span[0]:span[1]]
+                paragraphs = _paragraph_blocks(tc_xml)
+                if not paragraphs:
+                    continue
+                regions.append(
+                    {
+                        "target": cell.field_id,
+                        "kind": "cell",
+                        "container": "table_cell",
+                        "section": cell.section,
+                        "section_index": section_index[cell.section],
+                        "table": cell.table,
+                        "row": cell.row,
+                        "col": cell.col,
+                        "paragraph_targets": [f"{cell.field_id}.p{item['ordinal']}" for item in paragraphs],
+                        "paragraph_ids": [item["paragraph_id"] for item in paragraphs],
+                        "paragraph_count": len(paragraphs),
+                        "text": cell.text,
+                        "snippet": _snippet(cell.text),
+                        "editable": True,
+                        "aliases": [],
+                        "source_sha256": source_sha256,
+                    }
+                )
+
+            if _sha256_path(source) != source_sha256:
+                continue
+            cached = {
+                "source_path": str(source),
+                "source_sha256": source_sha256,
+                "counts": {"regions": len(regions), "unsupported": len(unsupported_controls)},
+                "regions": regions,
+                "unsupported_controls": unsupported_controls,
+            }
+            _inspection_cache_put(source, source_sha256, cached)
+
+        if compact:
+            regions = [_compact_region_item(region) for region in cached["regions"]]
+            unsupported_controls = [_compact_region_item(control) for control in cached["unsupported_controls"]]
+            return {
+                "source_path": str(cached["source_path"]),
+                "source_sha256": str(cached["source_sha256"]),
+                "counts": dict(cached["counts"]),
+                "regions": regions,
+                "unsupported_controls": unsupported_controls,
+            }
+
+        return cached
+    raise RuntimeError("source file changed during inspect read; retry")
 
 
 
 def get_paragraph_map(path: str | Path) -> Dict[str, object]:
     source = Path(path)
-    pkg = HwpxPackage.open(source)
-    section_index = _section_index_map(pkg)
-    source_sha256 = _sha256_path(source)
-    paragraphs: List[dict] = []
+    for _ in range(2):
+        pkg = HwpxPackage.open(source)
+        section_index = _section_index_map(pkg)
+        source_sha256 = _sha256_path(source)
+        paragraphs: List[dict] = []
 
-    global_body = 0
-    for sname in _section_names(pkg):
-        section_items = _body_paragraphs_in_section(pkg.read(sname).decode("utf-8"), section_index[sname])
-        for item in section_items:
-            global_body += 1
-            paragraphs.append(
-                {
-                    "target": item["target"],
-                    "parent_target": f"b{global_body}",
-                    "container": "body",
-                    "section": sname,
-                    "section_index": section_index[sname],
-                    "paragraph_id": item["paragraph_id"],
-                    "paragraph_ordinal": item["paragraph_ordinal"],
-                    "text": item["text"],
-                    "snippet": _snippet(item["text"]),
-                    "editable": True,
-                    "source_sha256": source_sha256,
-                }
-            )
+        global_body = 0
+        for sname in _section_names(pkg):
+            section_items = _body_paragraphs_in_section(pkg.read(sname).decode("utf-8"), section_index[sname])
+            for item in section_items:
+                global_body += 1
+                paragraphs.append(
+                    {
+                        "target": item["target"],
+                        "parent_target": f"b{global_body}",
+                        "container": "body",
+                        "section": sname,
+                        "section_index": section_index[sname],
+                        "paragraph_id": item["paragraph_id"],
+                        "paragraph_ordinal": item["paragraph_ordinal"],
+                        "text": item["text"],
+                        "snippet": _snippet(item["text"]),
+                        "editable": True,
+                        "source_sha256": source_sha256,
+                    }
+                )
 
-    result = analyze(source)
-    for cell in result.all_cells():
-        if cell.has_nested_table or not cell.section:
+        result = analyze(source)
+        for cell in result.all_cells():
+            if cell.has_nested_table or not cell.section:
+                continue
+            section = pkg.read(cell.section).decode("utf-8")
+            span = _find_cell_span(section, cell.table_in_section, cell.row, cell.col)
+            if span is None:
+                continue
+            tc_xml = section[span[0]:span[1]]
+            for item in _paragraph_blocks(tc_xml):
+                paragraphs.append(
+                    {
+                        "target": f"{cell.field_id}.p{item['ordinal']}",
+                        "parent_target": cell.field_id,
+                        "container": "table_cell",
+                        "section": cell.section,
+                        "section_index": section_index[cell.section],
+                        "table": cell.table,
+                        "row": cell.row,
+                        "col": cell.col,
+                        "paragraph_id": item["paragraph_id"],
+                        "paragraph_ordinal": item["ordinal"],
+                        "text": item["text"],
+                        "snippet": _snippet(item["text"]),
+                        "editable": True,
+                        "source_sha256": source_sha256,
+                    }
+                )
+
+        if _sha256_path(source) != source_sha256:
             continue
-        section = pkg.read(cell.section).decode("utf-8")
-        span = _find_cell_span(section, cell.table_in_section, cell.row, cell.col)
-        if span is None:
-            continue
-        tc_xml = section[span[0]:span[1]]
-        for item in _paragraph_blocks(tc_xml):
-            paragraphs.append(
-                {
-                    "target": f"{cell.field_id}.p{item['ordinal']}",
-                    "parent_target": cell.field_id,
-                    "container": "table_cell",
-                    "section": cell.section,
-                    "section_index": section_index[cell.section],
-                    "table": cell.table,
-                    "row": cell.row,
-                    "col": cell.col,
-                    "paragraph_id": item["paragraph_id"],
-                    "paragraph_ordinal": item["ordinal"],
-                    "text": item["text"],
-                    "snippet": _snippet(item["text"]),
-                    "editable": True,
-                    "source_sha256": source_sha256,
-                }
-            )
+        return {
+            "source_path": str(source),
+            "source_sha256": source_sha256,
+            "counts": {"paragraphs": len(paragraphs)},
+            "paragraphs": paragraphs,
+        }
+    raise RuntimeError("source file changed during paragraph read; retry")
 
-    return {
-        "source_path": str(source),
-        "source_sha256": source_sha256,
-        "counts": {"paragraphs": len(paragraphs)},
-        "paragraphs": paragraphs,
-    }
+def _stable_inspection_paragraph_bundle(source: str | Path, *, compact: bool = False) -> tuple[Dict[str, object], Dict[str, object]]:
+    src = Path(source)
+    for _ in range(2):
+        inspected = inspect_editable_regions(src, compact=compact)
+        paragraph_map = get_paragraph_map(src)
+        source_sha256 = str(inspected["source_sha256"])
+        if str(paragraph_map["source_sha256"]) != source_sha256:
+            continue
+        if _sha256_path(src) != source_sha256:
+            continue
+        return inspected, paragraph_map
+    raise RuntimeError("source file changed during structural read; retry")
 
 def find_text_occurrences(path: str | Path, query: str) -> Dict[str, object]:
     source = Path(path)
@@ -370,10 +464,11 @@ def find_text_occurrences(path: str | Path, query: str) -> Dict[str, object]:
 
 def verify_targets(path: str | Path, expected_targets: List[dict]) -> Dict[str, object]:
     source = Path(path)
+    inspected, paragraph_map = _stable_inspection_paragraph_bundle(source)
     texts: Dict[str, str] = {}
-    for region in inspect_editable_regions(source)["regions"]:
+    for region in inspected["regions"]:
         texts[str(region["target"])] = str(region["text"])
-    for paragraph in get_paragraph_map(source)["paragraphs"]:
+    for paragraph in paragraph_map["paragraphs"]:
         texts[str(paragraph["target"])] = str(paragraph["text"])
 
     results: List[dict] = []
@@ -403,15 +498,169 @@ def verify_targets(path: str | Path, expected_targets: List[dict]) -> Dict[str, 
     }
 
 
-def plan_template_completion(path: str | Path) -> Dict[str, object]:
+def complete_addressed_template(
+    path: str | Path,
+    edits: List[dict],
+    out_path: str | Path,
+    verify: bool = True,
+) -> Dict[str, object]:
+    total_started = time.perf_counter()
+    source = Path(path)
+    target = Path(out_path)
+    source_sha256 = _sha256_path(source)
+    requested = len(edits)
+
+    def elapsed_ms(started: float) -> int:
+        return int((time.perf_counter() - started) * 1000)
+
+    def counts_from(base: Dict[str, object] | None = None, *, verified: int = 0) -> Dict[str, int]:
+        raw = dict((base or {}).get("counts") or {})
+        return {
+            "requested": int(raw.get("requested", requested)),
+            "resolved": int(raw.get("resolved", 0)),
+            "applied": int(raw.get("applied", 0)),
+            "verified": verified,
+            "skipped": int(raw.get("skipped", 0)),
+            "unresolved": int(raw.get("unresolved", 0)),
+        }
+
+    if _same_document_path(source, target):
+        timings_ms = {"preview": 0, "apply": 0, "verify": 0, "total": elapsed_ms(total_started)}
+        counts = counts_from()
+        counts["skipped"] = requested
+        return {
+            "ok": False,
+            "state": "failed",
+            "source_path": str(source),
+            "source_sha256": source_sha256,
+            "target_path": str(target),
+            "target_sha256": None,
+            "counts": counts,
+            "coverage_ratio": 0.0,
+            "unresolved": [],
+            "failures": [{"reason": "output_path_matches_source"}],
+            "timings_ms": timings_ms,
+            "substrate": OWN_TEXT_SUBSTRATE,
+        }
+
+    preview_started = time.perf_counter()
+    preview = preview_addressed_edits(source, edits)
+    preview_ms = elapsed_ms(preview_started)
+    unresolved = list(preview.get("unresolved") or [])
+    preview_counts = counts_from(preview)
+    if not preview.get("ok"):
+        preview_counts["skipped"] = preview_counts["requested"] - preview_counts["resolved"]
+        timings_ms = {"preview": preview_ms, "apply": 0, "verify": 0, "total": elapsed_ms(total_started)}
+        return {
+            "ok": False,
+            "state": str(preview.get("state") or "ambiguous_target"),
+            "source_path": str(source),
+            "source_sha256": str(preview.get("source_sha256") or source_sha256),
+            "target_path": str(target),
+            "target_sha256": None,
+            "counts": preview_counts,
+            "coverage_ratio": 0.0 if requested == 0 else round(preview_counts["resolved"] / requested, 2),
+            "unresolved": unresolved,
+            "failures": [],
+            "timings_ms": timings_ms,
+            "substrate": str(preview.get("substrate") or OWN_TEXT_SUBSTRATE),
+        }
+
+    apply_started = time.perf_counter()
+    applied = apply_addressed_edits(str(preview["session_id"]), target)
+    apply_ms = elapsed_ms(apply_started)
+    if not applied.get("ok"):
+        apply_counts = counts_from(preview)
+        apply_counts["skipped"] = apply_counts["requested"] - apply_counts["resolved"]
+        failures = [{"reason": str(applied.get("state") or "failed")}]
+        timings_ms = {"preview": preview_ms, "apply": apply_ms, "verify": 0, "total": elapsed_ms(total_started)}
+        return {
+            "ok": False,
+            "state": str(applied.get("state") or "failed"),
+            "source_path": str(source),
+            "source_sha256": str(preview.get("source_sha256") or source_sha256),
+            "target_path": str(target),
+            "target_sha256": None,
+            "counts": apply_counts,
+            "coverage_ratio": 0.0 if requested == 0 else round(apply_counts["applied"] / requested, 2),
+            "unresolved": unresolved,
+            "failures": failures,
+            "timings_ms": timings_ms,
+            "substrate": str(applied.get("substrate") or preview.get("substrate") or OWN_TEXT_SUBSTRATE),
+        }
+
+    verify_ms = 0
+    verified_count = 0
+    failures: List[dict] = []
+    state = "applied"
+    ok = True
+    if verify:
+        verify_started = time.perf_counter()
+        verification = verify_targets(
+            target,
+            [{"target": item["target"], "expected_text": item["after_text"]} for item in preview["edits"]],
+        )
+        verify_ms = elapsed_ms(verify_started)
+        verified_count = int((verification.get("counts") or {}).get("verified", 0))
+        failures = [
+            {
+                "target": str(item.get("target") or ""),
+                "reason": "verification_mismatch",
+                "expected_text": str(item.get("expected_text") or ""),
+                "actual_text": item.get("actual_text"),
+            }
+            for item in verification.get("results") or []
+            if not item.get("verified")
+        ]
+        if failures:
+            ok = False
+            state = "partial" if verified_count > 0 else "failed"
+        else:
+            state = "complete"
+
+    counts = counts_from(applied, verified=verified_count)
+    if not verify:
+        counts["verified"] = 0
+    counts["skipped"] = counts["requested"] - counts["applied"]
+    target_sha256 = _sha256_path(target)
+    coverage_numerator = counts["verified"] if verify else counts["applied"]
+    coverage_ratio = 1.0 if requested == 0 else round(coverage_numerator / requested, 2)
+    timings_ms = {"preview": preview_ms, "apply": apply_ms, "verify": verify_ms, "total": elapsed_ms(total_started)}
+    return {
+        "ok": ok,
+        "state": state,
+        "session_id": applied["session_id"],
+        "source_path": str(source),
+        "source_sha256": str(applied.get("source_sha256") or source_sha256),
+        "target_path": str(target),
+        "target_sha256": target_sha256,
+        "counts": counts,
+        "coverage_ratio": coverage_ratio,
+        "unresolved": unresolved,
+        "failures": failures,
+        "timings_ms": timings_ms,
+        "substrate": str(applied.get("substrate") or OWN_TEXT_SUBSTRATE),
+        "journal_path": applied.get("journal_path"),
+        "snapshot_path": applied.get("snapshot_path"),
+        "changed_entries": list(applied.get("changed_entries") or []),
+        "audit": list(applied.get("audit") or []),
+    }
+
+def plan_template_completion(path: str | Path, compact: bool = False) -> Dict[str, object]:
     from hangeul_core.schema import label_key
     from hangeul_core.understand import understand
 
     source = Path(path)
-    inspected = inspect_editable_regions(source)
-    regions = inspected["regions"]
-    paragraphs = get_paragraph_map(source)["paragraphs"]
-    fields = understand(source).fields
+    for _ in range(2):
+        inspected, paragraph_map = _stable_inspection_paragraph_bundle(source, compact=compact)
+        regions = inspected["regions"]
+        paragraphs = paragraph_map["paragraphs"]
+        schema = understand(source)
+        fields = schema.fields
+        if schema.source_sha256 == str(inspected["source_sha256"]):
+            break
+    else:
+        raise RuntimeError("source file changed during planning read; retry")
     grouped: Dict[str, List[object]] = {}
     for entry in fields:
         grouped.setdefault(label_key(entry.label), []).append(entry)
@@ -459,7 +708,7 @@ def plan_template_completion(path: str | Path) -> Dict[str, object]:
         "user_attention_required": user_attention_required,
         "recommended_next_tool": recommended_next_tool,
         "source_path": str(source),
-        "source_sha256": _sha256_path(source),
+        "source_sha256": str(inspected["source_sha256"]),
     }
 
 
@@ -627,7 +876,11 @@ def apply_addressed_edits(session_id: str, out_path: str | Path | None = None) -
     if session.counts.get("unresolved"):
         return {"ok": False, "state": "ambiguous_target", "unresolved": session.counts.get("unresolved")}
 
-    target = Path(out_path) if out_path is not None else source
+    if out_path is None or not str(out_path).strip():
+        return {"ok": False, "state": "invalid_output_path", "error": "out_path is required for addressed apply"}
+    target = Path(out_path)
+    if _same_document_path(source, target):
+        return {"ok": False, "state": "invalid_output_path", "error": "out_path must be a separate output path for addressed apply"}
     snapshot_path = _snapshot_path(target, session_id)
     journal_path = _journal_path(target, session_id)
     target_existed = target.exists()
@@ -681,6 +934,7 @@ def apply_addressed_edits(session_id: str, out_path: str | Path | None = None) -
 
 __all__ = [
     "apply_addressed_edits",
+    "complete_addressed_template",
     "find_text_occurrences",
     "get_paragraph_map",
     "inspect_editable_regions",

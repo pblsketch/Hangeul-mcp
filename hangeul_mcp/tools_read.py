@@ -44,28 +44,98 @@ def register_read_tools(mcp) -> Dict[str, Any]:
         return _get_table_map(path)
 
     @mcp.tool()
-    def inspect_editable_regions(path: str) -> Dict[str, Any]:
+    def inspect_editable_regions(path: str, compact: bool = False) -> Dict[str, Any]:
+        """Inspect FILE-MODE structural edit targets before any addressed/template write.
+
+        Named fields / `{}` placeholders are NOT required. Use these structural
+        addresses for repeated `▶`, repeated `○○○`, ordinary table cells, and
+        paragraphs when the template has no reliable field names. Do not treat
+        repeated visible text as a global-replace target without explicit scope;
+        inspect regions first, then send one addressed edits array to
+        `preview_addressed_edits` and apply the reviewed `session_id` with
+        `apply_addressed_edits(session_id, out_path)`, or use `complete_addressed_template`.
+        file mode, gather/generate all values first, and send one edits array
+        rather than one tool call per cell. Addressed file mode writes a
+        completed copy; it does NOT mutate the already-open same Hangul window,
+        so open the verified output afterward if live viewing is needed.
+        """
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
-            return {"error": str(exc), "regions": [], "counts": {"regions": 0}}
-        return _inspect_editable_regions(path)
+            return {
+                "error": str(exc),
+                "source_path": path,
+                "source_sha256": None,
+                "counts": {"regions": 0, "unsupported": 0},
+                "regions": [],
+                "unsupported_controls": [],
+            }
+        try:
+            return _inspect_editable_regions(path, compact=compact)
+        except RuntimeError as exc:
+            if not str(exc).startswith("source file changed during"):
+                raise
+            return {
+                "error": str(exc),
+                "source_path": path,
+                "source_sha256": None,
+                "counts": {"regions": 0, "unsupported": 0},
+                "regions": [],
+                "unsupported_controls": [],
+            }
 
     @mcp.tool()
     def get_paragraph_map(path: str) -> Dict[str, Any]:
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
-            return {"error": str(exc), "paragraphs": [], "counts": {"paragraphs": 0}}
-        return _get_paragraph_map(path)
+            return {"error": str(exc), "source_path": path, "source_sha256": None, "counts": {"paragraphs": 0}, "paragraphs": []}
+        try:
+            return _get_paragraph_map(path)
+        except RuntimeError as exc:
+            if not str(exc).startswith("source file changed during"):
+                raise
+            return {"error": str(exc), "source_path": path, "source_sha256": None, "counts": {"paragraphs": 0}, "paragraphs": []}
 
     @mcp.tool()
     def find_text_occurrences(path: str, query: str) -> Dict[str, Any]:
+        """Locate repeated visible text in FILE MODE so edits can be scoped, not guessed.
+
+        Named fields / `{}` placeholders are NOT required. Use this when the
+        template is driven by repeated `▶`, repeated `○○○`, ordinary table
+        cells, or paragraphs and you need structural addresses instead of a
+        blind text replace. Repeated text must NOT be globally replaced without
+        explicit scope; use the returned occurrences to choose exact structural
+        targets, then send one addressed edits array to
+        `preview_addressed_edits` and apply the reviewed `session_id` with
+        `apply_addressed_edits(session_id, out_path)`, or use `complete_addressed_template`.
+        values first and stay in file mode from the start; addressed file mode
+        produces a completed copy and does not mutate the already-open same Hangul window.
+        """
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
-            return {"error": str(exc), "query": query, "count": 0, "occurrences": []}
-        return _find_text_occurrences(path, query)
+            return {
+                "error": str(exc),
+                "query": query,
+                "count": 0,
+                "occurrences": [],
+                "source_path": path,
+                "source_sha256": None,
+            }
+        try:
+            return _find_text_occurrences(path, query)
+        except RuntimeError as exc:
+            if not str(exc).startswith("source file changed during"):
+                raise
+            return {
+                "error": str(exc),
+                "query": query,
+                "count": 0,
+                "occurrences": [],
+                "source_path": path,
+                "source_sha256": None,
+            }
 
     @mcp.tool()
     def find_cell_by_label(path: str, label: str) -> Dict[str, Any]:
@@ -88,16 +158,65 @@ def register_read_tools(mcp) -> Dict[str, Any]:
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
-            return {"error": str(exc), "verified": False, "results": []}
-        return _verify_targets(path, list(expected_targets))
+            return {"error": str(exc), "verified": False, "counts": {"requested": len(list(expected_targets)), "verified": 0, "failed": len(list(expected_targets))}, "results": [], "source_path": path, "source_sha256": None}
+        try:
+            return _verify_targets(path, list(expected_targets))
+        except RuntimeError as exc:
+            if not str(exc).startswith("source file changed during"):
+                raise
+            return {"error": str(exc), "verified": False, "counts": {"requested": len(list(expected_targets)), "verified": 0, "failed": len(list(expected_targets))}, "results": [], "source_path": path, "source_sha256": None}
 
     @mcp.tool()
-    def plan_template_completion(path: str) -> Dict[str, Any]:
+    def plan_template_completion(path: str, compact: bool = False) -> Dict[str, Any]:
+        """Plan whole-template completion in FILE MODE and return addressable edit targets.
+
+        Named fields / `{}` placeholders are NOT required. This planner is for
+        templates filled by repeated `▶`, repeated `○○○`, ordinary table cells,
+        and paragraphs using structural addresses. Do not globally replace
+        repeated text without explicit scope. Gather/generate ALL values first,
+        then hand one complete addressed edits array to
+        `complete_addressed_template` instead of one tool call per cell. Start
+        in file mode rather than mixing live field writes and then falling back
+        to file mode. Addressed file mode writes a completed copy and does not mutate the already-open same Hangul window; open the verified output afterward if a live Hangul window must show the result.
+        """
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
-            return {"error": str(exc), "state": "failed", "addressable_regions": []}
-        return _plan_template_completion(path)
+            return {
+                "error": str(exc),
+                "state": "failed",
+                "addressable_regions": [],
+                "directly_fillable_fields": [],
+                "raw_structural_targets": [],
+                "repeated_text_candidates": [],
+                "ambiguous_labels": [],
+                "unsupported_controls": [],
+                "coverage_ratio": 0.0,
+                "user_attention_required": True,
+                "recommended_next_tool": "inspect_editable_regions",
+                "source_path": path,
+                "source_sha256": None,
+            }
+        try:
+            return _plan_template_completion(path, compact=compact)
+        except RuntimeError as exc:
+            if not str(exc).startswith("source file changed during"):
+                raise
+            return {
+                "error": str(exc),
+                "state": "failed",
+                "addressable_regions": [],
+                "directly_fillable_fields": [],
+                "raw_structural_targets": [],
+                "repeated_text_candidates": [],
+                "ambiguous_labels": [],
+                "unsupported_controls": [],
+                "coverage_ratio": 0.0,
+                "user_attention_required": True,
+                "recommended_next_tool": "inspect_editable_regions",
+                "source_path": path,
+                "source_sha256": None,
+            }
 
     @mcp.tool()
     def list_styles(path: str) -> Dict[str, Any]:

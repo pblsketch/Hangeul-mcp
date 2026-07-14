@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 
 from hangeul_mcp import server
+import hangeul_mcp.tools_file_edit as file_edit_tools
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_form.hwpx"
 
@@ -25,6 +26,7 @@ def test_four_tools_registered():
         "preview_batch_replace",
         "preview_addressed_edits",
         "apply_addressed_edits",
+        "complete_addressed_template",
         "apply_edit_session",
         "restore_edit_session",
         "extract_hwp_text",
@@ -54,6 +56,78 @@ def test_fill_form_tool_end_to_end(tmp_path):
     assert any(f["label"].replace(" ", "") == "성명" for f in res["filled"])
     assert out.exists()
     assert "홍길동" in server.extract_text(str(out))
+
+def test_complete_addressed_template_requires_distinct_out_path():
+    res = server.complete_addressed_template(str(FIXTURE), [], str(FIXTURE))
+    assert res["available"] is True
+    assert res["ok"] is False
+    assert res["state"] == "invalid_output_path"
+def test_complete_addressed_template_rejects_resolved_same_path(tmp_path):
+    fixture = tmp_path / "sample_form.hwpx"
+    fixture.write_bytes(FIXTURE.read_bytes())
+
+    res = server.complete_addressed_template(
+        str(fixture),
+        [{"target": "t1.r1.c1", "kind": "cell", "operation": "replace_text", "value": "홍길동", "expected_text": ""}],
+        str(fixture.parent / "." / fixture.name),
+    )
+
+    assert res["available"] is True
+    assert res["ok"] is False
+    assert res["state"] == "invalid_output_path"
+def test_apply_addressed_edits_requires_out_path():
+    import inspect
+
+    assert inspect.signature(server.apply_addressed_edits).parameters["out_path"].default is inspect._empty
+
+def test_apply_addressed_edits_delegates_same_path_rejection(monkeypatch):
+    monkeypatch.setattr(file_edit_tools, "_apply_addressed_edits", lambda session_id, out_path=None: {"ok": False, "state": "invalid_output_path"})
+    res = server.apply_addressed_edits("sid", "same.hwpx")
+    assert res == {"available": True, "ok": False, "state": "invalid_output_path"}
+def test_apply_addressed_edits_rejects_hardlink_alias(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "lesson_plan_addressed.hwpx"
+    source = tmp_path / "source.hwpx"
+    alias = tmp_path / "alias.hwpx"
+    source.write_bytes(fixture.read_bytes())
+    alias.unlink(missing_ok=True)
+    alias.hardlink_to(source)
+
+    preview = server.preview_addressed_edits(
+        str(source),
+        [{"target": "b1", "kind": "body_para", "operation": "preserve_marker_replace_tail", "value": "빛의 반사", "expected_text": "▶ 수업 제목"}],
+    )
+    res = server.apply_addressed_edits(preview["session_id"], str(alias))
+    assert res["available"] is True
+    assert res["ok"] is False
+    assert res["state"] == "invalid_output_path"
+
+
+def test_complete_addressed_template_delegates_to_core(monkeypatch, tmp_path):
+    out = tmp_path / "completed.hwpx"
+
+    def _complete(path, edits, out_path, verify=True):
+        assert path == str(FIXTURE)
+        assert edits == [{"target": "t1.r1.c1", "value": "홍길동"}]
+        assert out_path == str(out)
+        assert verify is False
+        return {"ok": True, "state": "applied", "target_path": out_path, "counts": {"verified": 0}}
+
+    monkeypatch.setattr(file_edit_tools._addressed, "complete_addressed_template", _complete, raising=False)
+
+    res = server.complete_addressed_template(
+        str(FIXTURE),
+        [{"target": "t1.r1.c1", "value": "홍길동"}],
+        str(out),
+        verify=False,
+    )
+
+    assert res == {
+        "available": True,
+        "ok": True,
+        "state": "applied",
+        "target_path": str(out),
+        "counts": {"verified": 0},
+    }
 
 
 def test_extract_text_tool():

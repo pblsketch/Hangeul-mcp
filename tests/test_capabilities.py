@@ -31,7 +31,7 @@ def test_delegate_capability_lists_document_spec_tool():
 
 
 def test_file_capability_lists_edit_session_tools():
-    file_cap = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "file_hwpx")
+    file_cap = next(cap for cap in server.describe_capabilities()["capabilities"] if cap["mode"] == "file_hwpx")
     assert {
         "search_and_replace",
         "batch_replace",
@@ -39,6 +39,7 @@ def test_file_capability_lists_edit_session_tools():
         "preview_batch_replace",
         "preview_addressed_edits",
         "apply_addressed_edits",
+        "complete_addressed_template",
         "apply_edit_session",
         "restore_edit_session",
     } <= set(file_cap["tools"])

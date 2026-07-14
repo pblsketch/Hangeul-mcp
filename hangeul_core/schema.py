@@ -106,6 +106,7 @@ class Field:
 class FormSchema:
     fmt: str
     fields: List[Field] = field(default_factory=list)
+    source_sha256: str = ""
 
     def by_id(self, field_id: str) -> Optional[Field]:
         for f in self.fields:
