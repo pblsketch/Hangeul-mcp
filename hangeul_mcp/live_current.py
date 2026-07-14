@@ -30,6 +30,12 @@ from hangeul_core.hwp.current_document import (
     summarize_resolution,
 )
 from hangeul_core.hwp.live import apply_cells_to_open, preview_cells_to_open
+from hangeul_core.hwp.live_addressed import (
+    HYBRID_FALLBACK as _LIVE_ADDRESSED_FALLBACK,
+    apply_live_addressed,
+    live_addressed_enabled,
+    plan_live_addressed_edits,
+)
 from hangeul_core.hwp.rot_attach import apply_named_fields_exact_path
 from hangeul_core.runtime_info import runtime_identity
 
@@ -262,6 +268,90 @@ def _preview_complete_and_load(
     }
 
 
+def _preview_live_addressed(
+    resolution: Dict[str, Any],
+    candidate: Dict[str, Any],
+    edits: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    candidates = resolution.get("candidates") or []
+    if not live_addressed_enabled():
+        return {
+            "available": True,
+            "ok": False,
+            "state": "live_addressed_gated",
+            "candidate": candidate,
+            "candidates": candidates,
+            "next": (
+                "in-place live addressed editing is gated behind the desktop-live QA "
+                "evidence pass (feature_flags.live_addressed_editing); " + _LIVE_ADDRESSED_FALLBACK
+            ),
+        }
+    plan = plan_live_addressed_edits(candidate["path"], edits)
+    if not plan.get("ok"):
+        return {
+            "available": True,
+            "ok": False,
+            "state": str(plan.get("state") or "live_addressed_plan_failed"),
+            "unresolved": list(plan.get("unresolved") or []),
+            "counts": dict(plan.get("counts") or {}),
+            "candidate": candidate,
+            "candidates": candidates,
+            **({"next": plan["next"]} if plan.get("next") else {}),
+        }
+    preview = {
+        "route": "live_addressed",
+        "targets": list(plan.get("targets") or []),
+        "counts": dict(plan.get("counts") or {}),
+        "source_sha256": str(plan.get("source_sha256") or ""),
+        "note": (
+            "in-place COM edit of the OPEN window — NOT byte-preserving; the document is "
+            "never saved/closed/reloaded by the server, and every cell is re-checked "
+            "against expected_text immediately before replacement"
+        ),
+    }
+    issued_at = int(time.time())
+    expires_at = issued_at + _PREVIEW_TOKEN_TTL_SECONDS
+    token_payload = {
+        "candidate_id": candidate["candidate_id"],
+        "selection_basis": resolution.get("selection_basis", "none"),
+        "route": "live_addressed",
+        "normalized_path": candidate.get("normalized_path"),
+        "moniker": candidate.get("moniker"),
+        "slot": candidate.get("slot"),
+        "server_instance_id": _server_instance_id(),
+        "inventory_digest": resolution["inventory_digest"],
+        "value_digest": hashlib.sha256(
+            json.dumps(edits, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "preview_digest": make_preview_digest("live_addressed", preview),
+        "issued_at": issued_at,
+        "expires_at": expires_at,
+        "write_state": candidate.get("write_state"),
+        "mode": "live_addressed",
+        "values": {},
+        "named_field_keys": [],
+        "cell_keys": [],
+        "targets": [dict(t) for t in plan.get("targets") or []],
+        "source_sha256": str(plan.get("source_sha256") or ""),
+    }
+    token = _mint_preview_token()
+    _PREVIEW_TOKENS[token] = token_payload
+    return {
+        "available": True,
+        "ok": True,
+        "state": "preview_ready",
+        "server_instance_id": _server_instance_id(),
+        "selection_basis": resolution.get("selection_basis", "none"),
+        "candidate": candidate,
+        "candidates": candidates,
+        "route": "live_addressed",
+        "preview": preview,
+        "preview_token": token,
+        "issued_at": issued_at,
+        "expires_at": expires_at,
+    }
+
+
 def preview_current_hwp_document(
     values: Dict[str, str],
     candidate_id: str | None = None,
@@ -327,8 +417,9 @@ def preview_current_hwp_document(
             "candidate": candidate,
             "candidates": resolution.get("candidates") or [],
         }
-    if candidate.get("write_state") == "read_only" and not edits:
-        # complete_and_load only READS the original, so read-only must not block it.
+    if candidate.get("write_state") == "read_only" and (not edits or mode == "live_addressed"):
+        # complete_and_load only READS the original, so read-only must not block it;
+        # live_addressed writes into the window, so read-only blocks it like the small fills.
         return {
             "available": True,
             "ok": False,
@@ -359,6 +450,8 @@ def preview_current_hwp_document(
             response["error"] = "pass either values (live small fills) or edits (complete_and_load), not both"
         return response
     if route_plan["route"] == "complete_and_load":
+        if mode == "live_addressed":
+            return _preview_live_addressed(resolution, candidate, list(edits or []))
         return _preview_complete_and_load(resolution, candidate, list(edits or []), output_path, mode)
     if route_plan["route"] == "mixed":
         return {
@@ -586,6 +679,44 @@ def _apply_complete_and_load(preview_token: str, token: Dict[str, Any], candidat
     }
 
 
+def _apply_live_addressed_route(preview_token: str, token: Dict[str, Any], candidate: Dict[str, Any]) -> Dict[str, Any]:
+    if not live_addressed_enabled():
+        return {
+            "available": True,
+            "ok": False,
+            "state": "live_addressed_gated",
+            "candidate": candidate,
+            "next": _LIVE_ADDRESSED_FALLBACK,
+        }
+    original_path = str(candidate.get("path") or "")
+    try:
+        current_sha = _sha256_file(original_path)
+    except OSError as exc:
+        return {
+            "available": True,
+            "ok": False,
+            "state": "io_error",
+            "candidate": candidate,
+            "error": f"could not read the saved file for hashing: {exc}",
+        }
+    previewed_sha = str(token.get("source_sha256") or "")
+    if previewed_sha and current_sha != previewed_sha:
+        _PREVIEW_TOKENS.pop(preview_token, None)
+        return {
+            "available": True,
+            "ok": False,
+            "state": "stale_preview",
+            "original_sha256": current_sha,
+            "previewed_sha256": previewed_sha,
+            "candidate": candidate,
+            "next": "the saved file changed after preview; call preview_current_hwp_document(edits=..., mode='live_addressed') again",
+        }
+    # single-use: consume BEFORE any COM mutation so no outcome can replay the write
+    _PREVIEW_TOKENS.pop(preview_token, None)
+    result = apply_live_addressed(original_path, [dict(t) for t in token.get("targets") or []])
+    return {**result, "candidate": candidate, "route": "live_addressed"}
+
+
 def _normalize_apply_error(route: str, result: Dict[str, Any]) -> Dict[str, Any]:
     state = result.get("state")
     if state == "reload_blocked_existing":
@@ -640,6 +771,8 @@ def apply_to_current_hwp_document(preview_token: str) -> Dict[str, Any]:
         return {"available": True, "ok": False, "state": "read_only", "candidate": candidate}
     if route == "complete_and_load":
         return _apply_complete_and_load(preview_token, token, candidate)
+    if route == "live_addressed":
+        return _apply_live_addressed_route(preview_token, token, candidate)
     if route == "named_field":
         result = _apply_named_route(candidate, token)
         if not result.get("ok"):

@@ -991,6 +991,24 @@
         "LIVE VALIDATION (desktop, DONE 2026-07-15): automation-mode recapture reached preview_ready and completed_and_loaded on a real desktop with 4 open-document candidates (previously blocked with current_document_unsaved) — docs/evidence/complete-and-load-desktop-capture-automation.json refreshed, 6/6 checks pass incl. SHA 0-touch and fresh read-back 18/18"
       ],
       "statusNote": "Headless multi-instance redesign plus real-device automation recapture both green: the resolver no longer lets an empty/foreign active veto the pathless flow, and the refreshed automation evidence supersedes the pre-fix failure record."
+    },
+    {
+      "id": "US-068",
+      "title": "P0-C in-place 라이브 addressed 편집 코어 — live_addressed 라우트(게이트) + expected_text 필수 fail-closed apply",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P0",
+      "passes": true,
+      "status": "desktop-live-pending",
+      "acceptanceCriteria": [
+        "hangeul_core/hwp/live_addressed.py 신규 모듈(LOC<=250 가드 등재): plan은 PURE(COM-free) — AddressedEdit 대상 해소, expected_text 키 필수(expected_text_required), 중첩 표 문서 fail-closed(nested_tables_unsupported), body_para/다문단 셀/p2+ 서수 fail-closed(하이브리드 폴백 안내 포함)",
+        "현재문서 token 흐름에 mode='live_addressed' 라우트 추가(신규 MCP 도구 없음 — 툴 카운트 59 유지); feature_flags.live_addressed_editing=False인 동안 preview/apply 모두 live_addressed_gated로 차단되고 complete_and_load 폴백을 안내",
+        "apply(COM): 각 셀에서 clear+insert 직전 현재 셀 텍스트를 expected_text와 대조 — 불일치 시 해당 셀 무편집 skip(expected_text_mismatch + actual_text); D7 어긋남이 조용한 오작성 대신 실패로 드러남",
+        "부분 실패 복구: 응답에 applied[]/skipped[]/remaining[] + 구조화 recovery(undo_actions_per_cell, Ctrl-Z 지시 또는 원본 재열기); COM 예외 시 나머지 대상 중단·remaining 보고",
+        "preview↔apply 대조: preview 시점 원본 SHA를 token에 결속(stale_preview), token은 COM 변이 전 소비(단일 사용); apply 후 별도 COM 연결로 fresh read-back 재검증",
+        "fake-COM 단위 테스트 16종(tests/test_live_addressed.py): PURE plan 6 + fake-COM apply 4(실패 주입: 불일치/테이블 부재/도달 불가/중도 예외) + 라우트 6(게이트/단일사용/stale/read_only/중첩) — 전부 green",
+        "LIVE VALIDATION (desktop, PENDING): PENDING_DESKTOP_LIVE_QA.md의 실기기 증거 8종 통과 후에만 live_addressed_editing True flip + 이중 락 테스트 2곳 + live_routes/README 갱신을 같은 커밋에서 수행"
+      ],
+      "statusNote": "Route, PURE plan, fail-closed COM apply and 16 fake-COM tests are in place behind the gate; the flag flip is deferred to the desktop evidence pass (Track A G004)."
     }
   ],
   "decisions": {
