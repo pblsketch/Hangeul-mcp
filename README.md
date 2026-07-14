@@ -276,7 +276,7 @@ resolve_current_hwp_document()
 - preview에서 받은 일회용 token 없이는 쓰지 않습니다.
 - apply 직전에 COM 객체·문서 슬롯·전체 경로를 다시 확인합니다.
 - preview token은 **해당 stdio 서버 인스턴스 범위**이며, 문서가 바뀌거나 닫혔거나 token이 재사용되면 쓰지 않고 구조화된 오류를 반환합니다.
-- 사용자가 연 문서를 자동 저장·닫기·재열기하지 않습니다.
+- 사용자가 연 문서를 자동 저장·닫기·재열기하지 않습니다. 유일하게 승인된 예외 경로(원본 교체+리로드)는 ADR D19의 4조건 — 명시적 consent 파라미터(기본 거부) + apply 직전 COM dirty-프로브 `dirty:false` 판정(그 외 전부 무조건 거부) + 사전 백업 생성 + 백업 경로/SHA 반환 — 을 모두 갖춘 구현으로만 허용되며, **현재는 미출하 상태**입니다(dirty-프로브만 실기기 검증 완료).
 - 파일 모드 addressed completion이 목적이면 live apply로 섞지 말고 `inspect_editable_regions(...)` → `complete_addressed_template(...)` 또는 `preview_addressed_edits(...)` → `apply_addressed_edits(...)`를 사용한 뒤, **검증된 출력 파일을 나중에 여는 방식**으로 분리합니다.
 
 
@@ -320,7 +320,7 @@ resolve_current_hwp_document()
 - 최신 로컬 검증: **529 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
-- 마일스톤·유저 스토리: **70개 — 69 pass** + 라이브/스파이크 pending
+- 마일스톤·유저 스토리: **71개 — 70 pass** + 라이브/스파이크 pending
 
 
 ### 배포 채널과 release 증거 원칙

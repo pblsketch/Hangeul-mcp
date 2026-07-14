@@ -1024,6 +1024,21 @@
         "docs/DECISIONS.md D18 ADR 기록 + README 라이브 검증 상태 갱신; 코드 변경 없음(산출물은 ADR+증거)"
       ],
       "statusNote": "Spike deliverable is the ADR + probe evidence; write-path code intentionally unchanged."
+    },
+    {
+      "id": "US-070",
+      "title": "Track B 전제 게이트 — ADR D19 예외 문안 + COM IsModified dirty-프로브(실기기 검증); replace+reload 라우트는 의도적 미출하",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P2",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "docs/DECISIONS.md D19: 원본 교체+리로드의 유일한 허용 조건(명시적 consent 기본거부 + apply 직전 dirty-프로브 dirty:false 외 무조건 거부 + 사전 백업 + 백업 경로/SHA 반환)을 명문화하고 README 불변식 절에 같은 커밋으로 예외 문안 반영",
+        "hangeul_core/hwp/dirty_probe.py (LOC 가드 등재): XHwpDocument.Modified exact-path 판독, 동일 경로 다중 슬롯 any-dirty, document_not_attached/probe_error/connect_failed/unavailable 전부 fail-closed(dirty:null) — resolve/preview PURE 계약 보호를 위해 apply 직전 전용 계약을 docstring에 명시",
+        "fake-COM 단위 테스트 6종(tests/test_dirty_probe.py) + 실기기 캡처 4/4(docs/evidence/dirty-probe-desktop-capture.json): 클린 창 dirty:false → 미저장 타이핑 후 dirty:true, 미부착 fail-closed, 디스크 SHA 무변경",
+        "PENDING BLOCKER: replace+reload 라우트(전제 3 consent 파라미터·전제 4 백업 의무 포함)는 미구현·미출하 — D19 4조건 전부 + 실기기 QA 캡처를 갖춘 별도 스토리에서만 live_reload.py 스캐폴딩 연결 허용"
+      ],
+      "statusNote": "Prerequisites 1-2 delivered with dual evidence; the route itself is deliberately NOT shipped (Critic MAJOR: reload silently discards unsaved typing). Prereqs 3-4 are binding conditions of the future route story."
     }
   ],
   "decisions": {

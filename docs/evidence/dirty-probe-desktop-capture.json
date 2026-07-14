@@ -1,0 +1,67 @@
+{
+  "capture": "dirty_probe_desktop",
+  "started_at": "2026-07-14T22:31:35.991251+00:00",
+  "runtime": "C:\\Python314\\python.exe",
+  "steps": [
+    {
+      "step": "fixture_copied",
+      "t": 0.0,
+      "copy": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-dirty-probe-544gtln0\\dirty_probe_대상.hwpx",
+      "sha256": "88cf7334a1457747a7a8946c7cb8f80e97e5cddb33d2e35fb37def9e0c15676c"
+    },
+    {
+      "step": "open_as_new_tab",
+      "t": 2.1,
+      "state": "opened_new_tab",
+      "ok": true
+    },
+    {
+      "step": "probe_clean",
+      "t": 2.2,
+      "state": "probed",
+      "ok": true,
+      "dirty": false,
+      "modified_flags": [
+        0
+      ]
+    },
+    {
+      "step": "probe_not_attached",
+      "t": 2.2,
+      "state": "document_not_attached",
+      "ok": false,
+      "dirty": null
+    },
+    {
+      "step": "typed_unsaved_text",
+      "t": 2.3
+    },
+    {
+      "step": "probe_dirty",
+      "t": 2.3,
+      "state": "probed",
+      "ok": true,
+      "dirty": true,
+      "modified_flags": [
+        1
+      ]
+    },
+    {
+      "step": "checks",
+      "t": 2.3,
+      "clean_probe_reports_not_dirty": true,
+      "missing_document_fails_closed": true,
+      "unsaved_typing_reports_dirty": true,
+      "probe_is_read_only_on_disk": true
+    }
+  ],
+  "outcome": "pass",
+  "checks": {
+    "clean_probe_reports_not_dirty": true,
+    "missing_document_fails_closed": true,
+    "unsaved_typing_reports_dirty": true,
+    "probe_is_read_only_on_disk": true
+  },
+  "note": "the typed tab holds intentional unsaved text; close it WITHOUT saving. The server saved/closed nothing.",
+  "finished_at": "2026-07-14T22:31:38.285112+00:00"
+}
