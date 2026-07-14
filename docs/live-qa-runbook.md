@@ -2,7 +2,7 @@
 
 정확한 문서 경로로 식별한 열린 한글 창에 셀 값을 라이브로 채우는 v2 경로의 실기기 검증 절차.
 **전제**: Windows + 한글(한컴오피스) 설치 + `pip install -e ".[live]"`(pyhwpx).
-헤드리스/CI에서는 이 절차를 실행하지 않는다 — `hwp_status`/`preview_cells_to_open_hwp`만 side-effect-free로 동작한다. **증거 분리**: raw probe/json은 exact-path resolver-path 존재만 증명하고, 실제 라이브 쓰기 안전성은 별도 캡처가 필요하다.
+헤드리스/CI에서는 이 절차를 실행하지 않는다 — `hwp_status`/`preview_small_live_label_cells`만 side-effect-free로 동작한다. **증거 분리**: raw probe/json은 exact-path resolver-path 존재만 증명하고, 실제 라이브 쓰기 안전성은 별도 캡처가 필요하다.
 
 ## Fixture / 값 매핑 (PII 없음)
 
@@ -22,7 +22,7 @@
 2. `hwp_status()` — 부작용 없음(한글을 띄우지 않음). `available`/`connected`뿐 아니라 `instances`/`attach_boundary`/`first_call_hint`를 함께 기록.
 3. exact-path live 경로 중 하나를 선택한다.
    - named field: `open_in_hwp(path)` → `apply_to_open_hwp(path, values)`
-   - cells/inline/body: `preview_cells_to_open_hwp(path, values)` → `apply_cells_to_open_hwp(path, values)`
+   - cells/inline/body: `preview_small_live_label_cells(path, values)` → `apply_small_live_label_cells(path, values)`
 4. **saved `.hwpx` current-document pathless UX**는 별도 케이스로 검증한다.
    - `resolve_current_hwp_document()` → `preview_current_hwp_document(values)` → `apply_to_current_hwp_document(preview_token)`
    - `resolve_current_hwp_document()` 후보의 `picker_title`/`picker_label`/`picker_badges`를 함께 기록한다.

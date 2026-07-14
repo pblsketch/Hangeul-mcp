@@ -22,7 +22,7 @@ def test_hwp_status_idle_carries_guidance():
     assert "side-effect" in note or "attach" in note, "idle status must explain itself"
     nxt = st.get("next", "")
     assert "complete_addressed_template" in nxt, "whole-template guidance must prefer the file fast path"
-    assert "preview_cells_to_open_hwp" in nxt and "label:value" in nxt.lower()
+    assert "preview_small_live_label_cells" in nxt and "label:value" in nxt.lower()
 
 
 def test_live_tool_descriptions_state_value_only_boundary():
@@ -31,8 +31,8 @@ def test_live_tool_descriptions_state_value_only_boundary():
     assert "value" in apply_named and "format" in apply_named, (
         "apply_to_open_hwp description must state the value-only / no-formatting boundary"
     )
-    assert "value" in tools["apply_cells_to_open_hwp"].lower()
-    preview_cells = tools["preview_cells_to_open_hwp"].lower()
+    assert "value" in tools["apply_small_live_label_cells"].lower()
+    preview_cells = tools["preview_small_live_label_cells"].lower()
     assert "not whole-template" in preview_cells
     assert "complete_addressed_template" in preview_cells
     assert "does not probe" in preview_cells and "rot" in preview_cells
@@ -57,14 +57,14 @@ def test_open_in_hwp_description_states_attach_boundary():
     desc = tools["open_in_hwp"].lower()
     assert "hand-opened" in desc and "exact path" in desc and "attach" in desc
     assert "cannot be attached" not in desc and "never register" not in desc
-    apply_cells = tools["apply_cells_to_open_hwp"].lower()
+    apply_cells = tools["apply_small_live_label_cells"].lower()
     assert "open_if_needed" in apply_cells or "opens it" in apply_cells
 
 
 def test_live_tools_state_cold_start_and_inline_boundary():
     tools = _tool_descriptions()
     assert "cold start" in tools["open_in_hwp"].lower()
-    apply_cells = tools["apply_cells_to_open_hwp"].lower()
+    apply_cells = tools["apply_small_live_label_cells"].lower()
     assert "cold start" in apply_cells and "inline" in apply_cells
     st = server.hwp_status()
     assert "cold start" in st.get("first_call_hint", ""), (

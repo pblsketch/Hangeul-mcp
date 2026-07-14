@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from hangeul_core.convert import ensure_hwpx
 from hangeul_core.hwp import HwpBridge, normalize_field_values
-from hangeul_core.hwp.com import find_rot_exact_path_candidates, list_rot_instances
+from hangeul_core.hwp.com import list_rot_instances
 
 from hangeul_core.hwp.live import apply_cells_to_open as _apply_cells_to_open
 from hangeul_core.hwp.live import open_in_hwp as _open_in_hwp
-from hangeul_core.hwp.live import preview_cells_to_open as _preview_cells_to_open
 from hangeul_core.live_timeout import run_with_timeout
 from hangeul_core.runtime_info import attach_ladder, feature_flags, runtime_identity
 from hangeul_core.hwp.rot_attach import apply_named_fields_exact_path as _apply_named_fields_exact_path
@@ -18,10 +17,9 @@ from hangeul_mcp.live_current import (
     preview_current_hwp_document as _preview_current_hwp_document,
     resolve_current_hwp_document as _resolve_current_hwp_document,
 )
-
-
-def _exact_attach_candidates(path: Path) -> List[Dict[str, Any]]:
-    return [dict(item) for item in find_rot_exact_path_candidates(path)]
+from hangeul_mcp.live_preview import (
+    preview_small_live_label_cells as _preview_small_live_label_cells,
+)
 
 
 def _open_in_hwp_worker(path: str, visible: bool) -> Dict[str, Any]:
@@ -84,7 +82,7 @@ def register_live_tools(mcp) -> Dict[str, Any]:
                 "whole-template completion: inspect_editable_regions(path, compact=true), then "
                 "complete_addressed_template(path, output_path, edits) once; "
                 "small live label:value cell fill only: open_in_hwp(path), "
-                "preview_cells_to_open_hwp(path, values), then apply_cells_to_open_hwp"
+                "preview_small_live_label_cells(path, values), then apply_small_live_label_cells"
             )
         return st
 
@@ -94,7 +92,7 @@ def register_live_tools(mcp) -> Dict[str, Any]:
 
         Hand-opened windows are not a safe exact-path live-attach anchor on their
         own. Use this tool to attach by exact path in the automation-visible
-        window first, then apply_to_open_hwp / apply_cells_to_open_hwp. Leaves the
+        window first, then apply_to_open_hwp / apply_small_live_label_cells. Leaves the
         window open; saves and closes nothing. If Hangul is not running, this
         launches it — cold start can take tens of seconds
         (see cold_start/elapsed_seconds in the response). When timeout_seconds > 0,
@@ -154,7 +152,7 @@ def register_live_tools(mcp) -> Dict[str, Any]:
                 "connected": True,
                 "state": "legacy_needs_field_registration",
                 "needs_field_registration": True,
-                "note": "no named fields; use apply_cells_to_open_hwp for cell-based forms",
+                "note": "no named fields; use apply_small_live_label_cells for a few live label cells",
             }
         result = bridge.put_field_text(normalize_field_values(values))
         return {
@@ -166,41 +164,22 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         }
 
     @mcp.tool()
-    def preview_cells_to_open_hwp(path: str, values: Dict[str, str]) -> Dict[str, Any]:
+    def preview_small_live_label_cells(
+        path: str,
+        values: Dict[str, str],
+        timeout_seconds: float = 10.0,
+    ) -> Dict[str, Any]:
         """Preview small live label:value cell fills WITHOUT COM or ROT access.
 
         This is not whole-template completion. For a full lesson plan or other
         structured form, use compact inspect then complete_addressed_template.
         This pure preview does not probe COM ROT or attach candidates; exact-path
-        attachment is deferred to apply_cells_to_open_hwp.
+        attachment is deferred to apply_small_live_label_cells.
         """
-        p = Path(path)
-        if p.suffix.lower() == ".hwp":
-            return {
-                "available": True,
-                "ok": False,
-                "error": "preview_cells_to_open_hwp is side-effect free and only accepts .hwpx; save/convert .hwp to .hwpx first",
-            }
-        if p.suffix.lower() != ".hwpx":
-            return {"available": True, "ok": False, "error": "preview_cells_to_open_hwp only accepts .hwpx files"}
-        result = dict(_preview_cells_to_open(p, values))
-        result.update(
-            {
-                "ok": result.get("ok", True),
-                "resolver": {
-                    "side_effect_free": True,
-                    "exact_path": str(p),
-                    "apply_to_open_hwp_state": "pathful_exact_path",
-                    "apply_cells_to_open_hwp_state": "pathful_exact_path",
-                },
-                "attach_candidates": [],
-                "attach_probe": "deferred_to_apply",
-            }
-        )
-        return result
+        return _preview_small_live_label_cells(path, values, timeout_seconds)
 
     @mcp.tool()
-    def apply_cells_to_open_hwp(
+    def apply_small_live_label_cells(
         path: str,
         values: Dict[str, str],
         visible: bool = True,
@@ -216,7 +195,7 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         Attaches to the automation-visible instance on call
         and verifies the requested exact path is active; if not, it opens it there
         when open_if_needed=true. Cold start can take tens of seconds. Preview
-        first with preview_cells_to_open_hwp.
+        first with preview_small_live_label_cells.
         """
         try:
             path = ensure_hwpx(path)
@@ -265,8 +244,8 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         "hwp_status": hwp_status,
         "open_in_hwp": open_in_hwp,
         "apply_to_open_hwp": apply_to_open_hwp,
-        "preview_cells_to_open_hwp": preview_cells_to_open_hwp,
-        "apply_cells_to_open_hwp": apply_cells_to_open_hwp,
+        "preview_small_live_label_cells": preview_small_live_label_cells,
+        "apply_small_live_label_cells": apply_small_live_label_cells,
         "resolve_current_hwp_document": resolve_current_hwp_document,
         "preview_current_hwp_document": preview_current_hwp_document,
         "apply_to_current_hwp_document": apply_to_current_hwp_document,

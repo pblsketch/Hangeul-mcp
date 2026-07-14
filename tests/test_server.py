@@ -31,7 +31,7 @@ def test_four_tools_registered():
         "restore_edit_session",
         "extract_hwp_text",
         "describe_capabilities",
-        "preview_cells_to_open_hwp",
+        "preview_small_live_label_cells",
         "resolve_current_hwp_document",
         "preview_current_hwp_document",
         "apply_to_current_hwp_document",

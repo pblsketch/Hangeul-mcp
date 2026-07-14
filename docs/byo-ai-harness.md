@@ -84,13 +84,13 @@ render_preview(out_path, preview_png)
 hwp_status()
 open_in_hwp(path)
 apply_to_open_hwp(path, values)          # named field exact-path live apply
-preview_cells_to_open_hwp(path, values)
-apply_cells_to_open_hwp(path, values)    # cell/inline/body exact-path live apply
+preview_small_live_label_cells(path, values)
+apply_small_live_label_cells(path, values)    # cell/inline/body exact-path live apply
 ```
 
 이 경로는 **same-window live editing**이다. 파일 모드 fast path처럼 새 `out_path`를 만드는 것이 아니라, 이미 열린 한글 창을 직접 수정한다.
 
-`preview_cells_to_open_hwp`는 COM을 호출하지 않는다. 열린 한글 창을 건드리지 않고, 어떤 표/행/열에 값이 들어갈지만 미리 보여준다.
+`preview_small_live_label_cells`는 COM을 호출하지 않는다. 열린 한글 창을 건드리지 않고, 어떤 표/행/열에 값이 들어갈지만 미리 보여준다.
 
 ## 현재 문서(pathless) live 흐름 — saved `.hwpx` only
 

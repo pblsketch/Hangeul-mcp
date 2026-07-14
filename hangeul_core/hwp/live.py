@@ -132,7 +132,7 @@ def preview_cells_to_open(path: str | Path, values: Dict[str, str]) -> Dict:
         "body_targets": body_targets,
         "skipped": skipped,
         "count": len(targets) + len(text_targets) + len(body_targets),
-        "apply_tool": "apply_cells_to_open_hwp",
+        "apply_tool": "apply_small_live_label_cells",
     }
 
 

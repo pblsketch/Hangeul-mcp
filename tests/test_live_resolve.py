@@ -10,7 +10,7 @@ from pathlib import Path
 
 from hangeul_core.hwp.live import apply_cells_to_open, preview_cells_to_open, resolve_cell_targets
 from hangeul_mcp import server
-import hangeul_mcp.tools_live as live_tools
+import hangeul_mcp.live_preview as live_preview
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_form.hwpx"
 
@@ -57,7 +57,7 @@ def test_preview_cells_to_open_is_pure_and_returns_targets():
     assert res["available"] is True
     assert res["count"] == 1
     assert res["targets"][0]["label"].replace(" ", "") == "성명"
-    assert res["apply_tool"] == "apply_cells_to_open_hwp"
+    assert res["apply_tool"] == "apply_small_live_label_cells"
 
 
 
@@ -69,49 +69,48 @@ def test_server_preview_is_file_only_and_never_probes_rot(monkeypatch):
         "text_targets": [],
         "body_targets": [],
         "skipped": [],
-        "apply_tool": "apply_cells_to_open_hwp",
+        "apply_tool": "apply_small_live_label_cells",
     }
 
-    monkeypatch.setattr(live_tools, "_preview_cells_to_open", lambda path, values: dict(base))
+    monkeypatch.setattr(
+        live_preview,
+        "run_with_timeout",
+        lambda *args, **kwargs: {"ok": True, "timed_out": False, "result": dict(base)},
+    )
 
-    def fail_if_rot_is_probed(path):
-        raise AssertionError("pure preview must not touch COM ROT")
+    assert not hasattr(live_preview, "_exact_attach_candidates")
 
-    monkeypatch.setattr(live_tools, "_exact_attach_candidates", fail_if_rot_is_probed)
-
-    res = server.preview_cells_to_open_hwp(str(FIXTURE), {"성명": "홍길동"})
+    res = server.preview_small_live_label_cells(str(FIXTURE), {"성명": "홍길동"})
     assert res["ok"] is True
     assert res["resolver"] == {
         "side_effect_free": True,
         "exact_path": str(FIXTURE),
         "apply_to_open_hwp_state": "pathful_exact_path",
-        "apply_cells_to_open_hwp_state": "pathful_exact_path",
+        "apply_small_live_label_cells_state": "pathful_exact_path",
     }
     assert res["attach_candidates"] == []
     assert res["attach_probe"] == "deferred_to_apply"
 
 
 def test_server_preview_does_not_wait_for_slow_exact_path_candidates(monkeypatch):
+    preview_result = {
+        "available": True,
+        "count": 1,
+        "targets": [{"label": "성명", "field_id": "t1.r0.c0", "value": "홍길동"}],
+        "text_targets": [],
+        "body_targets": [],
+        "skipped": [],
+        "apply_tool": "apply_small_live_label_cells",
+    }
     monkeypatch.setattr(
-        live_tools,
-        "_preview_cells_to_open",
-        lambda path, values: {
-            "available": True,
-            "count": 1,
-            "targets": [{"label": "성명", "field_id": "t1.r0.c0", "value": "홍길동"}],
-            "text_targets": [],
-            "body_targets": [],
-            "skipped": [],
-            "apply_tool": "apply_cells_to_open_hwp",
-        },
+        live_preview,
+        "run_with_timeout",
+        lambda *args, **kwargs: {"ok": True, "timed_out": False, "result": dict(preview_result)},
     )
 
-    def fail_if_rot_is_probed(path):
-        raise AssertionError("preview must defer attach discovery to apply")
+    assert not hasattr(live_preview, "_exact_attach_candidates")
 
-    monkeypatch.setattr(live_tools, "_exact_attach_candidates", fail_if_rot_is_probed)
-
-    res = server.preview_cells_to_open_hwp(str(FIXTURE), {"성명": "홍길동"})
+    res = server.preview_small_live_label_cells(str(FIXTURE), {"성명": "홍길동"})
 
     assert res["resolver"]["exact_path"] == str(FIXTURE)
     assert res["attach_candidates"] == []
@@ -150,9 +149,31 @@ def test_runbook_values_mapping_resolves_documented_targets():
     assert labels == {"성명", "직위"}
 
 
+def test_server_preview_timeout_is_bounded_and_read_only(monkeypatch):
+    monkeypatch.setattr(
+        live_preview,
+        "run_with_timeout",
+        lambda *args, **kwargs: {
+            "ok": False,
+            "timed_out": True,
+            "elapsed_seconds": 10.0,
+            "error": "operation timed out in isolated worker",
+        },
+    )
+
+    res = server.preview_small_live_label_cells(
+        str(FIXTURE), {"성명": "홍길동"}, timeout_seconds=10.0
+    )
+
+    assert res["ok"] is False
+    assert res["state"] == "live_preview_failed"
+    assert res["may_have_partially_applied"] is False
+    assert res["elapsed_seconds"] == 10.0
+
+
 def test_server_preview_rejects_hwp_without_conversion(tmp_path):
     fake = tmp_path / "form.hwp"
     fake.write_bytes(b"HWP binary placeholder")
-    res = server.preview_cells_to_open_hwp(str(fake), {"성명": "홍길동"})
+    res = server.preview_small_live_label_cells(str(fake), {"성명": "홍길동"})
     assert res["ok"] is False
     assert "only accepts .hwpx" in res["error"]

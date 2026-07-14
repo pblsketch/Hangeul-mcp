@@ -213,7 +213,7 @@ def apply_named_fields_exact_path(
             "moniker": active_doc.get("moniker") or (candidates[0].get("moniker") if candidates else None),
             "active_document": active_doc.get("path"),
             "needs_field_registration": True,
-            "note": "no named fields; use apply_cells_to_open_hwp for cell-based forms",
+            "note": "no named fields; use apply_small_live_label_cells for a few live label cells",
         }
     result = bridge.put_field_text(normalize_field_values(values))
     return {
