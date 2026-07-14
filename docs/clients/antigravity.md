@@ -57,4 +57,4 @@ If a managed install already provides a stable launcher shim on PATH, this short
 
 Official Antigravity remote MCP examples use `serverUrl`, not `url`. This repository's local Hangeul-mcp helper currently configures only the verified **stdio** shape above; it does not auto-generate remote `serverUrl` entries.
 
-PyPI publication is verified for `hangeul-mcp`. Install with `pip install --upgrade hangeul-mcp`, or use the reviewed managed installer with `-Version 0.5.0` when versioned update and rollback are required.
+PyPI publication is verified for `hangeul-mcp`. Install with `pip install --upgrade hangeul-mcp`, or use the reviewed managed installer with `-Version 0.5.1` when versioned update and rollback are required.

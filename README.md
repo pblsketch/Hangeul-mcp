@@ -78,7 +78,7 @@ hangeul-mcp-manage doctor
 # 1) 저장소에서 scripts/install.ps1를 로컬에 저장 또는 내려받기
 # 2) 내용을 검토
 # 3) 로컬 파일로 실행
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Version 0.5.0 -Client all
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Version 0.5.1 -Client all
 ```
 
 설치 뒤에는 관리 CLI로 MCP 등록과 상태 점검을 진행합니다.
@@ -113,7 +113,7 @@ hangeul-mcp-manage rollback
 - `update`는 관리형 install state가 있을 때만 다음 versioned runtime을 설치·검증한 뒤 `current.json`을 전환합니다.
 - `update-config --auto off|notify|daily --channel stable|beta`는 자동 정책을 저장합니다. `daily`는 launcher startup에서 24시간 TTL 기준으로 bounded background update를 스케줄합니다.
 - `rollback`은 `previous_version`이 남아 있는 managed runtime에 대해서만 지원됩니다. 수동 삭제되었거나 손상된 이전 runtime까지 복구를 보장하지는 않습니다.
-- `-Version 0.5.0`처럼 PyPI 버전을 지정한 관리형 설치에서 versioned update와 rollback을 사용할 수 있습니다. Git checkout이나 source bootstrap 설치는 자동으로 덮어쓰지 않으며 `unsupported_install_source`로 멈추는 것이 정상입니다.
+- `-Version 0.5.1`처럼 PyPI 버전을 지정한 관리형 설치에서 versioned update와 rollback을 사용할 수 있습니다. Git checkout이나 source bootstrap 설치는 자동으로 덮어쓰지 않으며 `unsupported_install_source`로 멈추는 것이 정상입니다.
 ### 수동 설치 / 수동 설정 fallback
 
 관리형 설치를 쓰지 않는 경우에는 소스 기준으로 직접 설치하고, 클라이언트 설정에는 **절대 경로의 Python으로 서버 모듈을 호출하는 방식**을 권장합니다.
@@ -314,10 +314,10 @@ resolve_current_hwp_document()
 
 ## 개발 상태와 품질
 
-- 패키지 버전: `0.5.0` (Pre-Alpha)
+- 패키지 버전: `0.5.1` (Pre-Alpha)
 - 런타임 MCP 도구: **59 tools**
 
-- 최신 로컬 검증: **536 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
+- 최신 로컬 검증: **553 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 기준선 동일, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **71개 — 70 pass** + 라이브/스파이크 pending
