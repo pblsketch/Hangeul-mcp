@@ -1,0 +1,123 @@
+{
+  "capture": "shell_rot_spike_probe",
+  "started_at": "2026-07-14T22:25:51.828069+00:00",
+  "runtime": "C:\\Python314\\python.exe",
+  "steps": [
+    {
+      "step": "fixture_copied",
+      "t": 0.0,
+      "copy": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-rot-spike-7kqvxxlq\\spike_shell_open.hwpx"
+    },
+    {
+      "step": "rot_before",
+      "t": 0.1,
+      "documents": [
+        "E:\\github\\Hangeul-mcp\\tests\\hwpx template\\14_교수학습 지도안 양식.hwpx",
+        "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-p0c-capture-byhfmngj\\교수학습지도안_라이브.hwpx"
+      ]
+    },
+    {
+      "step": "shell_open_requested",
+      "t": 0.3
+    },
+    {
+      "step": "rot_poll_30s",
+      "t": 1.4,
+      "shell_doc_in_rot": true,
+      "documents": [
+        "E:\\github\\Hangeul-mcp\\tests\\hwpx template\\14_교수학습 지도안 양식.hwpx",
+        "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-p0c-capture-byhfmngj\\교수학습지도안_라이브.hwpx",
+        "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-rot-spike-7kqvxxlq\\spike_shell_open.hwpx"
+      ]
+    },
+    {
+      "step": "enum_windows",
+      "t": 1.4,
+      "total_hwp_windows": 2,
+      "windows": [
+        {
+          "hwnd": 2033420,
+          "class": "HwndWrapper[hwp.exe;;b57eb8b8-7328-4b03-add7-74b707f1f878]",
+          "title": "spike_shell_open.hwpx [C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-rot-spike-7kqvxxlq\\] - 한글",
+          "pid": 46004
+        },
+        {
+          "hwnd": 8065098,
+          "class": "HwndWrapper[hwp.exe;;7d4c8699-2f76-4263-8c2e-b8771a94451b]",
+          "title": "교수학습지도안_라이브.hwpx [C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-p0c-capture-byhfmngj\\] - 한글",
+          "pid": 46004
+        }
+      ],
+      "shell_doc_window_detected": true,
+      "detected": [
+        {
+          "hwnd": 2033420,
+          "class": "HwndWrapper[hwp.exe;;b57eb8b8-7328-4b03-add7-74b707f1f878]",
+          "title": "spike_shell_open.hwpx [C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-rot-spike-7kqvxxlq\\] - 한글",
+          "pid": 46004
+        }
+      ]
+    },
+    {
+      "step": "nativeom_probe",
+      "t": 1.5,
+      "results": [
+        {
+          "hwnd": 2033420,
+          "class": "HwndWrapper[hwp.exe;;b57eb8b8-7328-4b03-add7-74b707f1f878]",
+          "result": "hr=0x80004005 ptr=null"
+        },
+        {
+          "hwnd": 8065098,
+          "class": "HwndWrapper[hwp.exe;;7d4c8699-2f76-4263-8c2e-b8771a94451b]",
+          "result": "hr=0x80004005 ptr=null"
+        }
+      ]
+    },
+    {
+      "step": "dde_probe",
+      "t": 1.9,
+      "results": [
+        {
+          "service": "Hwp",
+          "topic": "System",
+          "result": "failed: ConnectTo failed"
+        },
+        {
+          "service": "HwpFrame",
+          "topic": "System",
+          "result": "failed: The server could not be created"
+        },
+        {
+          "service": "Hancom",
+          "topic": "System",
+          "result": "failed: The server could not be created"
+        },
+        {
+          "service": "HwpApp",
+          "topic": "System",
+          "result": "failed: The server could not be created"
+        }
+      ]
+    },
+    {
+      "step": "generic_reconnect",
+      "t": 3.6,
+      "state": "connected",
+      "documents": [
+        "E:\\github\\Hangeul-mcp\\tests\\hwpx template\\14_교수학습 지도안 양식.hwpx",
+        "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-p0c-capture-byhfmngj\\교수학습지도안_라이브.hwpx",
+        "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-rot-spike-7kqvxxlq\\spike_shell_open.hwpx"
+      ],
+      "sees_shell_doc": true
+    }
+  ],
+  "conclusions": {
+    "rot_invisible_reconfirmed": false,
+    "win32_detection_viable": true,
+    "nativeom_promotion_viable": false,
+    "dde_promotion_viable": false,
+    "generic_reconnect_sees_shell_doc": true
+  },
+  "finished_at": "2026-07-14T22:25:55.459264+00:00"
+}

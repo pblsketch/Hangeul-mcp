@@ -1009,6 +1009,21 @@
         "LIVE VALIDATION (desktop, DONE 2026-07-15): docs/evidence/live-addressed-desktop-capture.json 8/8 checks — gated-by-default, preview_ready(18 targets), tamper-injected cell skipped fail-closed (expected_text_mismatch, untouched), partial state with recovery block, 17/17 others applied with fresh COM read-back, token single-use, second-round full success, on-disk SHA unchanged. Real defect caught+fixed by the capture: get_selected_text drops the selection so a bare Delete appended instead of replacing — apply now re-anchors and re-selects before the destructive delete. Flag flipped True + double-lock tests updated + live_routes/README in the same commit."
       ],
       "statusNote": "P0-C promoted: in-place live addressed editing shipped behind mandatory expected_text contrast, fail-closed scope (top-level tables only), partial-failure recovery and fresh read-back; desktop evidence 8/8."
+    },
+    {
+      "id": "US-069",
+      "title": "Track D 스파이크 — Shell-open 창 ROT 비가시성의 메커니즘 확정과 승격 채널 기각 (ADR D18)",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P1",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "실기기 프로브(scripts/shell_rot_spike_probe.py → docs/evidence/shell-rot-spike-probe.json): automation-visible 인스턴스 선존재 시 Shell-open 문서가 탭으로 합류해 ~1초 내 ROT 가시 — 클린 데스크톱 영구 비가시(기존 shell 캡처)와의 모순을 '열기 순서' 메커니즘으로 해소",
+        "승격 채널 실측 기각: OBJID_NATIVEOM 전 창 E_FAIL(ROT-가시 상태 포함), DDE 서비스(Hwp/HwpFrame/Hancom/HwpApp) 전부 연결 실패",
+        "Win32 EnumWindows 제목 파싱으로 Shell 창 감지-only 실측 성공 — 진단 신호로만 허용, 쓰기 경로는 live_attach exact-path 사다리 미만 완화 금지",
+        "docs/DECISIONS.md D18 ADR 기록 + README 라이브 검증 상태 갱신; 코드 변경 없음(산출물은 ADR+증거)"
+      ],
+      "statusNote": "Spike deliverable is the ADR + probe evidence; write-path code intentionally unchanged."
     }
   ],
   "decisions": {

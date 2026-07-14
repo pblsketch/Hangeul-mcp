@@ -294,9 +294,10 @@ resolve_current_hwp_document()
 - **다중 인스턴스 resolver 실기기 재캡처 통과(2026-07-15)**: 빈 탭/다중 문서 데스크톱에서 `selection_required`(후보 4) → 명시적 `candidate_id`로 `preview_ready` → `completed_and_loaded` 6/6 체크 (`docs/evidence/complete-and-load-desktop-capture-automation.json`) — 이전 `current_document_unsaved` 전면 차단 결함 해소
 - **`live_addressed` 실기기 캡처 통과(2026-07-15, 8/8 체크)**: 게이트 기본 차단 → 토큰 발급 → 사용자 수정 주입 셀만 `expected_text_mismatch`로 무손상 skip + 나머지 17셀 in-place 적용 + fresh read-back 검증 + 토큰 단일 사용 + 디스크 파일 SHA 불변 (`docs/evidence/live-addressed-desktop-capture.json`). 이 캡처가 잡은 실결함(`get_selected_text` 후 선택 해제로 Delete 무효 → append 오염)은 재선택 로직으로 수정 후 재검증
 
+- **Shell-open ROT 가시성 메커니즘 확정(2026-07-15, D18)**: Explorer 더블클릭 문서의 automation 가시성은 "열기 시점에 automation-visible 인스턴스가 존재하는가"로 결정됩니다 — 클린 데스크톱이면 영구 비가시(새 미등록 인스턴스), 인스턴스가 먼저 있으면 탭으로 합류해 즉시 가시(`docs/evidence/shell-rot-spike-probe.json`). NATIVEOM/DDE 승격 채널은 실측 기각. 실무 지침: 라이브로 다룰 문서는 `open_in_hwp`로 열거나, automation 인스턴스를 먼저 만든 뒤 여세요.
+
 아직 남은 것:
 
-- 사람이 파일 탐색기에서 직접 더블클릭한 문서의 current-document token 흐름 전체 캡처 — Shell로 연 창은 automation ROT에 나타나지 않음을 클린 환경에서 재확인(`…-capture-shell.json`)
 - 복잡한 중첩 표에서의 라이브 셀 매핑 확대 검증(현행: 중첩 표 문서는 `live_addressed`에서 fail-closed)
 - 일부 본문 라이브 안전장치의 추가 실기기 실패 주입 검증
 - worker timeout 격리는 현재 `open_in_hwp(timeout_seconds=...)` 경로에만 연결돼 있습니다. 다른 live apply 경로는 아직 동일한 timeout 계약을 약속하지 않습니다.
@@ -319,7 +320,7 @@ resolve_current_hwp_document()
 - 최신 로컬 검증: **529 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
-- 마일스톤·유저 스토리: **69개 — 68 pass** + 라이브/스파이크 pending
+- 마일스톤·유저 스토리: **70개 — 69 pass** + 라이브/스파이크 pending
 
 
 ### 배포 채널과 release 증거 원칙

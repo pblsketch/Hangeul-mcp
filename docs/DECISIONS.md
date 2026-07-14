@@ -106,3 +106,11 @@
 - **이유**: 바이트보존 불변식과 evidence-first 운영을 유지하려면, 우리가 실제로 증명한 OWN 텍스트 치환과 아직 증명하지 못한 delegate/live 편집을 같은 "undo/edit plan" 약속으로 섞으면 안 된다.
 - **현재 문서 picker 경계**: `resolve_current_hwp_document()` 후보에는 `picker_title` / `picker_subtitle` / `picker_badges` / `picker_label` 같은 additive metadata만 노출한다. 선택 권위는 계속 `candidate_id`이고, saved `.hwpx`/exact-path/fail-closed 라우팅은 바뀌지 않는다.
 - **Windows evidence artifact 경계**: `scripts/windows_live_regression_harness.py`와 `docs/evidence/windows-live-regression-template.json`은 데스크톱 캡처를 정리하는 scaffold일 뿐이다. 이 scaffold 자체가 Windows literal write-safe 증거를 대신하지 않으며, `PENDING_DESKTOP_LIVE_QA.md`의 pending gate를 자동 해제하지 않는다.
+
+## D18. Shell-open 창의 ROT 가시성은 "열기 순서"가 결정한다 — 감지-only 허용, 승격 채널 기각 (Track D 스파이크)
+- **실측 메커니즘** (`docs/evidence/shell-rot-spike-probe.json`, 2026-07-15): Explorer/Shell 더블클릭 문서의 automation 가시성은 조건부가 아니라 **열기 시점에 automation-visible 인스턴스가 존재하는지**로 결정된다.
+  - **클린 데스크톱**(automation 인스턴스 없음): Shell이 ROT에 등록되지 않는 새 인스턴스를 만들고 120초 내 영구 비가시 (`complete-and-load-desktop-capture-shell.json` 2026-07-14, literal 더블클릭 프로브 2026-07-13).
+  - **automation 인스턴스 선존재**: Shell 문서가 그 인스턴스의 **탭으로 합류해 ~1초 내 ROT 가시** — PENDING 문서에 기록된 "Claude Desktop 장기 세션에서는 직접 연 문서가 인식됐다"는 사용자 관측과 클린 캡처 실패의 모순을 해소한다.
+- **승격 채널 기각**: `AccessibleObjectFromWindow(OBJID_NATIVEOM)`은 ROT-가시 상태의 창에서도 전부 `E_FAIL`(0x80004005, 포인터 null) — NATIVEOM은 한글의 automation 채널이 아니다. DDE 서비스(`Hwp`/`HwpFrame`/`Hancom`/`HwpApp` × `System`)는 전부 연결 실패 — DDE 승격 경로 없음.
+- **감지-only 허용**: Win32 `EnumWindows` 제목 파싱으로 Shell 창의 존재·문서 basename 감지는 실측 가능(정확 창 식별 성공). 이는 **진단/안내 신호로만** 쓸 수 있다(`attach_ladder.window_detected` 류). **쓰기 경로는 `live_attach.py`의 exact-path 사다리(`same_doc` + `_has_active_exact_path`) 미만으로 절대 완화하지 않는다** — 창이 보인다는 것과 그 창에 안전하게 쓸 수 있다는 것은 다른 명제다.
+- **결정**: 옵션 (a)+(c) 채택. 코드 변경 없이 현행 유지 + 안내를 메커니즘 기반으로 교정: 손으로 연 문서를 라이브로 다루려면 **automation 인스턴스를 먼저 존재하게 하라**(아무 `open_in_hwp` 호출이면 충분; 이후 Shell로 여는 문서는 자동으로 가시) 또는 `complete_and_load` 하이브리드를 사용하라. generic reconnect의 과거 오판(빈 인스턴스에 `connected:true`)은 다중 인스턴스 resolver(US-067)의 후보 열거 + exact-path 검증으로 이미 구조적으로 방지된다.
