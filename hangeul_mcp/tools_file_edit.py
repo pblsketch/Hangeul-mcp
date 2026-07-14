@@ -67,7 +67,7 @@ class AddressedEdit(BaseModel):
         ),
         examples=["t2.r4.c2.p1"],
     )
-    value: str = Field(description="Complete replacement text for this exact target")
+    value: str = Field(description="Replacement text; use \\n to split into consecutive paragraphs (개조식 lines)")
     expected_text: str = Field(
         default="",
         description="Optional current text copied from inspection; mismatch fails closed",
@@ -78,7 +78,7 @@ class AddressedEdit(BaseModel):
     )
     operation: Literal["replace_text", "preserve_marker_replace_tail"] | None = Field(
         default=None,
-        description="Usually omit; defaults to replace_text. preserve_marker_replace_tail is only for bN.",
+        description="Usually omit; defaults to replace_text. preserve_marker_replace_tail keeps the ▶/-/□/○ marker (bN and tN.rN.cN.pN).",
     )
 
 

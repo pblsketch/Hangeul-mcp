@@ -110,6 +110,10 @@ def test_inspect_compact_preserves_targets_and_hoists_source_hash(tmp_path):
             "snippet": "자료추가",
             "paragraph_targets": ["t1.r0.c0.p1", "t1.r0.c0.p2"],
             "paragraph_count": 2,
+            "paragraphs": [
+                {"target": "t1.r0.c0.p1", "text": "자료", "marker": ""},
+                {"target": "t1.r0.c0.p2", "text": "추가", "marker": ""},
+            ],
             "table": 1,
             "row": 0,
             "col": 0,

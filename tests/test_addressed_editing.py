@@ -225,6 +225,10 @@ def test_inspect_regions_and_paragraph_map(tmp_path):
             "paragraph_targets": ["t1.r0.c0.p1", "t1.r0.c0.p2"],
             "paragraph_ids": ["11", "12"],
             "paragraph_count": 2,
+            "paragraphs": [
+                {"target": "t1.r0.c0.p1", "text": "자료", "marker": ""},
+                {"target": "t1.r0.c0.p2", "text": "추가", "marker": ""},
+            ],
             "text": "자료추가",
             "snippet": "자료추가",
             "editable": True,

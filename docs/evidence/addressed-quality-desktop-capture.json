@@ -1,0 +1,144 @@
+{
+  "capture": "addressed_quality_fixes",
+  "started_at": "2026-07-14T22:54:13.775100+00:00",
+  "steps": [
+    {
+      "step": "complete",
+      "t": 0.2,
+      "ok": true,
+      "counts": {
+        "requested": 3,
+        "resolved": 3,
+        "applied": 3,
+        "verified": 4,
+        "skipped": 0,
+        "unresolved": 0
+      }
+    },
+    {
+      "step": "output_xml",
+      "t": 0.2,
+      "goal": [
+        {
+          "len": 26,
+          "text": "1. 영상 언어의 표현 특성을 이해할 수 있다.",
+          "linesegs": 0
+        },
+        {
+          "len": 35,
+          "text": "2. 매체 특성을 고려하여 짧은 영상 콘텐츠를 기획할 수 있다",
+          "linesegs": 0
+        }
+      ],
+      "mixed": [
+        {
+          "len": 73,
+          "text": "▶ 영상 언어의 표현 요소(구도, 카메라 워크, 편집)를 정리",
+          "linesegs": 0
+        },
+        {
+          "len": 58,
+          "text": "- 분석 결과를 학습지에 정리하고 모둠 내에서 공유하며 교사는",
+          "linesegs": 0
+        },
+        {
+          "len": 0,
+          "text": "",
+          "linesegs": 1
+        },
+        {
+          "len": 1,
+          "text": "▶",
+          "linesegs": 1
+        },
+        {
+          "len": 1,
+          "text": "-",
+          "linesegs": 1
+        }
+      ]
+    },
+    {
+      "step": "pre_checks",
+      "t": 0.2,
+      "goal_two_paragraphs": true,
+      "edited_linesegs_stripped": true,
+      "marker_kept": true,
+      "untouched_keep_cache": true
+    },
+    {
+      "step": "open_as_new_tab",
+      "t": 2.1,
+      "state": "opened_new_tab",
+      "ok": true
+    },
+    {
+      "step": "active_check",
+      "t": 2.2,
+      "active": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-quality-_ojq7h08\\지도안완성.hwpx"
+    },
+    {
+      "step": "hangul_saveas",
+      "t": 2.6,
+      "returned": true
+    },
+    {
+      "step": "hangul_relayout",
+      "t": 2.6,
+      "goal": [
+        {
+          "len": 26,
+          "text": "1. 영상 언어의 표현 특성을 이해할 수 있다.",
+          "linesegs": 1
+        },
+        {
+          "len": 35,
+          "text": "2. 매체 특성을 고려하여 짧은 영상 콘텐츠를 기획할 수 있다",
+          "linesegs": 1
+        }
+      ],
+      "mixed": [
+        {
+          "len": 73,
+          "text": "▶ 영상 언어의 표현 요소(구도, 카메라 워크, 편집)를 정리",
+          "linesegs": 2
+        },
+        {
+          "len": 58,
+          "text": "- 분석 결과를 학습지에 정리하고 모둠 내에서 공유하며 교사는",
+          "linesegs": 2
+        },
+        {
+          "len": 0,
+          "text": "",
+          "linesegs": 1
+        },
+        {
+          "len": 1,
+          "text": "▶",
+          "linesegs": 1
+        },
+        {
+          "len": 1,
+          "text": "-",
+          "linesegs": 1
+        }
+      ]
+    },
+    {
+      "step": "checks",
+      "t": 2.6,
+      "texts_survive_hangul_roundtrip": true,
+      "goal_paragraphs_relaid": true,
+      "long_line_wraps_multiline": true
+    }
+  ],
+  "outcome": "pass",
+  "checks": {
+    "texts_survive_hangul_roundtrip": true,
+    "goal_paragraphs_relaid": true,
+    "long_line_wraps_multiline": true
+  },
+  "note": "tabs were left open on purpose (server never closes documents); close them manually",
+  "finished_at": "2026-07-14T22:54:16.422490+00:00"
+}

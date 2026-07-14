@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from hangeul_core.analyze import _section_names, analyze
-from hangeul_core.body import _body_para_spans, _render, body_field_index, replace_body_paragraph
+from hangeul_core.body import _body_para_spans, _render, body_field_index, marker_prefix, replace_body_paragraph
 from hangeul_core.edit_session import (
     OWN_TEXT_SUBSTRATE,
     _JOURNAL_VERSION,
@@ -96,6 +96,106 @@ def _replace_text_nodes(xml: str, value: str) -> str | None:
         out = out[: match.start(1)] + replacement + out[match.end(1) :]
         first = False
     return out
+
+
+# <hp:linesegarray> is Hangul's cached line layout. Leaving the old cache on a
+# paragraph whose text we just changed makes Hangul paint the new (longer) text
+# into the old line boxes — glyphs overlap on screen (desktop capture
+# 2026-07-15). The cache is optional; Hangul recomputes it when absent.
+_LINESEG = re.compile(r"<hp:linesegarray(?:\s[^>]*)?(?:/>|>.*?</hp:linesegarray>)", re.S)
+
+# Prose-safe grammar in hangeul_core.body treats a lone '-' as punctuation, but
+# inside TEMPLATE CELLS the dash family and bare-marker-only paragraphs are
+# list markers (Korean official-document 개조식: □ ○ ▷ • - ㆍ …).
+_DASH_MARKERS = "-－–—ㆍ·"
+
+
+def _strip_linesegs(xml: str | None) -> str | None:
+    return None if xml is None else _LINESEG.sub("", xml)
+
+
+def _paragraph_marker(text: str) -> str:
+    """Leading list marker of a CELL paragraph (``''`` if none).
+
+    Extends :func:`hangeul_core.body.marker_prefix` (kept prose-safe for body
+    paragraphs) with the dash family and bare marker-only paragraphs.
+    """
+    marker = marker_prefix(text)
+    if marker:
+        return marker
+    head = text.lstrip()
+    lead = text[: len(text) - len(head)]
+    if head and head[0] in _DASH_MARKERS and (len(head) == 1 or head[1].isspace()):
+        tail = head[1:]
+        return lead + head[0] + tail[: len(tail) - len(tail.lstrip())]
+    if head:
+        bare = marker_prefix(text + " ")
+        if bare and bare.strip() == text.strip():
+            return text
+    return ""
+
+
+def _marker_lines(marker: str, lines: List[str]) -> List[str]:
+    prefix = marker.rstrip()
+    return [f"{prefix} {line}" if line.strip() else line for line in lines]
+
+
+def _multiline_paragraph_clones(base_block: str, lines: List[str]) -> str | None:
+    clones: List[str] = []
+    for line in lines:
+        clone = _strip_linesegs(_replace_text_nodes(base_block, line))
+        if clone is None:
+            return None
+        clones.append(clone)
+    return "".join(clones)
+
+
+def _edit_cell_of(item: dict) -> str:
+    target = str(item.get("target") or "")
+    para = _PARA_TARGET.match(target)
+    if para:
+        return para.group("cell")
+    return target if _TARGET.match(target) else ""
+
+
+def _ordered_edits(edits: List[dict]) -> List[dict]:
+    """Apply same-cell paragraph edits bottom-up (descending pN).
+
+    Multiline edits INSERT paragraphs; applying high ordinals first keeps the
+    lower ordinals still waiting in the batch valid.
+    """
+    indexed = list(enumerate(edits))
+    cell_first_index: Dict[str, int] = {}
+    for idx, item in indexed:
+        match = _PARA_TARGET.match(str(item.get("target") or ""))
+        if match and match.group("cell") not in cell_first_index:
+            cell_first_index[match.group("cell")] = idx
+
+    def sort_key(pair):
+        idx, item = pair
+        match = _PARA_TARGET.match(str(item.get("target") or ""))
+        if match:
+            return (cell_first_index[match.group("cell")], -int(match.group("ordinal")))
+        return (idx, 0)
+
+    return [item for _, item in sorted(indexed, key=sort_key)]
+
+
+def _multiline_conflicts(edits: List[dict]) -> set[str]:
+    """Targets of multiline edits sharing a cell with any other edit (fail closed)."""
+    cell_counts: Dict[str, int] = {}
+    for item in edits:
+        cell = _edit_cell_of(item)
+        if cell:
+            cell_counts[cell] = cell_counts.get(cell, 0) + 1
+    conflicted: set[str] = set()
+    for item in edits:
+        if "\n" not in str(item.get("value") or ""):
+            continue
+        cell = _edit_cell_of(item)
+        if cell and cell_counts.get(cell, 0) > 1:
+            conflicted.add(str(item.get("target") or ""))
+    return conflicted
 
 
 def _context_digest(target: str, expected_text: str, value: str) -> str:
@@ -192,6 +292,7 @@ def _compact_region_item(item: dict) -> dict:
         "paragraph_target",
         "paragraph_targets",
         "paragraph_count",
+        "paragraphs",
         "table",
         "row",
         "col",
@@ -286,6 +387,14 @@ def inspect_editable_regions(path: str | Path, compact: bool = False) -> Dict[st
                         "paragraph_targets": [f"{cell.field_id}.p{item['ordinal']}" for item in paragraphs],
                         "paragraph_ids": [item["paragraph_id"] for item in paragraphs],
                         "paragraph_count": len(paragraphs),
+                        "paragraphs": [
+                            {
+                                "target": f"{cell.field_id}.p{item['ordinal']}",
+                                "text": item["text"],
+                                "marker": _paragraph_marker(item["text"]),
+                            }
+                            for item in paragraphs
+                        ],
                         "text": cell.text,
                         "snippet": _snippet(cell.text),
                         "editable": True,
@@ -596,10 +705,14 @@ def complete_addressed_template(
     ok = True
     if verify:
         verify_started = time.perf_counter()
-        verification = verify_targets(
-            target,
-            [{"target": item["target"], "expected_text": item["after_text"]} for item in preview["edits"]],
-        )
+        expectations: List[dict] = []
+        for item in preview["edits"]:
+            # multiline edits become consecutive paragraphs — verify each line
+            expectations.extend(
+                item.get("verify_expansion")
+                or [{"target": item["target"], "expected_text": item["after_text"]}]
+            )
+        verification = verify_targets(target, expectations)
         verify_ms = elapsed_ms(verify_started)
         verified_count = int((verification.get("counts") or {}).get("verified", 0))
         failures = [
@@ -737,7 +850,8 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
             sections[name] = pkg.read(name).decode("utf-8")
         return sections[name]
 
-    for item in edits:
+    conflicted_multiline = _multiline_conflicts(list(edits))
+    for item in _ordered_edits(list(edits)):
         target = str(item.get("target") or "")
         kind = str(item.get("kind") or "")
         operation = str(item.get("operation") or "")
@@ -747,6 +861,10 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
             unresolved.append({"target": target, "reason": "duplicate_target"})
             continue
         seen_targets.add(target)
+        if target in conflicted_multiline:
+            unresolved.append({"target": target, "reason": "multiline_requires_exclusive_cell"})
+            continue
+        verify_expansion: List[dict] | None = None
 
         if kind == "cell" and operation == "replace_text" and _TARGET.match(target):
             cell = cells.get(target)
@@ -763,15 +881,29 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
                 continue
             start, end = span
             tc_xml = section[start:end]
-            new_tc = _replace_text_nodes(tc_xml, value)
+            lines = value.split("\n")
+            new_tc = _replace_text_nodes(tc_xml, lines[0])
             if new_tc is None:
                 unresolved.append({"target": target, "reason": "no_text_nodes"})
                 continue
+            if len(lines) > 1:
+                anchor = next((p for p in _paragraph_blocks(tc_xml) if "<hp:t>" in p["block"]), None)
+                clones = None if anchor is None else _multiline_paragraph_clones(anchor["block"], lines[1:])
+                if clones is None:
+                    unresolved.append({"target": target, "reason": "no_text_nodes"})
+                    continue
+                insert_at = _paragraph_blocks(new_tc)[anchor["ordinal"] - 1]["end"]
+                new_tc = new_tc[:insert_at] + clones + new_tc[insert_at:]
+                verify_expansion = [
+                    {"target": f"{target}.p{anchor['ordinal'] + offset}", "expected_text": line}
+                    for offset, line in enumerate(lines)
+                ]
+            new_tc = _strip_linesegs(new_tc)
             sections[cell.section] = section[:start] + new_tc + section[end:]
             before_text = cell.text
             after_text = value
             section_name = cell.section
-        elif kind == "paragraph" and operation == "replace_text":
+        elif kind == "paragraph" and operation in {"replace_text", "preserve_marker_replace_tail"}:
             match = _PARA_TARGET.match(target)
             if match is None:
                 unresolved.append({"target": target, "reason": "unsupported_target"})
@@ -789,16 +921,37 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
             if expected_text and paragraph["text"] != expected_text:
                 unresolved.append({"target": target, "reason": "expected_text_mismatch", "actual_text": paragraph["text"]})
                 continue
-            new_para = _replace_text_nodes(paragraph["block"], value)
+            lines = value.split("\n")
+            if operation == "preserve_marker_replace_tail":
+                marker = _paragraph_marker(paragraph["text"])
+                if not marker:
+                    unresolved.append({"target": target, "reason": "no_marker", "actual_text": paragraph["text"]})
+                    continue
+                lines = _marker_lines(marker, lines)
+            new_para = _strip_linesegs(_replace_text_nodes(paragraph["block"], lines[0]))
             if new_para is None:
                 unresolved.append({"target": target, "reason": "no_text_nodes"})
                 continue
+            if len(lines) > 1:
+                clones = _multiline_paragraph_clones(paragraph["block"], lines[1:])
+                if clones is None:
+                    unresolved.append({"target": target, "reason": "no_text_nodes"})
+                    continue
+                new_para += clones
+                ordinal = int(match.group("ordinal"))
+                verify_expansion = [
+                    {"target": f"{match.group('cell')}.p{ordinal + offset}", "expected_text": line}
+                    for offset, line in enumerate(lines)
+                ]
             new_tc = tc_xml[: paragraph["start"]] + new_para + tc_xml[paragraph["end"] :]
             sections[cell.section] = section[: span[0]] + new_tc + section[span[1] :]
             before_text = paragraph["text"]
-            after_text = value
+            after_text = "\n".join(lines)
             section_name = cell.section
         elif kind == "body_para" and operation in {"replace_text", "preserve_marker_replace_tail"} and _BODY_TARGET.match(target):
+            if "\n" in value:
+                unresolved.append({"target": target, "reason": "multiline_unsupported_target"})
+                continue
             section_name, local_ordinal = body_index.get(target, (None, None))
             if not section_name or local_ordinal is None:
                 unresolved.append({"target": target, "reason": "target_not_found"})
@@ -820,10 +973,12 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
             if local_ordinal not in applied_ordinals:
                 unresolved.append({"target": target, "reason": "no_text_nodes"})
                 continue
-            sections[section_name] = new_section
             before_text = paragraph["text"]
             refreshed = _body_paragraphs_in_section(new_section, section_numbers[section_name])[local_ordinal - 1]
             after_text = refreshed["text"]
+            stripped_block = _strip_linesegs(refreshed["block"])
+            new_section = new_section[: refreshed["start"]] + stripped_block + new_section[refreshed["end"] :]
+            sections[section_name] = new_section
         else:
             unresolved.append({"target": target, "reason": "unsupported_target"})
             continue
@@ -839,6 +994,7 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
                 "after_text": after_text,
                 "section": section_name,
                 "context_digest": _context_digest(target, expected_text, value),
+                **({"verify_expansion": verify_expansion} if verify_expansion else {}),
             }
         )
         session.audit.append(f"{section_name}: {target} {operation}")
