@@ -3,6 +3,7 @@
 > 새 세션/에이전트는 **이 파일 하나**로 현재 상태를 파악한다. 여기 수치는 커밋 시점 실측값이며,
 > 툴/스토리 카운트는 `tests/test_maintainability.py`의 드리프트 가드가 README와 함께 강제한다.
 > 다음 작업 계획: [`.omo/plans/hangeul-mcp-stabilization-ralplan.md`](.omo/plans/hangeul-mcp-stabilization-ralplan.md)
+> 사용성·라이브 풀폼 편집 계획(합의 승인본): [`.omo/plans/hangeul-mcp-usability-live-editing-ralplan.md`](.omo/plans/hangeul-mcp-usability-live-editing-ralplan.md)
 
 ## 검증된 기준선 (실측)
 
@@ -20,7 +21,7 @@
 |---|---|---|
 | `complete` | 코드 + 테스트 + 관측 산출물 모두 존재 | v1 헤드리스 코어(인식·바이트보존 채우기·읽기·검증·PII·formfit), 텍스트치환(OWN), text edit-session preview/apply/restore, mail_merge, capability manifest |
 | `optional-gated` | 코드·테스트 완료, optional extra 필요(미설치 시 `available:false`) | 위임 편집/생성/내보내기(python-hwpx `delegate`, `create_document_from_spec` 포함), `render_preview`(playwright `render`) |
-| `desktop-live-pending` | 코드 완료, **raw probe/json은 exact-path resolver 존재를 보여 주지만 literal write-safe 실기기(Windows+한글) 증거는 대기** | `apply_to_open_hwp`(US-010) · `apply_cells_to_open_hwp`(US-029) · `resolve_current_hwp_document`/`preview_current_hwp_document`/`apply_to_current_hwp_document`(saved `.hwpx` current-doc UX, human-readable picker metadata 포함) · COM 브릿지(US-009). D7: 중첩표 인덱스 매핑은 best-effort |
+| `desktop-live-pending` | 코드 완료, **raw probe/json은 exact-path resolver 존재를 보여 주지만 literal write-safe 실기기(Windows+한글) 증거는 대기** | `apply_to_open_hwp`(US-010) · `apply_small_live_label_cells`(US-029) · `resolve_current_hwp_document`/`preview_current_hwp_document`/`apply_to_current_hwp_document`(saved `.hwpx` current-doc UX, human-readable picker metadata + `complete_and_load` 하이브리드 라우트 — 파일모드 검증 완성 후 새 문서 탭 자동 열기, 원본 0-touch) · COM 브릿지(US-009). D7: 중첩표 인덱스 매핑은 best-effort |
 | `spike-pending` | 구현 전 리서치/ADR 필요 | `.hwp` 비COM 읽기(US-042/054/055) · 표 행/열 추가삭제·TOC(US-060, python-hwpx 미노출) |
 | `planned` | 승인된 backlog 상태가 생길 때만 사용 | 현재는 `docs/prd.json` 기준 planned story가 없으면 비워 둔다 |
 

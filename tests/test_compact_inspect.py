@@ -172,11 +172,12 @@ def test_mcp_wrappers_expose_compact_parameter_and_forward_response(tmp_path):
 
     server_inspected = server.inspect_editable_regions(str(src), compact=True)
     core_inspected = inspect_editable_regions(src, compact=True)
-    assert server_inspected == core_inspected
+    # wrapper = core response + the common envelope keys (P1-2), nothing else
+    assert server_inspected == {**core_inspected, "available": True, "ok": True}
 
     server_plan = server.plan_template_completion(str(src), compact=True)
     core_plan = plan_template_completion(src, compact=True)
-    assert server_plan == core_plan
+    assert server_plan == {**core_plan, "available": True, "ok": True}
 def test_mcp_wrapper_failures_keep_stable_top_level_shape():
     inspected = server.inspect_editable_regions("missing-input.hwp", compact=True)
     assert inspected["regions"] == []

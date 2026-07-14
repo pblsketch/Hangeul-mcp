@@ -27,6 +27,11 @@ def hwp_to_hwpx(hwp_path, out_path: Optional[str] = None) -> str:
     """Convert a binary ``.hwp`` to ``.hwpx`` via Hangul COM (SaveAs)."""
     from hangeul_core.hwp import HwpBridge
 
+    src_probe = Path(hwp_path)
+    if not src_probe.exists():
+        # guard BEFORE any COM work: a missing source used to launch a headless
+        # Hangul and SaveAs an empty .hwpx into the caller's cwd
+        raise RuntimeError(f".hwp source not found: {src_probe}")
     bridge = HwpBridge()
     if not bridge.available():
         raise RuntimeError(

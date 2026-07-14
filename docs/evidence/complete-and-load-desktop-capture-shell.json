@@ -1,0 +1,72 @@
+{
+  "capture": "complete_and_load_desktop",
+  "scenario": "shell-opened (Explorer double-click equivalent) original; pathless current-document flow",
+  "started_at": "2026-07-14T09:36:26.213529+00:00",
+  "runtime": "C:\\Python314\\python.exe",
+  "steps": [
+    {
+      "step": "fixture_copied",
+      "t": 0.0,
+      "original": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-b1-capture-li3ypg6o\\교수학습지도안_원본.hwpx",
+      "sha256": "0381258b8de87d907e81f1d6052100e1e43b46ae80cea5776bd80ebb5cae9237"
+    },
+    {
+      "step": "rot_before_open",
+      "t": 0.1,
+      "documents": [
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\tests\\hwpx template\\14_교수학습 지도안 양식.hwpx",
+          "is_active": false
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 1,
+          "path": "",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.11",
+          "slot": 0,
+          "path": "",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "step": "shell_open_requested",
+      "t": 0.4
+    },
+    {
+      "step": "rot_visibility_poll",
+      "t": 125.0,
+      "automation_visible": false,
+      "documents": [
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\tests\\hwpx template\\14_교수학습 지도안 양식.hwpx",
+          "is_active": false
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 1,
+          "path": "",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.11",
+          "slot": 0,
+          "path": "",
+          "is_active": true
+        }
+      ]
+    }
+  ],
+  "mode": "shell",
+  "outcome": "conditional-not-visible",
+  "note": "hand-opened original never became automation-visible in ROT within 120s — this is the documented R1 conditionality; complete_and_load pathless flow cannot target it. Fallback remains file-mode + open_in_hwp.",
+  "original_sha_unchanged": true,
+  "finished_at": "2026-07-14T09:38:31.220583+00:00"
+}

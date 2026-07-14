@@ -1,8 +1,56 @@
+import asyncio
 import tomllib
 from pathlib import Path
 
 from hangeul_core.capabilities import describe_capabilities
 from hangeul_mcp import server
+
+
+def test_manifest_matches_registered_tools_exactly():
+    """Equality parity guard (not a subset): catches silent drift in BOTH directions.
+
+    Every registered MCP tool must be listed in exactly one manifest bucket,
+    modulo the explicit meta allowlist.
+    """
+    caps = server.describe_capabilities()
+    manifest: set[str] = set()
+    for cap in caps["capabilities"]:
+        manifest |= set(cap["tools"])
+    registered = {tool.name for tool in asyncio.run(server.mcp.list_tools())}
+    meta_allowlist = {"describe_capabilities"}
+    expected = registered - meta_allowlist
+    assert manifest == expected, (
+        f"manifest-only: {sorted(manifest - expected)}; unlisted: {sorted(expected - manifest)}"
+    )
+    counts: dict[str, int] = {}
+    for cap in caps["capabilities"]:
+        for name in cap["tools"]:
+            counts[name] = counts.get(name, 0) + 1
+    duplicated = sorted(name for name, n in counts.items() if n > 1)
+    assert duplicated == [], f"tools listed in more than one bucket: {duplicated}"
+
+
+def test_every_tool_has_nonempty_description():
+    """LLM clients route by tool descriptions; an empty one is a routing dead end."""
+    tools = asyncio.run(server.mcp.list_tools())
+    missing = sorted(tool.name for tool in tools if not (tool.description or "").strip())
+    assert missing == [], f"tools without descriptions: {missing}"
+
+
+def test_own_engine_mail_merge_sits_in_file_bucket():
+    file_cap = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "file_hwpx")
+    assert {"mail_merge", "analyze_formfit", "list_styles"} <= set(file_cap["tools"])
+    delegate_cap = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "delegate_hwpx")
+    assert "mail_merge" not in delegate_cap["tools"], "mail_merge runs on the OWN engine, not python-hwpx"
+    assert {
+        "set_header",
+        "set_footer",
+        "split_merged_cell",
+        "set_page_size",
+        "set_page_margins",
+        "set_columns",
+        "set_page_number",
+    } <= set(delegate_cap["tools"])
 
 
 def test_describe_capabilities_no_server_side_llm():

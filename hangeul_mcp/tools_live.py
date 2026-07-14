@@ -10,7 +10,7 @@ from hangeul_core.hwp.com import list_rot_instances
 from hangeul_core.hwp.live import apply_cells_to_open as _apply_cells_to_open
 from hangeul_core.hwp.live import open_in_hwp as _open_in_hwp
 from hangeul_core.live_timeout import run_with_timeout
-from hangeul_core.runtime_info import attach_ladder, feature_flags, runtime_identity
+from hangeul_core.runtime_info import attach_ladder, feature_flags, live_routes, runtime_identity
 from hangeul_core.hwp.rot_attach import apply_named_fields_exact_path as _apply_named_fields_exact_path
 from hangeul_mcp.live_current import (
     apply_to_current_hwp_document as _apply_to_current_hwp_document,
@@ -20,6 +20,7 @@ from hangeul_mcp.live_current import (
 from hangeul_mcp.live_preview import (
     preview_small_live_label_cells as _preview_small_live_label_cells,
 )
+from hangeul_mcp.tools_file_edit import AddressedEdit, _normalize_addressed_edits
 
 
 def _open_in_hwp_worker(path: str, visible: bool) -> Dict[str, Any]:
@@ -48,16 +49,16 @@ def register_live_tools(mcp) -> Dict[str, Any]:
     def hwp_status() -> Dict[str, Any]:
         """Live COM availability probe — side-effect-free, never launches Hangul.
 
-        connected:false is the NORMAL idle state (no attach is attempted here).
-        `instances` lists automation-visible Hangul instances already in the COM
-        ROT. For live edits, attach by exact path first with `open_in_hwp(path)` or
-        use the saved-`.hwpx` current-document flow (`resolve_current_hwp_document`
-        -> `preview_current_hwp_document` -> `apply_to_current_hwp_document`).
+        connected:false is the NORMAL idle state (no attach is attempted here);
+        `instances` lists automation-visible Hangul instances in the COM ROT.
+        Attach by exact path first (`open_in_hwp(path)`) or use the saved-`.hwpx`
+        current-document flow (resolve -> preview -> apply).
         """
         st = HwpBridge().status()
         instances = list_rot_instances()
         st.update(runtime_identity())
         st["feature_flags"] = feature_flags()
+        st["live_routes"] = live_routes()
         st["instances"] = instances
         st["attach_ladder"] = attach_ladder(
             rot_visible=bool(instances),
@@ -80,8 +81,11 @@ def register_live_tools(mcp) -> Dict[str, Any]:
             )
             st["next"] = (
                 "whole-template completion: inspect_editable_regions(path, compact=true), then "
-                "complete_addressed_template(path, output_path, edits) once; "
-                "small live label:value cell fill only: open_in_hwp(path), "
+                "complete_addressed_template(path, edits, out_path) once; to show it in the open "
+                "Hangul window use complete_and_load (preview_current_hwp_document(edits=[...]) -> "
+                "apply_to_current_hwp_document): the verified copy opens as a new tab, a new file "
+                "is created, the original document stays untouched (plain open_in_hwp may reuse "
+                "the active tab); small live label:value cell fill only: open_in_hwp(path), "
                 "preview_small_live_label_cells(path, values), then apply_small_live_label_cells"
             )
         return st
@@ -94,10 +98,9 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         own. Use this tool to attach by exact path in the automation-visible
         window first, then apply_to_open_hwp / apply_small_live_label_cells. Leaves the
         window open; saves and closes nothing. If Hangul is not running, this
-        launches it — cold start can take tens of seconds
-        (see cold_start/elapsed_seconds in the response). When timeout_seconds > 0,
-        the call runs in an isolated worker and returns timeout_outcome_unknown on
-        timeout because open state may be partially applied.
+        launches it — cold start can take tens of seconds (see
+        cold_start/elapsed_seconds). timeout_seconds > 0 runs in an isolated
+        worker and returns timeout_outcome_unknown (state may be partially applied).
         """
         p = Path(path)
         if p.suffix.lower() not in (".hwp", ".hwpx"):
@@ -115,11 +118,10 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         """One-shot VALUE fill of named form fields (누름틀) in the OPEN Hangul window.
 
         Value insertion only — formatting/styling edits are not supported live;
-        use the file-mode delegate tools and produce a new file instead. Legacy
-        mode is pathless and writes to the active automation document. When
-        path=... is provided, this tool performs broker-targeted exact-path live
-        apply and refuses to guess across multiple automation brokers. This path
-        does not currently expose a timeout_seconds worker-isolation contract.
+        use the file-mode delegate tools instead. Legacy pathless mode writes to
+        the active automation document; with path=... it performs broker-targeted
+        exact-path live apply and refuses to guess across multiple automation
+        brokers. No timeout_seconds worker-isolation contract yet.
         """
 
         if path is not None:
@@ -172,7 +174,10 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         """Preview small live label:value cell fills WITHOUT COM or ROT access.
 
         This is not whole-template completion. For a full lesson plan or other
-        structured form, use compact inspect then complete_addressed_template.
+        structured form, use compact inspect then complete_addressed_template(path,
+        edits, out_path) or the complete_and_load route — the verified NEW file
+        opens as a new tab and the original stays untouched (plain open_in_hwp
+        may reuse the active tab).
         This pure preview does not probe COM ROT or attach candidates; exact-path
         attachment is deferred to apply_small_live_label_cells.
         """
@@ -191,7 +196,9 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         Handles empty label:value cells AND inline blanks (colon "은행명:",
         marker "∘ 프로그램명", checkboxes). Value insertion only — no
         formatting/styling. Not for whole-template completion: use compact inspect
-        plus complete_addressed_template for lesson plans and other full forms.
+        plus complete_addressed_template(path, edits, out_path) or the
+        complete_and_load route — new file created, original untouched, opened
+        as a new tab (plain open_in_hwp may reuse the active tab).
         Attaches to the automation-visible instance on call
         and verifies the requested exact path is active; if not, it opens it there
         when open_if_needed=true. Cold start can take tens of seconds. Preview
@@ -217,26 +224,43 @@ def register_live_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def preview_current_hwp_document(
-        values: Dict[str, str],
+        values: Dict[str, str] | None = None,
         candidate_id: str | None = None,
         mode: str = "auto",
+        edits: list[AddressedEdit] | None = None,
+        output_path: str | None = None,
     ) -> Dict[str, Any]:
         """Preview the saved current `.hwpx` document pathlessly without writing it.
 
-        Saved `.hwp` current documents stay out of v1 scope and return
-        `preview_requires_hwpx`. Successful preview returns the authoritative
+        Pass `values` for small live fills OR `edits` (structural addressed edits)
+        for the complete_and_load route — never both. complete_and_load writes the
+        whole-template completion to a NEW verified file (optional `output_path`,
+        .hwpx, never the original) that apply opens as a new tab; the original
+        document stays untouched and the new path is always returned. Saved `.hwp`
+        returns `preview_requires_hwpx`; success returns the authoritative
         preview_token for `apply_to_current_hwp_document`.
         """
-        return _preview_current_hwp_document(values=values, candidate_id=candidate_id, mode=mode)
+        if edits is not None and not edits:
+            return {"available": True, "ok": False, "state": "empty_edits", "error": "edits must contain at least one addressed edit; pass values for small live fills"}
+        if output_path is not None and edits is None:
+            return {"available": True, "ok": False, "state": "output_path_requires_edits", "error": "output_path only applies to the complete_and_load route; pass edits=[...] with it"}
+        extra: Dict[str, Any] = {}
+        if edits:
+            extra["edits"] = _normalize_addressed_edits(edits)
+        if output_path is not None:
+            extra["output_path"] = output_path
+        return _preview_current_hwp_document(values=dict(values or {}), candidate_id=candidate_id, mode=mode, **extra)
 
     @mcp.tool()
     def apply_to_current_hwp_document(preview_token: str) -> Dict[str, Any]:
         """Apply a previously previewed pathless current-document edit by token only.
 
-        The token is authoritative: this tool accepts no fresh values or target
-        hints, and it revalidates the selected broker and exact target before
-        mutating the live document. This path does not currently expose a
-        timeout_seconds worker-isolation contract.
+        The token is authoritative: no fresh values or target hints, and the
+        selected broker and exact target are revalidated before mutating the live
+        document. complete_and_load tokens instead write the verified completion
+        to the NEW file from the preview and open it as a new tab — the original
+        stays untouched and the created path is returned even if the open fails.
+        This path does not expose a timeout_seconds worker-isolation contract.
         """
         return _apply_to_current_hwp_document(preview_token)
 

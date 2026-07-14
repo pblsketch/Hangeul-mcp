@@ -78,7 +78,7 @@ hangeul-mcp-manage doctor
 # 1) 저장소에서 scripts/install.ps1를 로컬에 저장 또는 내려받기
 # 2) 내용을 검토
 # 3) 로컬 파일로 실행
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Version 0.3.3 -Client all
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Version 0.4.0 -Client all
 ```
 
 설치 뒤에는 관리 CLI로 MCP 등록과 상태 점검을 진행합니다.
@@ -113,7 +113,7 @@ hangeul-mcp-manage rollback
 - `update`는 관리형 install state가 있을 때만 다음 versioned runtime을 설치·검증한 뒤 `current.json`을 전환합니다.
 - `update-config --auto off|notify|daily --channel stable|beta`는 자동 정책을 저장합니다. `daily`는 launcher startup에서 24시간 TTL 기준으로 bounded background update를 스케줄합니다.
 - `rollback`은 `previous_version`이 남아 있는 managed runtime에 대해서만 지원됩니다. 수동 삭제되었거나 손상된 이전 runtime까지 복구를 보장하지는 않습니다.
-- `-Version 0.3.3`처럼 PyPI 버전을 지정한 관리형 설치에서 versioned update와 rollback을 사용할 수 있습니다. Git checkout이나 source bootstrap 설치는 자동으로 덮어쓰지 않으며 `unsupported_install_source`로 멈추는 것이 정상입니다.
+- `-Version 0.4.0`처럼 PyPI 버전을 지정한 관리형 설치에서 versioned update와 rollback을 사용할 수 있습니다. Git checkout이나 source bootstrap 설치는 자동으로 덮어쓰지 않으며 `unsupported_install_source`로 멈추는 것이 정상입니다.
 ### 수동 설치 / 수동 설정 fallback
 
 관리형 설치를 쓰지 않는 경우에는 소스 기준으로 직접 설치하고, 클라이언트 설정에는 **절대 경로의 Python으로 서버 모듈을 호출하는 방식**을 권장합니다.
@@ -242,6 +242,22 @@ resolve_current_hwp_document()
 → apply_to_current_hwp_document(preview_token)
 ```
 
+**풀폼(전체 양식)을 열린 창에서 이어서 끝내고 싶을 때 — `complete_and_load` 하이브리드**
+
+현재문서 흐름은 `values` 대신 구조 주소 `edits` 배열을 받는 `complete_and_load` 라우트를 지원합니다.
+
+```text
+resolve_current_hwp_document()
+→ preview_current_hwp_document(edits=[...addressed edits...], output_path?)
+→ apply_to_current_hwp_document(preview_token)
+```
+
+- 검증된 완성본을 **새 파일**로 만들고(경로는 항상 응답에 반환), 그 파일을 한글에 **새 문서 탭으로 자동으로 엽니다**.
+- 원본 문서는 저장·닫기·재열기 없이 그대로 남습니다(0-touch, 적용 전후 SHA 검증). 새 탭이 앞으로 오며 활성 뷰가 전환됩니다.
+- 자동 열기가 실패해도 완성 파일은 남고, `completed_open_failed`와 수동 열기 안내를 돌려줍니다.
+- 원본 창이 automation-visible이 아니면 완성본이 별도 창/새 인스턴스에 열릴 수 있습니다.
+- `values`와 `edits`를 함께 보내면 fail-closed(`route_conflict`)입니다. 열린 창 셀을 직접 고치는 진짜 in-place 풀폼 편집(`live_addressed_editing`)은 여전히 미지원이며, 데스크톱 QA 게이트 통과 후에만 승격됩니다.
+
 이 흐름은 다음 규칙을 지킵니다.
 
 - v1은 **저장된 `.hwpx` 현재 문서만** 지원합니다.
@@ -263,10 +279,13 @@ resolve_current_hwp_document()
 - current-document 후보의 human-readable picker metadata(`picker_*`) 추가
 - Windows Shell `Start-Process`로 연 기존 `.hwpx`에 `open_if_needed=false`로 값 2건 입력 후 별도 연결 read-back 성공
 - Windows regression artifact template/validator(`docs/evidence/windows-live-regression-template.json`, `scripts/windows_live_regression_harness.py`)
+- **`complete_and_load` 컴포넌트 실기기 캡처 통과(2026-07-14)**: 실제 한글로 작성된 지도안 템플릿에서 검증 완성 → **새 탭으로 열기**(`open_as_new_tab`, `XHwpDocuments.Add`) → 원본 탭 잔존 + 원본 SHA 불변 + fresh read-back 2/2 (`docs/evidence/complete-and-load-desktop-capture-components.json`)
+- 실기기 발견 반영: 일반 `hwp.Open`은 활성 탭을 내비게이션(탭 추가 아님)하므로 완성본 열기는 탭 추가 후 열기로 구현; 합성 zip 픽스처는 실제 한글이 열지 못하므로 데스크톱 캡처는 실제 저작 템플릿 사용
 
 아직 남은 것:
 
-- 사람이 파일 탐색기에서 직접 더블클릭한 문서의 current-document token 흐름 전체 캡처
+- 사람이 파일 탐색기에서 직접 더블클릭한 문서의 current-document token 흐름 전체 캡처 — Shell로 연 창은 automation ROT에 나타나지 않음을 클린 환경에서 재확인(`…-capture-shell.json`)
+- **다중 인스턴스/빈 탭 데스크톱에서 current-document resolver가 `current_document_unsaved`로 차단되는 문제**(`…-capture-automation.json`) — 첫 활성 문서 기준 해소 로직의 후속 개선 필요
 - 복잡한 중첩 표에서의 라이브 셀 매핑 확대 검증
 - 일부 본문 라이브 안전장치의 추가 실기기 실패 주입 검증
 - worker timeout 격리는 현재 `open_in_hwp(timeout_seconds=...)` 경로에만 연결돼 있습니다. 다른 live apply 경로는 아직 동일한 timeout 계약을 약속하지 않습니다.
@@ -283,10 +302,10 @@ resolve_current_hwp_document()
 
 ## 개발 상태와 품질
 
-- 패키지 버전: `0.3.3` (Pre-Alpha)
+- 패키지 버전: `0.4.0` (Pre-Alpha)
 - 런타임 MCP 도구: **59 tools**
 
-- 최신 로컬 검증: **482 passed, 1 skipped**
+- 최신 로컬 검증: **506 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **67개 — 66 pass** + 라이브/스파이크 pending

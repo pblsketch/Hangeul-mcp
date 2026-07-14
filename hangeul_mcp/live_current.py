@@ -4,11 +4,17 @@ import hashlib
 import json
 import secrets
 import time
+from pathlib import Path
 from typing import Any, Dict, List
 
+from hangeul_core.addressed import (
+    complete_addressed_template as _complete_addressed_template,
+    preview_addressed_edits as _preview_addressed_edits,
+)
 from hangeul_core.formfield import form_field_names
 from hangeul_core.hwp import HwpBridge
 from hangeul_core.hwp.com import list_rot_instances, normalize_live_path
+from hangeul_core.hwp.live_attach import open_as_new_tab as _open_completed_in_window
 
 from hangeul_core.hwp.current_document import (
     build_candidate_picker,
@@ -122,6 +128,45 @@ def _named_values(values: Dict[str, str], keys: List[str]) -> Dict[str, str]:
     return {key: values[key] for key in keys if key in values}
 
 
+_COMPLETE_AND_LOAD_NOTE = (
+    "a NEW verified file was created and its path is returned; the original document stays "
+    "open untouched (never saved/closed/reloaded) and the verified copy opens as a new tab "
+    "in front (the active view switches). If the original window is not automation-visible, "
+    "the copy may open in a separate window/new instance."
+)
+
+
+def _sha256_file(path: str | Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _plan_completion_output_path(candidate: Dict[str, Any], requested: str | None):
+    """Pick the NEW output file for complete_and_load; never the original path."""
+    original = Path(str(candidate.get("path") or ""))
+    if requested:
+        out = Path(requested)
+        if out.suffix.lower() != ".hwpx":
+            return None, "output_requires_hwpx"
+        requested_norm = normalize_live_path(str(out))
+        original_norms = {
+            normalize_live_path(str(candidate.get("normalized_path") or "")),
+            normalize_live_path(str(original)),
+        }
+        if requested_norm in original_norms:
+            return None, "output_overwrites_original"
+        if out.exists():
+            return None, "output_exists"
+        return out, None
+    out = original.with_name(f"{original.stem}.completed.hwpx")
+    counter = 2
+    while out.exists() and counter < 100:
+        out = original.with_name(f"{original.stem}.completed-{counter}.hwpx")
+        counter += 1
+    if out.exists():
+        return None, "output_exists"
+    return out, None
+
+
 def _preview_summary(route: str, named_keys: List[str], cell_preview: Dict[str, Any]) -> Dict[str, Any]:
     base = {
         "route": route,
@@ -135,10 +180,94 @@ def _preview_summary(route: str, named_keys: List[str], cell_preview: Dict[str, 
     return base
 
 
+def _preview_complete_and_load(
+    resolution: Dict[str, Any],
+    candidate: Dict[str, Any],
+    edits: List[Dict[str, Any]],
+    output_path: str | None,
+    mode: str,
+) -> Dict[str, Any]:
+    candidates = resolution.get("candidates") or []
+    planned_out, out_error = _plan_completion_output_path(candidate, output_path)
+    if out_error:
+        return {
+            "available": True,
+            "ok": False,
+            "state": out_error,
+            "candidate": candidate,
+            "candidates": candidates,
+        }
+    completion_preview = _preview_addressed_edits(candidate["path"], edits)
+    if not completion_preview.get("ok"):
+        return {
+            "available": True,
+            "ok": False,
+            "state": "addressed_preview_failed",
+            "detail_state": str(completion_preview.get("state") or ""),
+            "unresolved": list(completion_preview.get("unresolved") or []),
+            "counts": dict(completion_preview.get("counts") or {}),
+            "candidate": candidate,
+            "candidates": candidates,
+        }
+    source_sha256 = str(completion_preview.get("source_sha256") or "")
+    preview = {
+        "route": "complete_and_load",
+        "output_path": str(planned_out),
+        "edit_count": len(edits),
+        "counts": dict(completion_preview.get("counts") or {}),
+        "source_sha256": source_sha256,
+        "note": _COMPLETE_AND_LOAD_NOTE,
+    }
+    issued_at = int(time.time())
+    expires_at = issued_at + _PREVIEW_TOKEN_TTL_SECONDS
+    token_payload = {
+        "candidate_id": candidate["candidate_id"],
+        "selection_basis": resolution.get("selection_basis", "none"),
+        "route": "complete_and_load",
+        "normalized_path": candidate.get("normalized_path"),
+        "moniker": candidate.get("moniker"),
+        "slot": candidate.get("slot"),
+        "server_instance_id": _server_instance_id(),
+        "inventory_digest": resolution["inventory_digest"],
+        "value_digest": hashlib.sha256(
+            json.dumps(edits, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "preview_digest": make_preview_digest("complete_and_load", preview),
+        "issued_at": issued_at,
+        "expires_at": expires_at,
+        "write_state": candidate.get("write_state"),
+        "mode": mode,
+        "values": {},
+        "named_field_keys": [],
+        "cell_keys": [],
+        "edits": [dict(item) for item in edits],
+        "output_path": str(planned_out),
+        "source_sha256": source_sha256,
+    }
+    token = _mint_preview_token()
+    _PREVIEW_TOKENS[token] = token_payload
+    return {
+        "available": True,
+        "ok": True,
+        "state": "preview_ready",
+        "server_instance_id": _server_instance_id(),
+        "selection_basis": resolution.get("selection_basis", "none"),
+        "candidate": candidate,
+        "candidates": candidates,
+        "route": "complete_and_load",
+        "preview": preview,
+        "preview_token": token,
+        "issued_at": issued_at,
+        "expires_at": expires_at,
+    }
+
+
 def preview_current_hwp_document(
     values: Dict[str, str],
     candidate_id: str | None = None,
     mode: str = "auto",
+    edits: List[Dict[str, Any]] | None = None,
+    output_path: str | None = None,
 ) -> Dict[str, Any]:
     _purge_preview_tokens()
     resolution = resolve_current_hwp_document()
@@ -193,7 +322,8 @@ def preview_current_hwp_document(
             "candidate": candidate,
             "candidates": resolution.get("candidates") or [],
         }
-    if candidate.get("write_state") == "read_only":
+    if candidate.get("write_state") == "read_only" and not edits:
+        # complete_and_load only READS the original, so read-only must not block it.
         return {
             "available": True,
             "ok": False,
@@ -201,11 +331,15 @@ def preview_current_hwp_document(
             "candidate": candidate,
             "candidates": resolution.get("candidates") or [],
         }
-    field_names = form_field_names(candidate["path"])
-    cell_preview = preview_cells_to_open(candidate["path"], values)
-    route_plan = plan_preview_route(values, field_names=field_names, cell_preview=cell_preview)
+    if edits:
+        field_names: List[str] = []
+        cell_preview: Dict[str, Any] = {}
+    else:
+        field_names = form_field_names(candidate["path"])
+        cell_preview = preview_cells_to_open(candidate["path"], values)
+    route_plan = plan_preview_route(values, field_names=field_names, cell_preview=cell_preview, edits=edits)
     if route_plan["route"] == "route_conflict":
-        return {
+        response = {
             "available": True,
             "ok": False,
             "state": "route_conflict",
@@ -215,6 +349,12 @@ def preview_current_hwp_document(
             "named_field_keys": route_plan["named_field_keys"],
             "cell_keys": route_plan["cell_keys"],
         }
+        if route_plan.get("input_conflict"):
+            response["input_conflict"] = route_plan["input_conflict"]
+            response["error"] = "pass either values (live small fills) or edits (complete_and_load), not both"
+        return response
+    if route_plan["route"] == "complete_and_load":
+        return _preview_complete_and_load(resolution, candidate, list(edits or []), output_path, mode)
     if route_plan["route"] == "mixed":
         return {
             "available": True,
@@ -278,6 +418,169 @@ def _apply_cell_route(candidate: Dict[str, Any], token: Dict[str, Any]) -> Dict[
     return apply_cells_to_open(candidate["path"], values)
 
 
+def _apply_complete_and_load(preview_token: str, token: Dict[str, Any], candidate: Dict[str, Any]) -> Dict[str, Any]:
+    output_path = str(token.get("output_path") or "")
+    edits = [dict(item) for item in token.get("edits") or []]
+    if Path(output_path).exists():
+        return {
+            "available": True,
+            "ok": False,
+            "state": "output_exists",
+            "output_path": output_path,
+            "candidate": candidate,
+        }
+    original_path = str(candidate.get("path") or "")
+    try:
+        original_sha_before = _sha256_file(original_path)
+    except OSError as exc:
+        return {
+            "available": True,
+            "ok": False,
+            "state": "io_error",
+            "output_path": output_path,
+            "candidate": candidate,
+            "error": f"could not read the original for hashing: {exc}",
+        }
+    previewed_sha = str(token.get("source_sha256") or "")
+    if previewed_sha and original_sha_before != previewed_sha:
+        # the reviewed audit no longer describes this file — never complete blind
+        _PREVIEW_TOKENS.pop(preview_token, None)
+        return {
+            "available": True,
+            "ok": False,
+            "state": "stale_preview",
+            "output_path": output_path,
+            "original_sha256": original_sha_before,
+            "previewed_sha256": previewed_sha,
+            "candidate": candidate,
+            "next": "the original changed after preview; call preview_current_hwp_document(edits=...) again",
+        }
+    # complete into a unique sibling temp file, then publish atomically (no replace)
+    tmp_path = Path(f"{output_path}.{secrets.token_hex(4)}.part")
+
+    def _discard_tmp() -> None:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    try:
+        completion = _complete_addressed_template(original_path, edits, str(tmp_path), verify=True)
+    except OSError as exc:
+        _discard_tmp()
+        return {
+            "available": True,
+            "ok": False,
+            "state": "io_error",
+            "output_path": output_path,
+            "candidate": candidate,
+            "error": str(exc),
+        }
+    if not completion.get("ok"):
+        # discard any partially written temp output; the token stays usable for retry
+        partial_output_removed = tmp_path.exists()
+        _discard_tmp()
+        return {
+            "available": True,
+            "ok": False,
+            "state": "complete_failed",
+            "detail_state": str(completion.get("state") or ""),
+            "unresolved": list(completion.get("unresolved") or []),
+            "failures": list(completion.get("failures") or []),
+            "counts": dict(completion.get("counts") or {}),
+            "partial_output_removed": partial_output_removed,
+            "output_path": output_path,
+            "candidate": candidate,
+        }
+    original_sha_after = _sha256_file(original_path)
+    completion_summary = {
+        "state": completion.get("state"),
+        "counts": dict(completion.get("counts") or {}),
+        "coverage_ratio": completion.get("coverage_ratio"),
+        "source_sha256": completion.get("source_sha256"),
+        "target_sha256": completion.get("target_sha256"),
+    }
+    if original_sha_before != original_sha_after:
+        _discard_tmp()
+        _PREVIEW_TOKENS.pop(preview_token, None)
+        return {
+            "available": True,
+            "ok": False,
+            "state": "original_modified_during_completion",
+            "output_path": output_path,
+            "original_sha256_before": original_sha_before,
+            "original_sha256_after": original_sha_after,
+            "completion": completion_summary,
+            "candidate": candidate,
+            "error": "the original file changed while completing; result discarded — re-preview and retry",
+        }
+    try:
+        # exclusive create = atomic no-replace publish (portable)
+        with open(output_path, "xb") as published:
+            published.write(tmp_path.read_bytes())
+    except FileExistsError:
+        _discard_tmp()
+        return {
+            "available": True,
+            "ok": False,
+            "state": "output_exists",
+            "output_path": output_path,
+            "candidate": candidate,
+        }
+    except OSError as exc:
+        _discard_tmp()
+        return {
+            "available": True,
+            "ok": False,
+            "state": "io_error",
+            "output_path": output_path,
+            "candidate": candidate,
+            "error": str(exc),
+        }
+    _discard_tmp()
+    # the verified output file exists now, so the token must never replay
+    _PREVIEW_TOKENS.pop(preview_token, None)
+    base = {
+        "available": True,
+        "candidate": candidate,
+        "route": "complete_and_load",
+        "output_path": output_path,
+        "original_sha256": original_sha_before,
+        "original_untouched": True,
+        "completion": completion_summary,
+        "note": _COMPLETE_AND_LOAD_NOTE,
+    }
+    open_result = _open_completed_in_window(output_path, visible=True)
+    open_summary = {
+        key: open_result.get(key)
+        for key in (
+            "available",
+            "connected",
+            "ok",
+            "state",
+            "active_document",
+            "attached_existing",
+            "opened",
+            "cold_start",
+            "elapsed_seconds",
+            "error",
+        )
+        if key in open_result
+    }
+    if open_result.get("ok"):
+        return {**base, "ok": True, "state": "completed_and_loaded", "open": open_summary}
+    return {
+        **base,
+        "ok": False,
+        "state": "completed_open_failed",
+        "open": open_summary,
+        "next": (
+            f"the verified file was created at {output_path}; automatic open failed — "
+            "open it manually or call open_in_hwp(output_path)"
+        ),
+    }
+
+
 def _normalize_apply_error(route: str, result: Dict[str, Any]) -> Dict[str, Any]:
     state = result.get("state")
     if state == "reload_blocked_existing":
@@ -322,9 +625,11 @@ def apply_to_current_hwp_document(preview_token: str) -> Dict[str, Any]:
     if refresh_state != "ok":
         return {"available": True, "ok": False, "state": refresh_state, "candidates": candidates}
     candidate = next(item for item in candidates if item.get("candidate_id") == token.get("candidate_id"))
-    if candidate.get("write_state") == "read_only" and token.get("write_state") != "read_only":
-        return {"available": True, "ok": False, "state": "read_only", "candidate": candidate}
     route = str(token.get("route") or "")
+    if route != "complete_and_load" and candidate.get("write_state") == "read_only" and token.get("write_state") != "read_only":
+        return {"available": True, "ok": False, "state": "read_only", "candidate": candidate}
+    if route == "complete_and_load":
+        return _apply_complete_and_load(preview_token, token, candidate)
     if route == "named_field":
         result = _apply_named_route(candidate, token)
         if not result.get("ok"):

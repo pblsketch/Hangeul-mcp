@@ -17,6 +17,7 @@ from hangeul_core.markpen import detect_markpen
 from hangeul_core.owpml import HwpxPackage
 from hangeul_core.pii import scan_text as _scan_pii
 from hangeul_core.understand import understand
+from hangeul_mcp.envelope import enveloped
 
 
 def _field_dict(f) -> Dict[str, Any]:
@@ -36,10 +37,13 @@ def _field_dict(f) -> Dict[str, Any]:
 def register_core_tools(mcp) -> Dict[str, Any]:
     @mcp.tool()
     def describe_capabilities() -> Dict[str, Any]:
+        """Report per-capability availability, tool buckets, and runtime identity for this PC."""
         return _describe_capabilities()
 
     @mcp.tool()
+    @enveloped
     def detect_format(path: str) -> Dict[str, Any]:
+        """Detect whether a path is HWPX (zip+mimetype), binary HWP, or unknown."""
         p = Path(path)
         if not p.exists():
             return {"format": "unknown", "ok": False, "reason": "file not found"}
@@ -54,7 +58,9 @@ def register_core_tools(mcp) -> Dict[str, Any]:
         return {"format": "unknown", "ok": False}
 
     @mcp.tool()
+    @enveloped
     def analyze_form(path: str) -> Dict[str, Any]:
+        """Detect fillable fields in FILE MODE: labels, inline blanks, placeholders, checkboxes, form fields."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -71,6 +77,7 @@ def register_core_tools(mcp) -> Dict[str, Any]:
         return {"format": "hwpx", "fields": [_field_dict(f) for f in fields]}
 
     @mcp.tool()
+    @enveloped
     def fill_form(
         path: str,
         values: Dict[str, str],
@@ -83,6 +90,7 @@ def register_core_tools(mcp) -> Dict[str, Any]:
         dry_run: bool = False,
         backup: bool = False,
     ) -> Dict[str, Any]:
+        """Fill detected named/label fields and write a NEW byte-preserving HWPX copy (file mode)."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -111,7 +119,9 @@ def register_core_tools(mcp) -> Dict[str, Any]:
         }
 
     @mcp.tool()
+    @enveloped
     def scan_pii(path: str) -> Dict[str, Any]:
+        """Scan extracted document text for Korean PII patterns and return masked findings."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -123,7 +133,9 @@ def register_core_tools(mcp) -> Dict[str, Any]:
         }
 
     @mcp.tool()
+    @enveloped
     def analyze_formfit(path: str, values: Dict[str, str]) -> Dict[str, Any]:
+        """Estimate overflow/fit risk for candidate values against detected field capacity."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -132,6 +144,7 @@ def register_core_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def extract_text(path: str) -> str:
+        """Extract plain document text from an HWPX file (returns a string)."""
         return _extract_text(path)
 
     return {

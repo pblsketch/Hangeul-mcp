@@ -86,6 +86,112 @@ def _ensure_active_document(hwp, path: str | Path, *, open_if_needed: bool) -> T
     }
 
 
+def open_as_new_tab(path: str | Path, *, visible: bool = True) -> Dict:
+    """Open *path* as a NEW TAB in the automation window, preserving existing tabs.
+
+    Real-device capture (2026-07-14) showed plain ``hwp.Open`` NAVIGATES the
+    active tab away from its current document instead of adding one, so the
+    complete_and_load contract ("the original stays open") requires adding a
+    tab first. If the tab cannot be added (verified by document count), this
+    FAILS CLOSED with ``new_tab_unavailable`` instead of navigating — a plain
+    open here could close/replace the caller's active document.
+    Saves and closes nothing.
+    """
+    p = Path(path)
+    if not p.exists():
+        return {
+            "available": True,
+            "ok": False,
+            "state": "not_found",
+            "requested_path": str(p),
+            "error": f"file not found: {p}",
+        }
+    Hwp, err = load_pyhwpx()
+    if err:
+        return err
+    started = time.monotonic()
+    cold_start = not list_rot_instances()
+    try:
+        hwp = Hwp(new=False, visible=visible, on_quit=False)
+    except Exception as exc:
+        return {
+            "available": True,
+            "connected": False,
+            "state": "connect_failed",
+            "requested_path": str(p),
+            "error": str(exc),
+        }
+    previous_mode = suppress_dialogs(hwp)
+    added_tab = False
+    try:
+        if _same_doc(_active_document_path(hwp), p) and _has_active_exact_path(hwp, p):
+            return {
+                "available": True,
+                "connected": True,
+                "ok": True,
+                "state": "attached_existing",
+                "attached_existing": True,
+                "opened": False,
+                "added_tab": False,
+                "requested_path": str(p),
+                "active_document": _active_document_path(hwp),
+                "cold_start": cold_start,
+                "elapsed_seconds": round(time.monotonic() - started, 1),
+            }
+        try:
+            count_before = int(hwp.XHwpDocuments.Count)
+            hwp.XHwpDocuments.Add(1)  # 1 = new tab in the current window; becomes active
+            added_tab = int(hwp.XHwpDocuments.Count) == count_before + 1
+        except Exception:
+            added_tab = False
+        if not added_tab:
+            # fail closed: a plain Open would navigate (and effectively close)
+            # the caller's active document instead of adding a tab
+            return {
+                "available": True,
+                "connected": True,
+                "ok": False,
+                "state": "new_tab_unavailable",
+                "added_tab": False,
+                "requested_path": str(p),
+                "cold_start": cold_start,
+                "error": (
+                    "could not add a new tab (XHwpDocuments.Add); refusing plain open "
+                    "because it would navigate the active document — open the file manually"
+                ),
+            }
+        try:
+            opened, active = _open_exact_path(hwp, p)
+        except Exception as exc:
+            return {
+                "available": True,
+                "connected": True,
+                "ok": False,
+                "state": "open_failed",
+                "added_tab": added_tab,
+                "requested_path": str(p),
+                "cold_start": cold_start,
+                "error": str(exc),
+            }
+    finally:
+        restore_dialogs(hwp, previous_mode)
+    ok = opened and _same_doc(active, p) and _has_active_exact_path(hwp, p)
+    state = "opened_new_tab" if ok else "open_failed"
+    return {
+        "available": True,
+        "connected": True,
+        "ok": ok,
+        "state": state,
+        "added_tab": added_tab,
+        "opened": opened,
+        "requested_path": str(p),
+        "active_document": active,
+        "cold_start": cold_start,
+        "elapsed_seconds": round(time.monotonic() - started, 1),
+        **({"error": f"could not make {p} the active document in the automation instance"} if not ok else {}),
+    }
+
+
 def open_in_hwp(path: str | Path, *, visible: bool = True) -> Dict:
     """Open *path* in a CONTROLLABLE Hangul window.
 

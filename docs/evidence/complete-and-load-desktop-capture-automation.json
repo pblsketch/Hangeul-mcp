@@ -1,0 +1,91 @@
+{
+  "capture": "complete_and_load_desktop",
+  "scenario": "shell-opened (Explorer double-click equivalent) original; pathless current-document flow",
+  "started_at": "2026-07-14T09:43:28.105166+00:00",
+  "runtime": "C:\\Python314\\python.exe",
+  "steps": [
+    {
+      "step": "fixture_copied",
+      "t": 0.1,
+      "original": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-b1-capture-y7as9us3\\교수학습지도안_원본.hwpx",
+      "sha256": "88cf7334a1457747a7a8946c7cb8f80e97e5cddb33d2e35fb37def9e0c15676c",
+      "edits": [
+        {
+          "target": "t1.r0.c1.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-1",
+          "expected_text": "{교과 명}"
+        },
+        {
+          "target": "t1.r0.c3.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-2",
+          "expected_text": "{학년-학기}"
+        }
+      ]
+    },
+    {
+      "step": "rot_before_open",
+      "t": 0.2,
+      "documents": [
+        {
+          "moniker": "!HwpObject.130.3",
+          "slot": 0,
+          "path": "",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.2",
+          "slot": 0,
+          "path": "",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\tests\\hwpx template\\14_교수학습 지도안 양식.hwpx",
+          "is_active": false
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 1,
+          "path": "",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.11",
+          "slot": 0,
+          "path": "",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "step": "automation_open",
+      "t": 2.5,
+      "state": "opened_new",
+      "ok": true,
+      "cold_start": false,
+      "elapsed": 0.5
+    },
+    {
+      "step": "resolve",
+      "t": 2.6,
+      "state": "current_document_unsaved",
+      "n_candidates": 5
+    },
+    {
+      "step": "preview",
+      "t": 2.7,
+      "state": "current_document_unsaved",
+      "route": null,
+      "output_path": null
+    }
+  ],
+  "mode": "automation",
+  "outcome": "fail-preview",
+  "preview_state": "current_document_unsaved",
+  "finished_at": "2026-07-14T09:43:30.758841+00:00"
+}

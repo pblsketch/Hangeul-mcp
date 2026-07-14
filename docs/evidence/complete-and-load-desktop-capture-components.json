@@ -1,0 +1,266 @@
+{
+  "capture": "complete_and_load_desktop",
+  "scenario": "shell-opened (Explorer double-click equivalent) original; pathless current-document flow",
+  "started_at": "2026-07-14T11:04:30.180121+00:00",
+  "runtime": "C:\\Python314\\python.exe",
+  "steps": [
+    {
+      "step": "fixture_copied",
+      "t": 0.1,
+      "original": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-b1-capture-4j5mska4\\교수학습지도안_원본.hwpx",
+      "sha256": "88cf7334a1457747a7a8946c7cb8f80e97e5cddb33d2e35fb37def9e0c15676c",
+      "edits": [
+        {
+          "target": "t1.r0.c1.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-1",
+          "expected_text": "{교과 명}"
+        },
+        {
+          "target": "t1.r0.c3.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-2",
+          "expected_text": "{학년-학기}"
+        },
+        {
+          "target": "t1.r0.c5.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-3",
+          "expected_text": "{쪽}"
+        },
+        {
+          "target": "t1.r1.c1.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-4",
+          "expected_text": "{20XX.XX.XX.}"
+        },
+        {
+          "target": "t1.r1.c3.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-5",
+          "expected_text": "{반}"
+        },
+        {
+          "target": "t1.r1.c5.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-6",
+          "expected_text": "{홍길동}"
+        },
+        {
+          "target": "t1.r2.c2.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-7",
+          "expected_text": "{대단원 명}"
+        },
+        {
+          "target": "t1.r3.c2.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-8",
+          "expected_text": "{소단원 명}"
+        },
+        {
+          "target": "t1.r5.c1.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-9",
+          "expected_text": "{학습 형태}"
+        },
+        {
+          "target": "t1.r5.c6.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-10",
+          "expected_text": "{교실}"
+        },
+        {
+          "target": "t2.r1.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-11",
+          "expected_text": "{자료}"
+        },
+        {
+          "target": "t2.r2.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-12",
+          "expected_text": "{자료}"
+        },
+        {
+          "target": "t2.r3.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-13",
+          "expected_text": "{자료}"
+        },
+        {
+          "target": "t2.r4.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-14",
+          "expected_text": "{자료}"
+        },
+        {
+          "target": "t2.r5.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-15",
+          "expected_text": "{자료}"
+        },
+        {
+          "target": "t2.r6.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-16",
+          "expected_text": "{자료}"
+        },
+        {
+          "target": "t2.r7.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-17",
+          "expected_text": "{자료}"
+        },
+        {
+          "target": "t2.r8.c4.p1",
+          "kind": "paragraph",
+          "operation": "replace_text",
+          "value": "캡처검증-18",
+          "expected_text": "{자료}"
+        }
+      ]
+    },
+    {
+      "step": "rot_before_open",
+      "t": 0.3,
+      "documents": [
+        {
+          "moniker": "!HwpObject.130.4",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.3",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.2",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "step": "open_original",
+      "t": 3.4,
+      "state": "opened_new_tab",
+      "ok": true
+    },
+    {
+      "step": "complete",
+      "t": 3.6,
+      "ok": true,
+      "state": "complete",
+      "counts": {
+        "requested": 18,
+        "resolved": 18,
+        "applied": 18,
+        "verified": 18,
+        "skipped": 0,
+        "unresolved": 0
+      }
+    },
+    {
+      "step": "open_completed",
+      "t": 4.1,
+      "state": "opened_new_tab",
+      "ok": true,
+      "active_document": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-b1-capture-4j5mska4\\교수학습지도안_완성본.hwpx"
+    },
+    {
+      "step": "rot_after",
+      "t": 4.3,
+      "documents": [
+        {
+          "moniker": "!HwpObject.130.4",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.3",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.2",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": true
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 0,
+          "path": "E:\\github\\Hangeul-mcp\\missing-input.hwpx",
+          "is_active": false
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 1,
+          "path": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-b1-capture-4j5mska4\\교수학습지도안_원본.hwpx",
+          "is_active": false
+        },
+        {
+          "moniker": "!HwpObject.130.1",
+          "slot": 2,
+          "path": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-b1-capture-4j5mska4\\교수학습지도안_완성본.hwpx",
+          "is_active": true
+        }
+      ]
+    },
+    {
+      "step": "checks",
+      "t": 4.3,
+      "original_opened_in_automation_window": true,
+      "completion_verified": true,
+      "original_sha_unchanged_0touch": true,
+      "completed_opened_ok": true,
+      "completed_is_active_new_tab": true,
+      "original_still_in_XHwpDocuments": true,
+      "fresh_readback_verified": true
+    }
+  ],
+  "mode": "components",
+  "outcome": "pass-components",
+  "checks": {
+    "original_opened_in_automation_window": true,
+    "completion_verified": true,
+    "original_sha_unchanged_0touch": true,
+    "completed_opened_ok": true,
+    "completed_is_active_new_tab": true,
+    "original_still_in_XHwpDocuments": true,
+    "fresh_readback_verified": true
+  },
+  "output_path": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-b1-capture-4j5mska4\\교수학습지도안_완성본.hwpx",
+  "note": "component-level B1 evidence; the pathless token flow is separately blocked on multi-instance desktops (see automation variant)",
+  "finished_at": "2026-07-14T11:04:34.430478+00:00"
+}

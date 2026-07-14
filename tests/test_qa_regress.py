@@ -73,12 +73,14 @@ def test_occupancy_resolves_merged_covered_coordinate():
     assert _value_cell(label, grid) is merged
 
 
-def test_convert_wraps_com_exception_as_runtimeerror(monkeypatch):
+def test_convert_wraps_com_exception_as_runtimeerror(monkeypatch, tmp_path):
     monkeypatch.setattr(HwpBridge, "available", staticmethod(lambda: True))
 
     def boom(self, *args, **kwargs):
         raise ValueError("dispatch failed")
 
     monkeypatch.setattr(HwpBridge, "connect", boom)
+    existing = tmp_path / "x.hwp"
+    existing.write_bytes(b"HWP binary placeholder")
     with pytest.raises(RuntimeError, match="conversion via Hangul COM failed"):
-        hwp_to_hwpx("x.hwp")
+        hwp_to_hwpx(str(existing))

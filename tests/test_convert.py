@@ -11,10 +11,12 @@ def test_ensure_hwpx_passthrough():
     assert ensure_hwpx("some/form.hwpx").endswith(".hwpx")
 
 
-def test_hwp_conversion_requires_hangul(monkeypatch):
+def test_hwp_conversion_requires_hangul(monkeypatch, tmp_path):
     monkeypatch.setattr(HwpBridge, "available", staticmethod(lambda: False))
+    existing = tmp_path / "form.hwp"
+    existing.write_bytes(b"HWP binary placeholder")
     with pytest.raises(RuntimeError, match="requires Windows"):
-        hwp_to_hwpx("form.hwp")
+        hwp_to_hwpx(str(existing))
 
 
 def test_analyze_form_hwp_graceful_without_hangul(monkeypatch, tmp_path):

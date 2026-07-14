@@ -79,6 +79,37 @@ def test_capabilities_live_note_states_boundaries():
     assert "value" in note and ("format" in note or "styling" in note)
     assert "connected:false" in note or "side-effect" in note
 
+def test_hwp_status_exposes_live_routes_full_form_hybrid():
+    st = server.hwp_status()
+    routes = st.get("live_routes")
+    assert isinstance(routes, list) and routes, "live_routes must be an additive route inventory"
+    by_name = {r["route"]: r for r in routes}
+    hybrid = by_name["hybrid_complete_then_open"]
+    flow = hybrid["flow"]
+    assert "complete_addressed_template" in flow and "open_in_hwp" in flow
+    honesty = hybrid["honesty"].lower()
+    assert "new" in honesty and "file" in honesty, "must disclose that a new file is created"
+    assert "untouched" in honesty, "must disclose the original document is untouched"
+    assert "new tab" in honesty, "must disclose the verified copy opens as a new tab (view switches)"
+    assert "automation-visible" in honesty, "window placement is conditional on automation visibility"
+    assert "path" in honesty, "must promise the created path is always returned"
+    # additive only: the boolean contract stays locked
+    assert st["feature_flags"]["live_addressed_editing"] is False
+
+
+def test_full_form_guidance_is_not_a_dead_end():
+    st = server.hwp_status()
+    nxt = st.get("next", "")
+    assert "open_in_hwp" in nxt, "whole-template guidance must route back to the open window"
+    assert "new tab" in nxt and "untouched" in nxt
+    tools = _tool_descriptions()
+    for name in ("preview_small_live_label_cells", "apply_small_live_label_cells"):
+        desc = tools[name].lower()
+        assert "whole-template" in desc, f"{name} must keep the whole-template boundary"
+        assert "open_in_hwp" in desc, f"{name} must offer the hybrid follow-up, not a dead end"
+        assert "untouched" in desc, f"{name} must disclose the original stays untouched"
+
+
 def test_hwp_status_exposes_runtime_observability_fields():
     caps = server.describe_capabilities()
     st = server.hwp_status()

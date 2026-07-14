@@ -239,7 +239,24 @@ def plan_preview_route(
     *,
     field_names: Iterable[str],
     cell_preview: Dict[str, Any],
+    edits: List[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
+    if edits:
+        if values:
+            return {
+                "route": "route_conflict",
+                "named_field_keys": [],
+                "cell_keys": [],
+                "overlap_keys": [],
+                "input_conflict": "values_and_edits",
+            }
+        return {
+            "route": "complete_and_load",
+            "named_field_keys": [],
+            "cell_keys": [],
+            "overlap_keys": [],
+            "edit_count": len(edits),
+        }
     named_keys = matched_named_field_keys(values, field_names)
     cell_keys = matched_cell_keys(values, cell_preview)
     overlap = sorted(set(named_keys) & set(cell_keys))

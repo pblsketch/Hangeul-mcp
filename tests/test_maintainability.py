@@ -33,6 +33,7 @@ def test_entrypoints_remain_facades():
 
 def test_byo_ai_harness_modules_remain_small():
     modules = [
+        "hangeul_mcp/envelope.py",
         "hangeul_mcp/tools_core.py",
         "hangeul_mcp/tools_read.py",
         "hangeul_mcp/tools_delegate.py",

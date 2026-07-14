@@ -139,12 +139,12 @@ Hangeul-mcp/
 ### v2 (COM 라이브 — Windows+한글 전용)
 - `hwp_status() -> {available, connected, instances:[...], attach_boundary, first_call_hint, version}`  (미지원 환경이면 available:false)
 - `open_in_hwp(path) -> {ok, opened, attached_existing, active_document, cold_start, elapsed_seconds}`
-- `preview_cells_to_open_hwp(path, values) -> {count, targets:[...], attach_metadata}`  (문서를 쓰지 않고 exact-path resolver 결과를 먼저 보여 줌)
+- `preview_small_live_label_cells(path, values) -> {count, targets:[...], attach_metadata}`  (문서를 쓰지 않고 exact-path resolver 결과를 먼저 보여 줌)
 - `apply_to_open_hwp(path, values)` / `apply_to_open_hwp(values) -> {applied:[], skipped:[], opened?, attached_existing?}`
   - pathful branch는 broker-targeted exact-path live apply다
   - pathless branch는 이미 제어 중인 active 문서에만 쓰는 legacy 경로다
   - 누름틀/셀필드 없는 양식이면 `needs_field_registration` 반환(안내)
-- `apply_cells_to_open_hwp(path, values, open_if_needed)` — preview의 attach metadata로 same-doc가 확인된 경우에만 셀 쓰기
+- `apply_small_live_label_cells(path, values, open_if_needed)` — preview의 attach metadata로 same-doc가 확인된 경우에만 셀 쓰기
 - `resolve_current_hwp_document() -> {state, selection_basis, candidates:[...]}`
 - `preview_current_hwp_document(values, candidate_id=None, mode="auto") -> {state, route, preview_token?}`
   - saved `.hwpx` current document만 v1 범위에 포함

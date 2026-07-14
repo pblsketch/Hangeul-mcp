@@ -1,5 +1,11 @@
 # 갭 분석 — 선행사례(2-2) 지원 vs Hangeul-mcp 미지원
 
+> **[상태: v0.1.0 시점 스냅샷 — 현행 아님]** 이 문서는 2026-07-09 조사 시점(v0.1.0)의
+> 갭 목록이며 이후 갱신되지 않았다. 현재 지원 범위의 SSOT는 `HANDOFF.md`(상태 매트릭스),
+> `docs/prd.json`, README 상태표이고, 개선 계획은
+> `.omo/plans/hangeul-mcp-usability-live-editing-ralplan.md`를 본다. 아래 항목 중 상당수
+> (표 병합/해제·머리말/꼬리말·용지/여백·PNG 프리뷰·문서 생성 등)는 이미 구현되었다.
+
 > `docs/research-strategy.md` 2-2절의 AI 에이전트/MCP/Skill 선행사례들이 지원하지만
 > **Hangeul-mcp v0.1.0이 아직 안 하는 것**을 정밀 목록화. (조사일 2026-07-09)
 

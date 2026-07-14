@@ -109,6 +109,7 @@ def _normalize_addressed_edits(edits: list[AddressedEdit]) -> list[dict]:
 def register_file_edit_tools(mcp) -> Dict[str, Any]:
     @mcp.tool()
     def search_and_replace(path: str, find: str, replace: str, out_path: str, scope: str = "") -> Dict[str, Any]:
+        """One-shot text replace written to a NEW file; fails closed on 2+ matches unless scope='all'."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -121,6 +122,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def batch_replace(path: str, replacements: Dict[str, str], out_path: str) -> Dict[str, Any]:
+        """Apply multiple find->replace pairs to a NEW file in one pass (text substitution only)."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -130,6 +132,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def preview_search_and_replace(path: str, find: str, replace: str) -> Dict[str, Any]:
+        """Preview a text replace as an edit session (entry/count audit) without writing output."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -138,6 +141,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def preview_batch_replace(path: str, replacements: Dict[str, str]) -> Dict[str, Any]:
+        """Preview multiple find->replace pairs as one edit session without writing output."""
         try:
             path = ensure_hwpx(path)
         except RuntimeError as exc:
@@ -146,6 +150,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def apply_edit_session(session_id: str, out_path: str = "") -> Dict[str, Any]:
+        """Write a previewed edit session to a NEW file with journal/snapshot for restore."""
         try:
             session = _apply_edit_session(session_id, out_path or None)
         except Exception as exc:
@@ -256,6 +261,7 @@ def register_file_edit_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def restore_edit_session(journal_path: str) -> Dict[str, Any]:
+        """Restore the pre-apply snapshot of an applied edit session (file-mode undo)."""
         try:
             result = _restore_edit_session(journal_path)
         except Exception as exc:
