@@ -224,6 +224,9 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
             fresh = Hwp(new=False, visible=visible, on_quit=False)
             fresh_mode = suppress_dialogs(fresh)
             try:
+                _active, _opened, fresh_error = _ensure_active_document(fresh, path, open_if_needed=False)
+                if fresh_error is not None:
+                    raise RuntimeError(f"read-back connection is not anchored on the target document: {fresh_error.get('state')}")
                 by_target = {t["target"]: t for t in targets}
                 failed = []
                 for entry in applied:
@@ -255,8 +258,9 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
     if aborted_error:
         out["error"] = aborted_error
     if not ok:
-        out["recovery"] = _recovery(len(applied))
         out["next"] = HYBRID_FALLBACK
+        if applied:  # nothing to roll back when no cell was replaced
+            out["recovery"] = _recovery(len(applied))
     return out
 
 

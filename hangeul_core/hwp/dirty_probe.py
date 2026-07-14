@@ -48,7 +48,10 @@ def probe_document_dirty(path: str | Path, *, visible: bool = True) -> Dict:
             document = hwp.XHwpDocuments.Item(index)
             full_name = str(getattr(document, "FullName", "") or "")
             if normalize_live_path(full_name) == requested:
-                matches.append(int(getattr(document, "Modified", 1) or 0))
+                raw = getattr(document, "Modified", None)
+                # anything that is not a readable numeric/boolean flag counts as
+                # dirty — the docstring promises strictly fail-closed reads
+                matches.append(int(raw) if isinstance(raw, (int, bool)) else 1)
     except Exception as exc:
         return {
             "available": True,

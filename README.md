@@ -317,7 +317,7 @@ resolve_current_hwp_document()
 - 패키지 버전: `0.4.0` (Pre-Alpha)
 - 런타임 MCP 도구: **59 tools**
 
-- 최신 로컬 검증: **529 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
+- 최신 로컬 검증: **536 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **71개 — 70 pass** + 라이브/스파이크 pending

@@ -375,8 +375,10 @@ def preview_current_hwp_document(
         }
         and not candidate_id
     ):
-        # An explicit candidate_id is judged on that candidate's own state below;
-        # blockers from other instances' actives must not veto it.
+        # An explicit candidate_id is judged on that candidate's own state below
+        # (saved/.hwpx/write_state); blockers from other instances' actives must
+        # not veto it. Identity proof is deliberately DEFERRED to apply, where
+        # refresh_candidate_state requires is_active + active_identity_proven.
         return {
             "available": True,
             "ok": False,

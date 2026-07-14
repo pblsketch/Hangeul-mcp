@@ -54,6 +54,14 @@ def test_probe_any_dirty_slot_wins(monkeypatch, tmp_path):
     assert res["dirty"] is True and res["modified_flags"] == [0, 1]
 
 
+def test_probe_treats_unreadable_modified_flag_as_dirty(monkeypatch, tmp_path):
+    src = tmp_path / "doc.hwpx"
+    monkeypatch.setattr(dp, "load_pyhwpx", lambda: (_fake_hwp_factory([_FakeDoc(str(src), None)]), None))
+    res = probe_document_dirty(src)
+    assert res["state"] == "probed"
+    assert res["dirty"] is True  # None/unreadable flag must never read as clean
+
+
 def test_probe_fails_closed_when_not_attached(monkeypatch, tmp_path):
     monkeypatch.setattr(dp, "load_pyhwpx", lambda: (_fake_hwp_factory([]), None))
     res = probe_document_dirty(tmp_path / "doc.hwpx")

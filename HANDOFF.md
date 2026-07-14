@@ -19,9 +19,9 @@
 
 | 상태 | 의미 | 해당 영역 |
 |---|---|---|
-| `complete` | 코드 + 테스트 + 관측 산출물 모두 존재 | v1 헤드리스 코어(인식·바이트보존 채우기·읽기·검증·PII·formfit), 텍스트치환(OWN), text edit-session preview/apply/restore, mail_merge, capability manifest |
+| `complete` | 코드 + 테스트 + 관측 산출물 모두 존재 | v1 헤드리스 코어(인식·바이트보존 채우기·읽기·검증·PII·formfit), 텍스트치환(OWN), text edit-session preview/apply/restore, mail_merge, capability manifest, **saved `.hwpx` current-document UX(다중 인스턴스 resolver US-067 + `complete_and_load` + in-place `live_addressed` US-068 — 실기기 캡처 2026-07-15)**, Track D ROT 스파이크 ADR D18(US-069), Track B 전제(D19+dirty-probe, US-070) |
 | `optional-gated` | 코드·테스트 완료, optional extra 필요(미설치 시 `available:false`) | 위임 편집/생성/내보내기(python-hwpx `delegate`, `create_document_from_spec` 포함), `render_preview`(playwright `render`) |
-| `desktop-live-pending` | 코드 완료, **raw probe/json은 exact-path resolver 존재를 보여 주지만 literal write-safe 실기기(Windows+한글) 증거는 대기** | `apply_to_open_hwp`(US-010) · `apply_small_live_label_cells`(US-029) · `resolve_current_hwp_document`/`preview_current_hwp_document`/`apply_to_current_hwp_document`(saved `.hwpx` current-doc UX, human-readable picker metadata + `complete_and_load` 하이브리드 라우트 — 파일모드 검증 완성 후 새 문서 탭 자동 열기, 원본 0-touch) · COM 브릿지(US-009). D7: 중첩표 인덱스 매핑은 best-effort |
+| `desktop-live-pending` | 코드 완료, **raw probe/json은 exact-path resolver 존재를 보여 주지만 literal write-safe 실기기(Windows+한글) 증거는 대기** | `apply_to_open_hwp`(US-010) · `apply_small_live_label_cells`(US-029) · COM 브릿지(US-009) — 잔여 증거 목록은 `PENDING_DESKTOP_LIVE_QA.md`. D7: 중첩표 인덱스 매핑은 best-effort(단, `live_addressed`는 중첩 감지 시 fail-closed) |
 | `spike-pending` | 구현 전 리서치/ADR 필요 | `.hwp` 비COM 읽기(US-042/054/055) · 표 행/열 추가삭제·TOC(US-060, python-hwpx 미노출) |
 | `planned` | 승인된 backlog 상태가 생길 때만 사용 | 현재는 `docs/prd.json` 기준 planned story가 없으면 비워 둔다 |
 
