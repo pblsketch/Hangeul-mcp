@@ -975,6 +975,22 @@
         "LIVE VALIDATION (desktop, PENDING): fresh Windows QA must still capture open_in_hwp→preview(body_targets)→apply plus read-back for b1/b2/b3/b4 before this story can be promoted from desktop-live-pending"
       ],
       "statusNote": "Body-paragraph file/live implementation and headless coverage are in place, but fresh Windows literal write-safe proof remains pending under PENDING_DESKTOP_LIVE_QA.md; until then this stays desktop-live-pending."
+    },
+    {
+      "id": "US-067",
+      "title": "다중 인스턴스 현재문서 resolver — 인스턴스별 active 집합 기반 해소(빈 문서 탭이 전체 흐름을 차단하지 않음)",
+      "milestone": "M17-BYO-AI-UX",
+      "priority": "P0",
+      "passes": true,
+      "status": "desktop-live-pending",
+      "acceptanceCriteria": [
+        "summarize_resolution이 전역 첫 active 가정 대신 인스턴스별 valid active(저장된 .hwpx, identity proven) 집합으로 판정: 전체에서 저장 .hwpx 후보 1개면 auto_selected, valid active 2+면 selection_required, valid active 0개일 때만 기존 차단 상태(current_document_unsaved/unprovable/unsupported)",
+        "타 인스턴스의 빈 문서/미저장 active는 차단 사유가 아니라 후보 목록의 Unsaved 배지로 강등",
+        "preview_current_hwp_document(candidate_id=...) 명시 시 해당 후보의 상태만으로 판정(타 인스턴스 블로커 무시); apply는 refresh_candidate_state(후보 인스턴스 내 active/identity)를 전역 게이트보다 먼저 판정",
+        "헤드리스 다중 인스턴스 테스트 6종(auto-select across empty active, two-instance selection_required, all-invalid block, blocker priority, explicit candidate bypass, end-to-end apply) + 기존 단일 인스턴스 시나리오 전부 무회귀",
+        "LIVE VALIDATION (desktop, PENDING): automation-mode recapture must reach preview_ready on a multi-instance desktop and refresh docs/evidence/complete-and-load-desktop-capture-automation.json before promotion"
+      ],
+      "statusNote": "Headless multi-instance resolver redesign is complete with 6 new scenarios green and zero regressions; the failed automation capture in docs/evidence/ predates this fix and awaits a desktop recapture (Track C seal)."
     }
   ],
   "decisions": {

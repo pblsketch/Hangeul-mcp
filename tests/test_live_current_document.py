@@ -67,6 +67,20 @@ def _instance(moniker: str, *documents: dict):
     return [{"moniker": moniker, "documents": list(documents)}]
 
 
+def _empty_doc(**extra):
+    return {
+        "path": "",
+        "normalized_path": "",
+        "slot": 0,
+        "is_active": True,
+        "active_source": "identity",
+        "active_slot": 0,
+        "active_path_empty": True,
+        "active_identity_proven": True,
+        **extra,
+    }
+
+
 def test_resolve_current_reports_no_open_documents(monkeypatch):
     monkeypatch.setattr(HwpBridge, "available", staticmethod(lambda: True))
     monkeypatch.setattr(live_current, "list_rot_instances", lambda: [])
@@ -165,6 +179,107 @@ def test_resolve_current_blocks_unsaved_active_document(monkeypatch):
     assert candidate["picker_title"] == "Unsaved current document"
     assert candidate["picker_subtitle"] == "Save as .hwpx before using current-document live apply"
     assert candidate["picker_badges"] == ["Current", "Unsaved", "Write state unknown"]
+
+
+def test_resolve_current_auto_selects_across_other_instance_empty_active(monkeypatch, tmp_path):
+    src = tmp_path / "real.hwpx"
+    src.write_bytes(b"x")
+    monkeypatch.setattr(
+        live_current,
+        "list_rot_instances",
+        lambda: _instance("rot://empty", _empty_doc()) + _instance("rot://real", _doc(src)),
+    )
+    res = live_current.resolve_current_hwp_document()
+    assert res["state"] == "auto_selected"
+    assert res["selection_basis"] == "single_saved_active_hwpx"
+    assert res["candidate"]["path"] == str(src)
+    empty_candidate = next(c for c in res["candidates"] if c["path"] == "")
+    assert "Unsaved" in empty_candidate["picker_badges"]
+
+
+def test_resolve_current_requires_selection_with_two_instance_actives(monkeypatch, tmp_path):
+    first = tmp_path / "first.hwpx"
+    second = tmp_path / "second.hwpx"
+    first.write_bytes(b"x")
+    second.write_bytes(b"y")
+    monkeypatch.setattr(
+        live_current,
+        "list_rot_instances",
+        lambda: _instance("rot://a", _doc(first)) + _instance("rot://b", _doc(second)),
+    )
+    res = live_current.resolve_current_hwp_document()
+    assert res["state"] == "selection_required"
+    assert len(res["candidates"]) == 2
+    assert all("Current" in c["picker_badges"] for c in res["candidates"])
+
+
+def test_resolve_current_blocks_only_when_every_instance_active_invalid(monkeypatch):
+    monkeypatch.setattr(
+        live_current,
+        "list_rot_instances",
+        lambda: _instance("rot://a", _empty_doc()) + _instance("rot://b", _empty_doc()),
+    )
+    res = live_current.resolve_current_hwp_document()
+    assert res["state"] == "current_document_unsaved"
+
+
+def test_resolve_current_blocker_prefers_unsupported_over_unsaved(monkeypatch, tmp_path):
+    legacy = tmp_path / "legacy.hwp"
+    legacy.write_bytes(b"x")
+    monkeypatch.setattr(
+        live_current,
+        "list_rot_instances",
+        lambda: _instance("rot://empty", _empty_doc()) + _instance("rot://legacy", _doc(legacy)),
+    )
+    res = live_current.resolve_current_hwp_document()
+    assert res["state"] == "current_document_unsupported"
+    legacy_candidate = next(c for c in res["candidates"] if c["path"] == str(legacy))
+    assert res["current_candidate_id"] == legacy_candidate["candidate_id"]
+
+
+def test_preview_current_explicit_candidate_ignores_global_blocker(monkeypatch, tmp_path):
+    src = tmp_path / "named.hwpx"
+    _build_named_field(src)
+    monkeypatch.setattr(
+        live_current,
+        "list_rot_instances",
+        lambda: _instance("rot://1", _empty_doc(), _doc(src, slot=1, is_active=False, active_slot=0)),
+    )
+    blocked = live_current.preview_current_hwp_document({"성명": "홍길동"})
+    assert blocked["state"] == "current_document_unsaved"
+    candidate_id = next(c["candidate_id"] for c in blocked["candidates"] if c["path"] == str(src))
+    res = live_current.preview_current_hwp_document({"성명": "홍길동"}, candidate_id=candidate_id)
+    assert res["state"] == "preview_ready"
+    assert res["route"] == "named_field"
+    assert res["candidate"]["path"] == str(src)
+
+
+def test_apply_current_succeeds_despite_other_instance_empty_active(monkeypatch, tmp_path):
+    src = tmp_path / "named.hwpx"
+    _build_named_field(src)
+    monkeypatch.setattr(
+        live_current,
+        "list_rot_instances",
+        lambda: _instance("rot://empty", _empty_doc()) + _instance("rot://real", _doc(src)),
+    )
+    preview = live_current.preview_current_hwp_document({"성명": "홍길동"})
+    assert preview["state"] == "preview_ready"
+    monkeypatch.setattr(
+        live_current,
+        "apply_named_fields_exact_path",
+        lambda path, values: {
+            "available": True,
+            "connected": True,
+            "ok": True,
+            "state": "attached_existing",
+            "applied": ["성명"],
+            "skipped": [],
+            "count": 1,
+            "active_document": str(path),
+        },
+    )
+    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert res["state"] == "applied_named_field"
 
 
 def test_resolve_current_blocks_unprovable_active_document(monkeypatch, tmp_path):

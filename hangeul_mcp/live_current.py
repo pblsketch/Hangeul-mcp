@@ -276,12 +276,17 @@ def preview_current_hwp_document(
     if resolution.get("state") == "unavailable":
         return {"available": False, "ok": False, "state": "unavailable", "candidates": []}
 
-    if resolution.get("state") in {
-        "no_open_documents",
-        "current_document_unsaved",
-        "current_document_unprovable",
-        "current_document_unsupported",
-    }:
+    if resolution.get("state") == "no_open_documents" or (
+        resolution.get("state")
+        in {
+            "current_document_unsaved",
+            "current_document_unprovable",
+            "current_document_unsupported",
+        }
+        and not candidate_id
+    ):
+        # An explicit candidate_id is judged on that candidate's own state below;
+        # blockers from other instances' actives must not veto it.
         return {
             "available": True,
             "ok": False,
@@ -614,16 +619,21 @@ def apply_to_current_hwp_document(preview_token: str) -> Dict[str, Any]:
     if resolution.get("state") == "unavailable":
         return {"available": False, "ok": False, "state": "unavailable", "candidates": []}
 
+    candidates = resolution.get("candidates") or []
+    # Judge the token's candidate on its own instance state first; global
+    # resolver blockers (another instance's empty/unsaved active) must not
+    # veto an apply whose candidate is still provably active.
+    refresh_state = refresh_candidate_state(token, candidates)
+    if refresh_state != "ok":
+        return {"available": True, "ok": False, "state": refresh_state, "candidates": candidates}
     if resolution.get("state") in {
         "current_document_unsaved",
         "current_document_unprovable",
         "current_document_unsupported",
     }:
-        return {"available": True, "ok": False, "state": "active_race", "candidates": resolution.get("candidates") or []}
-    candidates = resolution.get("candidates") or []
-    refresh_state = refresh_candidate_state(token, candidates)
-    if refresh_state != "ok":
-        return {"available": True, "ok": False, "state": refresh_state, "candidates": candidates}
+        # Residual fail-closed guard: unreachable when refresh passed, kept so a
+        # blocked resolution can never fall through to a live write.
+        return {"available": True, "ok": False, "state": "active_race", "candidates": candidates}
     candidate = next(item for item in candidates if item.get("candidate_id") == token.get("candidate_id"))
     route = str(token.get("route") or "")
     if route != "complete_and_load" and candidate.get("write_state") == "read_only" and token.get("write_state") != "read_only":

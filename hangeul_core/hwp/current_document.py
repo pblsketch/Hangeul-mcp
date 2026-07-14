@@ -107,70 +107,71 @@ def inventory_digest(candidates: Iterable[Dict[str, Any]]) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+def _is_valid_live_active(candidate: Dict[str, Any]) -> bool:
+    return (
+        bool(candidate.get("is_active"))
+        and bool(candidate.get("active_identity_proven"))
+        and not candidate.get("active_path_empty")
+        and candidate_saved(candidate)
+        and candidate_format(candidate.get("path")) == "hwpx"
+    )
+
+
+def _blocked_resolution(candidates: List[Dict[str, Any]], actives: List[Dict[str, Any]]) -> Dict[str, Any]:
+    # Reached only when NO instance has a usable active document. Report the
+    # blocker of the active that is closest to usable: a saved-but-wrong-format
+    # document beats an unproven identity, which beats an unsaved/empty tab.
+    def _with(state: str, active: Dict[str, Any] | None) -> Dict[str, Any]:
+        out: Dict[str, Any] = {"state": state, "selection_basis": "none", "candidates": candidates}
+        if active is not None:
+            out["current_candidate_id"] = active.get("candidate_id")
+        return out
+
+    if not actives:
+        return _with("current_document_unprovable", None)
+    for item in actives:
+        if candidate_saved(item) and item.get("active_identity_proven") and not item.get("active_path_empty"):
+            return _with("current_document_unsupported", item)
+    for item in actives:
+        if candidate_saved(item) and not item.get("active_path_empty"):
+            return _with("current_document_unprovable", item)
+    return _with("current_document_unsaved", actives[0])
+
+
 def summarize_resolution(candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Resolve the pathless "current document" across ALL Hangul instances.
+
+    Every instance carries its own active document, so a global first-active
+    assumption breaks on multi-instance desktops. Selection works on the set of
+    valid actives (saved .hwpx, identity proven, per instance): exactly one
+    saved .hwpx overall auto-selects, more than one requires explicit selection,
+    and the historical blocker states apply only when NO instance has a usable
+    active. Empty/unsaved actives in other instances demote to picker badges.
+    """
     if not candidates:
         return {"state": "no_open_documents", "selection_basis": "none", "candidates": []}
 
-    active = next((item for item in candidates if item.get("is_active")), None)
-    if active is None:
-        return {
-            "state": "current_document_unprovable",
-            "selection_basis": "none",
-            "candidates": candidates,
-        }
-    if active.get("active_path_empty"):
-        return {
-            "state": "current_document_unsaved",
-            "selection_basis": "none",
-            "candidates": candidates,
-            "current_candidate_id": active.get("candidate_id"),
-        }
-    if not active.get("active_identity_proven"):
-        return {
-            "state": "current_document_unprovable",
-            "selection_basis": "none",
-            "candidates": candidates,
-            "current_candidate_id": active.get("candidate_id"),
-        }
-    if not candidate_supported(active):
-        return {
-            "state": "current_document_unsupported",
-            "selection_basis": "none",
-            "candidates": candidates,
-            "current_candidate_id": active.get("candidate_id"),
-        }
-    if candidate_format(active.get("path")) == "hwp":
-        return {
-            "state": "current_document_unsupported",
-            "selection_basis": "none",
-            "candidates": candidates,
-            "current_candidate_id": active.get("candidate_id"),
-        }
+    actives = [item for item in candidates if item.get("is_active")]
+    valid_actives = [item for item in candidates if _is_valid_live_active(item)]
+    if not valid_actives:
+        return _blocked_resolution(candidates, actives)
+
     saved_hwpx = [item for item in candidates if candidate_saved(item) and candidate_format(item.get("path")) == "hwpx"]
-    all_saved_hwpx = bool(candidates) and all(
-        candidate_saved(item) and candidate_format(item.get("path")) == "hwpx" for item in candidates
-    )
-    if len(saved_hwpx) == 1 and all_saved_hwpx and len(candidates) == 1:
+    if len(valid_actives) == 1 and len(saved_hwpx) == 1:
+        target = valid_actives[0]
+        basis = "single_saved_hwpx_total" if len(candidates) == 1 else "single_saved_active_hwpx"
         return {
             "state": "auto_selected",
-            "selection_basis": "single_saved_hwpx_total",
-            "candidate_id": saved_hwpx[0].get("candidate_id"),
-            "candidate": saved_hwpx[0],
-            "candidates": candidates,
-        }
-    if candidate_saved(active) and len(saved_hwpx) == 1:
-        return {
-            "state": "auto_selected",
-            "selection_basis": "single_saved_active_hwpx",
-            "candidate_id": active.get("candidate_id"),
-            "candidate": active,
+            "selection_basis": basis,
+            "candidate_id": target.get("candidate_id"),
+            "candidate": target,
             "candidates": candidates,
         }
     return {
         "state": "selection_required",
         "selection_basis": "none",
         "candidates": candidates,
-        "current_candidate_id": active.get("candidate_id"),
+        "current_candidate_id": valid_actives[0].get("candidate_id"),
     }
 
 
