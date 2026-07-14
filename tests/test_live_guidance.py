@@ -21,10 +21,8 @@ def test_hwp_status_idle_carries_guidance():
     note = st.get("note", "")
     assert "side-effect" in note or "attach" in note, "idle status must explain itself"
     nxt = st.get("next", "")
-    assert "preview_cells_to_open_hwp" in nxt, "idle status must name the next tool"
-    assert "open_in_hwp" in nxt and "exact path" in nxt.lower(), (
-        "idle guidance must tell clients to attach by exact path before live apply"
-    )
+    assert "complete_addressed_template" in nxt, "whole-template guidance must prefer the file fast path"
+    assert "preview_cells_to_open_hwp" in nxt and "label:value" in nxt.lower()
 
 
 def test_live_tool_descriptions_state_value_only_boundary():
@@ -34,6 +32,10 @@ def test_live_tool_descriptions_state_value_only_boundary():
         "apply_to_open_hwp description must state the value-only / no-formatting boundary"
     )
     assert "value" in tools["apply_cells_to_open_hwp"].lower()
+    preview_cells = tools["preview_cells_to_open_hwp"].lower()
+    assert "not whole-template" in preview_cells
+    assert "complete_addressed_template" in preview_cells
+    assert "does not probe" in preview_cells and "rot" in preview_cells
     status_desc = tools["hwp_status"]
     assert "connected:false" in status_desc or "side-effect" in status_desc.lower()
 

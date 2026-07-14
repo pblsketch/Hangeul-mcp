@@ -81,9 +81,10 @@ def register_live_tools(mcp) -> Dict[str, Any]:
                 "and never attaches to Hangul. It does NOT mean live fill is unreachable."
             )
             st["next"] = (
-                "file mode works with any absolute path (analyze_form / extract_text / fill_form); "
-                "live cell fill: open_in_hwp(path) for the exact path, preview_cells_to_open_hwp "
-                "(pure preview), then apply_cells_to_open_hwp"
+                "whole-template completion: inspect_editable_regions(path, compact=true), then "
+                "complete_addressed_template(path, output_path, edits) once; "
+                "small live label:value cell fill only: open_in_hwp(path), "
+                "preview_cells_to_open_hwp(path, values), then apply_cells_to_open_hwp"
             )
         return st
 
@@ -166,11 +167,12 @@ def register_live_tools(mcp) -> Dict[str, Any]:
 
     @mcp.tool()
     def preview_cells_to_open_hwp(path: str, values: Dict[str, str]) -> Dict[str, Any]:
-        """Compute live cell-fill targets WITHOUT COM (pure, side-effect-free preview).
+        """Preview small live label:value cell fills WITHOUT COM or ROT access.
 
-        Run this before apply_cells_to_open_hwp to confirm which table/row/col
-        each value would land in and whether an exact-path attach candidate is
-        already visible.
+        This is not whole-template completion. For a full lesson plan or other
+        structured form, use compact inspect then complete_addressed_template.
+        This pure preview does not probe COM ROT or attach candidates; exact-path
+        attachment is deferred to apply_cells_to_open_hwp.
         """
         p = Path(path)
         if p.suffix.lower() == ".hwp":
@@ -191,7 +193,8 @@ def register_live_tools(mcp) -> Dict[str, Any]:
                     "apply_to_open_hwp_state": "pathful_exact_path",
                     "apply_cells_to_open_hwp_state": "pathful_exact_path",
                 },
-                "attach_candidates": _exact_attach_candidates(p),
+                "attach_candidates": [],
+                "attach_probe": "deferred_to_apply",
             }
         )
         return result
@@ -204,11 +207,13 @@ def register_live_tools(mcp) -> Dict[str, Any]:
         clear: bool = True,
         open_if_needed: bool = True,
     ) -> Dict[str, Any]:
-        """Fill label:value CELLS of the OPEN Hangul window live (no 누름틀 required).
+        """Fill a small set of label:value CELLS in the OPEN Hangul window live.
 
         Handles empty label:value cells AND inline blanks (colon "은행명:",
         marker "∘ 프로그램명", checkboxes). Value insertion only — no
-        formatting/styling. Attaches to the automation-visible instance on call
+        formatting/styling. Not for whole-template completion: use compact inspect
+        plus complete_addressed_template for lesson plans and other full forms.
+        Attaches to the automation-visible instance on call
         and verifies the requested exact path is active; if not, it opens it there
         when open_if_needed=true. Cold start can take tens of seconds. Preview
         first with preview_cells_to_open_hwp.

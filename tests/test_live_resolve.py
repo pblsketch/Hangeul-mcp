@@ -61,7 +61,7 @@ def test_preview_cells_to_open_is_pure_and_returns_targets():
 
 
 
-def test_server_preview_reports_side_effect_free_attach_state(monkeypatch):
+def test_server_preview_is_file_only_and_never_probes_rot(monkeypatch):
     base = {
         "available": True,
         "count": 1,
@@ -73,13 +73,11 @@ def test_server_preview_reports_side_effect_free_attach_state(monkeypatch):
     }
 
     monkeypatch.setattr(live_tools, "_preview_cells_to_open", lambda path, values: dict(base))
-    monkeypatch.setattr(
-        live_tools,
-        "_exact_attach_candidates",
-        lambda path: [
-            {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"}
-        ],
-    )
+
+    def fail_if_rot_is_probed(path):
+        raise AssertionError("pure preview must not touch COM ROT")
+
+    monkeypatch.setattr(live_tools, "_exact_attach_candidates", fail_if_rot_is_probed)
 
     res = server.preview_cells_to_open_hwp(str(FIXTURE), {"성명": "홍길동"})
     assert res["ok"] is True
@@ -89,12 +87,11 @@ def test_server_preview_reports_side_effect_free_attach_state(monkeypatch):
         "apply_to_open_hwp_state": "pathful_exact_path",
         "apply_cells_to_open_hwp_state": "pathful_exact_path",
     }
-    assert res["attach_candidates"] == [
-        {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"}
-    ]
+    assert res["attach_candidates"] == []
+    assert res["attach_probe"] == "deferred_to_apply"
 
 
-def test_server_preview_preserves_duplicate_exact_path_candidates(monkeypatch):
+def test_server_preview_does_not_wait_for_slow_exact_path_candidates(monkeypatch):
     monkeypatch.setattr(
         live_tools,
         "_preview_cells_to_open",
@@ -108,22 +105,17 @@ def test_server_preview_preserves_duplicate_exact_path_candidates(monkeypatch):
             "apply_tool": "apply_cells_to_open_hwp",
         },
     )
-    monkeypatch.setattr(
-        live_tools,
-        "_exact_attach_candidates",
-        lambda path: [
-            {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
-            {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
-        ],
-    )
+
+    def fail_if_rot_is_probed(path):
+        raise AssertionError("preview must defer attach discovery to apply")
+
+    monkeypatch.setattr(live_tools, "_exact_attach_candidates", fail_if_rot_is_probed)
 
     res = server.preview_cells_to_open_hwp(str(FIXTURE), {"성명": "홍길동"})
 
     assert res["resolver"]["exact_path"] == str(FIXTURE)
-    assert res["attach_candidates"] == [
-        {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
-        {"state": "attached_existing", "path": str(FIXTURE), "source": "rot_exact_path"},
-    ]
+    assert res["attach_candidates"] == []
+    assert res["attach_probe"] == "deferred_to_apply"
 
 
 
