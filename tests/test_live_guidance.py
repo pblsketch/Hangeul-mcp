@@ -93,8 +93,13 @@ def test_hwp_status_exposes_live_routes_full_form_hybrid():
     assert "new tab" in honesty, "must disclose the verified copy opens as a new tab (view switches)"
     assert "automation-visible" in honesty, "window placement is conditional on automation visibility"
     assert "path" in honesty, "must promise the created path is always returned"
-    # additive only: the boolean contract stays locked
-    assert st["feature_flags"]["live_addressed_editing"] is False
+    # the boolean was promoted with the P0-C desktop QA gate; keep it pinned
+    assert st["feature_flags"]["live_addressed_editing"] is True
+    live_addressed = by_name["live_addressed"]
+    la_honesty = live_addressed["honesty"].lower()
+    assert "not byte-preserving" in la_honesty
+    assert "expected_text" in la_honesty and "mandatory" in la_honesty
+    assert "not saved" in la_honesty, "must disclose the server never saves the window"
 
 
 def test_full_form_guidance_is_not_a_dead_end():
@@ -120,6 +125,6 @@ def test_hwp_status_exposes_runtime_observability_fields():
     assert st["session_scope"] == "this stdio process"
     assert st["survives_restart"] is False
     assert st["feature_flags"]["raw_cell_editing"] is True
-    assert st["feature_flags"]["live_addressed_editing"] is False
+    assert st["feature_flags"]["live_addressed_editing"] is True  # promoted 2026-07-15 (P0-C gate)
     ladder = st["attach_ladder"]
     assert {"window_detected", "rot_visible", "com_object_acquired", "document_identity_proven"} <= set(ladder)

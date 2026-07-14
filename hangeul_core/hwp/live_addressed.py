@@ -186,8 +186,8 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
                     continue
                 _select_cell_content(hwp)
                 current = str(hwp.get_selected_text() or "")
+                hwp.HAction.Run("Cancel")
                 if current != t["expected_text"]:
-                    hwp.HAction.Run("Cancel")  # drop selection WITHOUT touching the cell
                     skipped.append({
                         "target": t["target"],
                         "reason": "expected_text_mismatch",
@@ -195,6 +195,14 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
                         "actual_text": current,
                     })
                     continue
+                # re-anchor + re-select before the destructive delete:
+                # get_selected_text drops the selection on real hardware
+                # (desktop capture 2026-07-15), so deleting right after the
+                # read appends instead of replacing.
+                if not hwp.goto_addr(t["row"] + 1, t["col"] + 1, select_cell=False):
+                    skipped.append({"target": t["target"], "reason": "cell_unreachable"})
+                    continue
+                _select_cell_content(hwp)
                 hwp.HAction.Run("Delete")
                 for i, line in enumerate(str(t["value"]).split("\n")):
                     if i:

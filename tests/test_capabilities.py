@@ -121,7 +121,9 @@ def test_runtime_observability_fields_present():
     assert flags["body_paragraph"] is True
     assert flags["raw_cell_editing"] is True
     assert flags["occurrence_editing"] is False
-    assert flags["live_addressed_editing"] is False
+    # promoted 2026-07-15 with the P0-C desktop QA gate (8/8 checks,
+    # docs/evidence/live-addressed-desktop-capture.json); pin the promoted value
+    assert flags["live_addressed_editing"] is True
 
 
 def test_project_does_not_depend_on_llm_api_sdks():

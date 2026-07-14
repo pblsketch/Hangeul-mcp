@@ -15,7 +15,7 @@ Hangeul-mcp 자체에는 문장을 생성하는 AI가 없습니다. Claude Deskt
 | 표·이미지·문단·페이지 편집 | **선택 기능** | `python-hwpx`를 설치해야 합니다. 이 경로는 문서를 재직렬화하므로 바이트 동일성을 보장하지 않습니다. |
 | PNG 미리보기 | **선택 기능** | Playwright와 Chromium이 필요합니다. |
 | 열린 한글 창에 값 넣기 | **Windows 전용·검증 진행 중** | 한글과 COM 의존성이 필요합니다. exact-path 안전장치는 구현됐지만 일부 실제 데스크톱 시나리오는 아직 QA가 남았습니다. |
-| 경로 없이 “현재 문서 채워줘” | **코드·자동 테스트 완료, 데스크톱 QA 대기** | 저장된 `.hwpx`만 지원합니다. 미리보기 토큰을 발급하고, 쓰기 직전에 같은 문서인지 다시 확인합니다. |
+| 경로 없이 “현재 문서 채워줘” | **실기기 QA 통과(2026-07-15)** | 저장된 `.hwpx`만 지원합니다. 미리보기 토큰을 발급하고, 쓰기 직전에 같은 문서인지 다시 확인합니다. 다중 인스턴스/빈 탭 데스크톱에서도 차단되지 않습니다. |
 | `.hwp` 헤드리스 읽기 | **아직 미지원** | 비COM reader가 확정되지 않아 `available:false`를 정직하게 반환합니다. Windows에서는 한글 COM으로 `.hwpx` 변환이 가능합니다. |
 
 ### 가장 안전하고 완성도가 높은 사용법
@@ -256,7 +256,17 @@ resolve_current_hwp_document()
 - 원본 문서는 저장·닫기·재열기 없이 그대로 남습니다(0-touch, 적용 전후 SHA 검증). 새 탭이 앞으로 오며 활성 뷰가 전환됩니다.
 - 자동 열기가 실패해도 완성 파일은 남고, `completed_open_failed`와 수동 열기 안내를 돌려줍니다.
 - 원본 창이 automation-visible이 아니면 완성본이 별도 창/새 인스턴스에 열릴 수 있습니다.
-- `values`와 `edits`를 함께 보내면 fail-closed(`route_conflict`)입니다. 열린 창 셀을 직접 고치는 진짜 in-place 풀폼 편집(`live_addressed_editing`)은 여전히 미지원이며, 데스크톱 QA 게이트 통과 후에만 승격됩니다.
+- `values`와 `edits`를 함께 보내면 fail-closed(`route_conflict`)입니다.
+
+**열린 창 셀을 직접 고치는 in-place 편집 — `live_addressed` 라우트 (2026-07-15 데스크톱 QA 게이트 통과로 승격)**
+
+`preview_current_hwp_document(edits=[...], mode="live_addressed")` → `apply_to_current_hwp_document(preview_token)`이 파일 산출 없이 열린 창의 셀을 직접 바꿉니다.
+
+- **바이트보존이 아니며**, 서버는 창을 저장하지 않습니다(디스크 파일은 사용자가 저장하기 전까지 불변 — 캡처에서 SHA 동일 확인).
+- 각 edit에 `expected_text`가 **필수**이며, 파일 기준 사전 대조 + 교체 직전 창 안 실제 텍스트 재대조로 이중 확인합니다. 불일치 셀은 건드리지 않고 skip(`expected_text_mismatch`)됩니다.
+- 부분 실패 시 `applied[]`/`skipped[]`/`remaining[]`과 구조화 복구 지시(Ctrl-Z 횟수 또는 원본 재열기)를 반환하고, 적용 셀은 별도 COM 연결로 fresh read-back 재검증합니다.
+- **단일/최상위 표 문서만** 지원 — 중첩 표 감지 시 `nested_tables_unsupported`로 fail-closed되며 `complete_and_load` 하이브리드를 안내합니다. 본문 문단(bN)·다문단 셀도 fail-closed입니다.
+- preview token은 원본 파일 SHA에 결속되고(변경 시 `stale_preview`), COM 변이 전에 소비되는 단일 사용 토큰입니다.
 
 이 흐름은 다음 규칙을 지킵니다.
 
@@ -281,12 +291,13 @@ resolve_current_hwp_document()
 - Windows regression artifact template/validator(`docs/evidence/windows-live-regression-template.json`, `scripts/windows_live_regression_harness.py`)
 - **`complete_and_load` 컴포넌트 실기기 캡처 통과(2026-07-14)**: 실제 한글로 작성된 지도안 템플릿에서 검증 완성 → **새 탭으로 열기**(`open_as_new_tab`, `XHwpDocuments.Add`) → 원본 탭 잔존 + 원본 SHA 불변 + fresh read-back 2/2 (`docs/evidence/complete-and-load-desktop-capture-components.json`)
 - 실기기 발견 반영: 일반 `hwp.Open`은 활성 탭을 내비게이션(탭 추가 아님)하므로 완성본 열기는 탭 추가 후 열기로 구현; 합성 zip 픽스처는 실제 한글이 열지 못하므로 데스크톱 캡처는 실제 저작 템플릿 사용
+- **다중 인스턴스 resolver 실기기 재캡처 통과(2026-07-15)**: 빈 탭/다중 문서 데스크톱에서 `selection_required`(후보 4) → 명시적 `candidate_id`로 `preview_ready` → `completed_and_loaded` 6/6 체크 (`docs/evidence/complete-and-load-desktop-capture-automation.json`) — 이전 `current_document_unsaved` 전면 차단 결함 해소
+- **`live_addressed` 실기기 캡처 통과(2026-07-15, 8/8 체크)**: 게이트 기본 차단 → 토큰 발급 → 사용자 수정 주입 셀만 `expected_text_mismatch`로 무손상 skip + 나머지 17셀 in-place 적용 + fresh read-back 검증 + 토큰 단일 사용 + 디스크 파일 SHA 불변 (`docs/evidence/live-addressed-desktop-capture.json`). 이 캡처가 잡은 실결함(`get_selected_text` 후 선택 해제로 Delete 무효 → append 오염)은 재선택 로직으로 수정 후 재검증
 
 아직 남은 것:
 
 - 사람이 파일 탐색기에서 직접 더블클릭한 문서의 current-document token 흐름 전체 캡처 — Shell로 연 창은 automation ROT에 나타나지 않음을 클린 환경에서 재확인(`…-capture-shell.json`)
-- **다중 인스턴스/빈 탭 데스크톱에서 current-document resolver가 `current_document_unsaved`로 차단되는 문제**(`…-capture-automation.json`) — 첫 활성 문서 기준 해소 로직의 후속 개선 필요
-- 복잡한 중첩 표에서의 라이브 셀 매핑 확대 검증
+- 복잡한 중첩 표에서의 라이브 셀 매핑 확대 검증(현행: 중첩 표 문서는 `live_addressed`에서 fail-closed)
 - 일부 본문 라이브 안전장치의 추가 실기기 실패 주입 검증
 - worker timeout 격리는 현재 `open_in_hwp(timeout_seconds=...)` 경로에만 연결돼 있습니다. 다른 live apply 경로는 아직 동일한 timeout 계약을 약속하지 않습니다.
 
@@ -305,7 +316,7 @@ resolve_current_hwp_document()
 - 패키지 버전: `0.4.0` (Pre-Alpha)
 - 런타임 MCP 도구: **59 tools**
 
-- 최신 로컬 검증: **528 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
+- 최신 로컬 검증: **529 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 릴리스 전 8건에서 2건 치유, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
 - 마일스톤·유저 스토리: **69개 — 68 pass** + 라이브/스파이크 pending

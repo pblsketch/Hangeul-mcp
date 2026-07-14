@@ -1,5 +1,7 @@
 # PENDING: 데스크톱 라이브 QA (US-029 / US-053)
 
+> **2026-07-15 갱신**: (1) 다중 인스턴스 resolver 재캡처 통과 — `docs/evidence/complete-and-load-desktop-capture-automation.json`이 `preview_ready`→`completed_and_loaded` 6/6로 갱신되어 US-067 complete. (2) **P0-C `live_addressed` 게이트 증거 8/8 통과** — `docs/evidence/live-addressed-desktop-capture.json` (게이트 기본 차단, tamper 주입 셀 fail-closed skip, 17셀 in-place 적용+fresh read-back, 토큰 단일 사용, 디스크 SHA 불변). `live_addressed_editing` 플래그는 같은 커밋에서 True로 승격(US-068 complete). 이 문서의 잔여 미확보 증거는 US-029/US-053 exact-path 라이브 경로와 Explorer 더블클릭 흐름에 한정된다.
+
 > **상태의 진실**: raw probe/json과 2026-07-11 Windows Shell-open 최소 쓰기 실증은 safe-attach의 **resolver-path 존재 및 Shell-open 기존 문서 write/read-back 성공**을 보여 준다.
 > 2026-07-13 별도 Python 프로세스에서 사람의 실제 Explorer 더블클릭 조건을 실측했을 때는 문서 창이 존재해도 COM ROT가 비어 있었고 OBJID_NATIVEOM도 모든 Hwp/HwpApi 창에서 `E_FAIL`이었다. 구현은 쓰기 없이 `no_open_documents`로 fail-closed 했다. 다만 사용자는 Claude Desktop의 장기 실행 MCP 서버에서는 같은 유형의 직접 연 문서를 정상 인식했다고 보고했다. 따라서 이는 **일반적 불가능 확정이 아니라 실행 순서·MCP 서버 수명·기존 automation broker 상태에 따른 조건부 실패**로 기록한다.
 > 이 문서는 earlier failed generic-reconnect 맥락과 마지막 데스크톱 QA gate를 함께 보존한다. 이 문서가 존재하는 동안 `docs/prd.json`의 live stories(`apply_to_open_hwp`, `apply_cells_to_open_hwp`, saved `.hwpx` current-document pathless UX)는 complete로 승격하지 않는다.

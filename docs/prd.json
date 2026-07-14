@@ -998,7 +998,7 @@
       "milestone": "M17-BYO-AI-UX",
       "priority": "P0",
       "passes": true,
-      "status": "desktop-live-pending",
+      "status": "complete",
       "acceptanceCriteria": [
         "hangeul_core/hwp/live_addressed.py 신규 모듈(LOC<=250 가드 등재): plan은 PURE(COM-free) — AddressedEdit 대상 해소, expected_text 키 필수(expected_text_required), 중첩 표 문서 fail-closed(nested_tables_unsupported), body_para/다문단 셀/p2+ 서수 fail-closed(하이브리드 폴백 안내 포함)",
         "현재문서 token 흐름에 mode='live_addressed' 라우트 추가(신규 MCP 도구 없음 — 툴 카운트 59 유지); feature_flags.live_addressed_editing=False인 동안 preview/apply 모두 live_addressed_gated로 차단되고 complete_and_load 폴백을 안내",
@@ -1006,9 +1006,9 @@
         "부분 실패 복구: 응답에 applied[]/skipped[]/remaining[] + 구조화 recovery(undo_actions_per_cell, Ctrl-Z 지시 또는 원본 재열기); COM 예외 시 나머지 대상 중단·remaining 보고",
         "preview↔apply 대조: preview 시점 원본 SHA를 token에 결속(stale_preview), token은 COM 변이 전 소비(단일 사용); apply 후 별도 COM 연결로 fresh read-back 재검증",
         "fake-COM 단위 테스트 16종(tests/test_live_addressed.py): PURE plan 6 + fake-COM apply 4(실패 주입: 불일치/테이블 부재/도달 불가/중도 예외) + 라우트 6(게이트/단일사용/stale/read_only/중첩) — 전부 green",
-        "LIVE VALIDATION (desktop, PENDING): PENDING_DESKTOP_LIVE_QA.md의 실기기 증거 8종 통과 후에만 live_addressed_editing True flip + 이중 락 테스트 2곳 + live_routes/README 갱신을 같은 커밋에서 수행"
+        "LIVE VALIDATION (desktop, DONE 2026-07-15): docs/evidence/live-addressed-desktop-capture.json 8/8 checks — gated-by-default, preview_ready(18 targets), tamper-injected cell skipped fail-closed (expected_text_mismatch, untouched), partial state with recovery block, 17/17 others applied with fresh COM read-back, token single-use, second-round full success, on-disk SHA unchanged. Real defect caught+fixed by the capture: get_selected_text drops the selection so a bare Delete appended instead of replacing — apply now re-anchors and re-selects before the destructive delete. Flag flipped True + double-lock tests updated + live_routes/README in the same commit."
       ],
-      "statusNote": "Route, PURE plan, fail-closed COM apply and 16 fake-COM tests are in place behind the gate; the flag flip is deferred to the desktop evidence pass (Track A G004)."
+      "statusNote": "P0-C promoted: in-place live addressed editing shipped behind mandatory expected_text contrast, fail-closed scope (top-level tables only), partial-failure recovery and fresh read-back; desktop evidence 8/8."
     }
   ],
   "decisions": {

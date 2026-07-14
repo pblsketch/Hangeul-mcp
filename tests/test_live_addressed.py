@@ -1,8 +1,8 @@
-"""P0-C in-place live addressed editing (gated) — PURE plan + fake-COM apply.
+"""P0-C in-place live addressed editing — PURE plan + fake-COM apply.
 
-The production flag ``live_addressed_editing`` stays False until the desktop
-QA gate; these tests exercise the route by patching the gate helper, never the
-flag itself (the double-lock tests keep the flag pinned elsewhere).
+The flag ``live_addressed_editing`` was promoted True with the desktop QA gate
+(docs/evidence/live-addressed-desktop-capture.json, 8/8 checks); the gating
+mechanism itself is still exercised here by patching the gate helper off.
 """
 
 from __future__ import annotations
@@ -201,7 +201,11 @@ class FakeHwp:
             type(self).cells[self._pos] += "\n"
 
     def get_selected_text(self):
-        return type(self).cells.get(self._pos, "") if self._selected else ""
+        # real hardware drops the selection after the read (desktop capture
+        # 2026-07-15): a Delete right after this call must be a no-op
+        text = type(self).cells.get(self._pos, "") if self._selected else ""
+        self._selected = False
+        return text
 
     def insert_text(self, text):
         if self._pos in type(self).raise_on_insert_targets:
@@ -304,10 +308,19 @@ def _rot(path: Path):
     return [{"moniker": "rot://1", "documents": [_doc(path)]}]
 
 
-def test_preview_live_addressed_route_is_gated_by_default(monkeypatch, tmp_path):
+def test_preview_live_addressed_route_enabled_by_promoted_flag(monkeypatch, tmp_path):
     src = tmp_path / "form.hwpx"
     _build_form(src)
     monkeypatch.setattr(live_current, "list_rot_instances", lambda: _rot(src))
+    res = live_current.preview_current_hwp_document({}, edits=[_edit("t1.r0.c1", "홍길동", "{성명}")], mode="live_addressed")
+    assert res["state"] == "preview_ready" and res["route"] == "live_addressed"
+
+
+def test_preview_live_addressed_route_gates_when_flag_disabled(monkeypatch, tmp_path):
+    src = tmp_path / "form.hwpx"
+    _build_form(src)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _rot(src))
+    monkeypatch.setattr(live_current, "live_addressed_enabled", lambda: False)
     res = live_current.preview_current_hwp_document({}, edits=[_edit("t1.r0.c1", "홍길동", "{성명}")], mode="live_addressed")
     assert res["state"] == "live_addressed_gated"
     assert "preview_token" not in res

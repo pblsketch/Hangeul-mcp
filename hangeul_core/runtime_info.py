@@ -30,18 +30,35 @@ def feature_flags() -> Dict[str, bool]:
         "body_paragraph": True,
         "raw_cell_editing": True,
         "occurrence_editing": False,
-        "live_addressed_editing": False,
+        # flipped True 2026-07-15 after the desktop-live QA gate: 8/8 checks in
+        # docs/evidence/live-addressed-desktop-capture.json (P0-C promotion)
+        "live_addressed_editing": True,
     }
 
 
 def live_routes() -> List[Dict[str, str]]:
     """Additive route inventory so full-form live intent is never dead-ended.
 
-    ``feature_flags()['live_addressed_editing']`` stays a locked boolean; this
-    list only ADDS routing signal. In-place addressed editing of the open
-    window flips that boolean only after the desktop-live QA gate.
+    ``feature_flags()['live_addressed_editing']`` was promoted to True in the
+    same commit as the desktop-live QA evidence (8/8 checks); the double-lock
+    tests pin the promoted value just as they pinned False before.
     """
     return [
+        {
+            "route": "live_addressed",
+            "scope": "in-place structural AddressedEdit[] fill of the OPEN window (single/top-level tables, saved .hwpx)",
+            "flow": (
+                "inspect_editable_regions(path, compact=true) -> preview_current_hwp_document(edits=[...], "
+                "mode='live_addressed') -> apply_to_current_hwp_document(preview_token)"
+            ),
+            "honesty": (
+                "edits the open window directly over COM — NOT byte-preserving and NOT saved by the "
+                "server (the file on disk stays untouched until the user saves). expected_text is "
+                "mandatory per edit and re-checked in the window right before each replace; mismatches "
+                "skip fail-closed with applied[]/remaining[] plus Ctrl-Z recovery guidance. Nested-table "
+                "documents fail closed — use the complete_and_load hybrid for those."
+            ),
+        },
         {
             "route": "small_label_cells",
             "scope": "a few label:value cells / inline blanks in the open window",

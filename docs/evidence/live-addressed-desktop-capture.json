@@ -1,0 +1,136 @@
+{
+  "capture": "live_addressed_desktop",
+  "scenario": "in-place COM edit of the open window via the current-document token flow (P0-C)",
+  "started_at": "2026-07-14T22:18:21.561747+00:00",
+  "runtime": "C:\\Python314\\python.exe",
+  "steps": [
+    {
+      "step": "fixture_copied",
+      "t": 0.1,
+      "copy": "C:\\Users\\USER\\AppData\\Local\\Temp\\hangeul-p0c-capture-byhfmngj\\교수학습지도안_라이브.hwpx",
+      "sha256": "88cf7334a1457747a7a8946c7cb8f80e97e5cddb33d2e35fb37def9e0c15676c",
+      "edit_count": 18
+    },
+    {
+      "step": "open_as_new_tab",
+      "t": 1.9,
+      "state": "opened_new_tab",
+      "ok": true
+    },
+    {
+      "step": "resolve",
+      "t": 1.9,
+      "state": "selection_required",
+      "n_candidates": 2,
+      "found_candidate": true
+    },
+    {
+      "step": "preview_gated_default",
+      "t": 1.9,
+      "state": "live_addressed_gated"
+    },
+    {
+      "step": "gate_override",
+      "t": 1.9,
+      "note": "live_addressed_enabled patched True in-process for QA; feature_flags unchanged"
+    },
+    {
+      "step": "preview",
+      "t": 1.9,
+      "state": "preview_ready",
+      "route": "live_addressed",
+      "counts": {
+        "requested": 18,
+        "planned": 18
+      }
+    },
+    {
+      "step": "tamper_injected",
+      "t": 2.2,
+      "target": "t1.r0.c1.p1",
+      "tampered_text": "사용자수정{교과 명}"
+    },
+    {
+      "step": "apply_with_tamper",
+      "t": 7.6,
+      "state": "live_addressed_partial",
+      "ok": false,
+      "counts": {
+        "requested": 18,
+        "applied": 17,
+        "skipped": 1,
+        "remaining": 0
+      },
+      "skipped": [
+        {
+          "target": "t1.r0.c1.p1",
+          "reason": "expected_text_mismatch",
+          "expected_text": "{교과 명}",
+          "actual_text": "사용자수정{교과 명}"
+        }
+      ],
+      "recovery": {
+        "undo_actions_per_cell": 2,
+        "instruction": "17 cell(s) were already replaced in the open window. To roll back, press Ctrl-Z up to 34 times (each cell = delete + insert) in the Hangul window, or close WITHOUT saving and reopen the original file."
+      },
+      "readback": {
+        "verified": true,
+        "failed": [],
+        "checked": 17
+      }
+    },
+    {
+      "step": "token_replay",
+      "t": 7.6,
+      "state": "stale_preview_token"
+    },
+    {
+      "step": "second_preview",
+      "t": 7.6,
+      "state": "preview_ready"
+    },
+    {
+      "step": "tamper_reverted",
+      "t": 7.7,
+      "target": "t1.r0.c1.p1"
+    },
+    {
+      "step": "second_apply",
+      "t": 8.2,
+      "state": "applied_live_addressed",
+      "ok": true,
+      "readback": {
+        "verified": true,
+        "failed": [],
+        "checked": 1
+      }
+    },
+    {
+      "step": "checks",
+      "t": 8.2,
+      "gated_by_default": true,
+      "preview_ready_over_token_flow": true,
+      "tamper_skipped_fail_closed": true,
+      "partial_state_with_recovery": true,
+      "others_applied_with_fresh_readback": true,
+      "token_single_use": true,
+      "second_round_full_success": true,
+      "file_on_disk_untouched": true
+    }
+  ],
+  "outcome": "pass",
+  "checks": {
+    "gated_by_default": true,
+    "preview_ready_over_token_flow": true,
+    "tamper_skipped_fail_closed": true,
+    "partial_state_with_recovery": true,
+    "others_applied_with_fresh_readback": true,
+    "token_single_use": true,
+    "second_round_full_success": true,
+    "file_on_disk_untouched": true
+  },
+  "sha_before": "88cf7334a1457747a7a8946c7cb8f80e97e5cddb33d2e35fb37def9e0c15676c",
+  "sha_after": "88cf7334a1457747a7a8946c7cb8f80e97e5cddb33d2e35fb37def9e0c15676c",
+  "note": "tabs were left open on purpose (the server never closes user documents); close them manually",
+  "finished_at": "2026-07-14T22:18:29.802577+00:00"
+}
