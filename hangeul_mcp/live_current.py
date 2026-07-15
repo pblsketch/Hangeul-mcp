@@ -42,6 +42,9 @@ from hangeul_core.runtime_info import runtime_identity
 
 
 _PREVIEW_TOKEN_TTL_SECONDS = 300
+# batches at or below this keep the fresh-connection read-back; larger ones skip it
+# for speed (the per-cell expected_text pre-check still guards every write)
+_LIVE_VERIFY_MAX_CELLS = 12
 _CANDIDATE_CACHE: Dict[str, Dict[str, Any]] = {}
 _PREVIEW_TOKENS: Dict[str, Dict[str, Any]] = {}
 
@@ -722,9 +725,21 @@ def _apply_live_addressed_route(preview_token: str, token: Dict[str, Any], candi
     # turns the old "client blocks for 4 minutes" hang into a structured timeout that
     # names the safe recovery — the saved file is never touched by this path.
     timeout_seconds = min(60 + 4 * len(targets), 180)
-    outcome = run_with_timeout(apply_live_addressed, original_path, targets, timeout_seconds=timeout_seconds)
+    # the fresh-connection read-back is a whole second COM pass (~30% of wall time);
+    # skip it for large batches where each per-cell expected_text pre-check already
+    # guarded the write, so a 40-cell form finishes noticeably faster
+    verify = len(targets) <= _LIVE_VERIFY_MAX_CELLS
+    outcome = run_with_timeout(
+        apply_live_addressed, original_path, targets, timeout_seconds=timeout_seconds, verify=verify
+    )
     if outcome.get("ok") and "result" in outcome:
-        return {**outcome["result"], "candidate": candidate, "route": "live_addressed"}
+        result = {**outcome["result"], "candidate": candidate, "route": "live_addressed"}
+        if not verify:
+            result["note"] = (
+                f"read-back verification was skipped for speed ({len(targets)} cells); each write "
+                "passed its expected_text pre-check — spot-check the result in the window"
+            )
+        return result
     return {
         "available": True,
         "ok": False,

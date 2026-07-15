@@ -86,6 +86,21 @@ def _inline_timeout(func, *args, timeout_seconds, **kwargs):
     return {"ok": True, "result": func(*args, **kwargs)}
 
 
+def _build_wide_form(dst: Path, n: int) -> None:
+    """1 x n table, each cell a distinct {vN} placeholder (for batch-size routing)."""
+    cells = "".join(
+        f'<hp:tc><hp:cellAddr rowAddr="0" colAddr="{i}"/><hp:subList>'
+        f'<hp:p id="{100 + i}">' + _run("{v%d}" % i) + '</hp:p></hp:subList></hp:tc>'
+        for i in range(n)
+    )
+    section0 = (
+        f'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hs:sec {_NS}>'
+        f'<hp:tbl rowCnt="1" colCnt="{n}"><hp:tr>{cells}</hp:tr></hp:tbl>'
+        '</hs:sec>'
+    )
+    _write_hwpx(dst, section0)
+
+
 def _build_nested_table(dst: Path) -> None:
     section0 = (
         f'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hs:sec {_NS}>'
@@ -466,6 +481,58 @@ def test_apply_matches_multipara_expected_ignoring_paragraph_breaks(monkeypatch,
     ])
     assert res["ok"] is True  # not skipped as expected_text_mismatch
     assert FakeHwp.cells[(1, 0, 0)] == "▶ 활동 하나\n- 세부 하나"
+
+
+def test_apply_verify_false_skips_readback(monkeypatch, tmp_path):
+    _fake_com(monkeypatch, {(1, 0, 1): "{성명}"})
+    res = apply_live_addressed(tmp_path / "f.hwpx", [_target("t1.r0.c1", 1, 0, 1, "홍길동", "{성명}")], verify=False)
+    assert res["ok"] is True  # trusts the per-cell expected_text pre-check
+    assert res["readback"]["skipped"] is True and res["readback"]["checked"] == 0
+    assert FakeHwp.cells[(1, 0, 1)] == "홍길동"  # write still happened
+
+
+def test_route_skips_readback_and_notes_for_large_batch(monkeypatch, tmp_path):
+    src = tmp_path / "wide.hwpx"
+    _build_wide_form(src, 13)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _rot(src))
+    monkeypatch.setattr(live_current, "live_addressed_enabled", lambda: True)
+    edits = [_edit(f"t1.r0.c{i}", f"값{i}", "{v%d}" % i) for i in range(13)]
+    preview = live_current.preview_current_hwp_document({}, edits=edits, mode="live_addressed")
+    assert preview["state"] == "preview_ready"
+    captured = {}
+
+    def capture(path, targets, **kw):
+        captured["verify"] = kw.get("verify")
+        return {"available": True, "connected": True, "ok": True, "state": "applied_live_addressed",
+                "applied": [{"target": t["target"], "value": t["value"]} for t in targets],
+                "skipped": [], "remaining": [], "readback": {"verified": False, "failed": [], "checked": 0, "skipped": True}}
+
+    monkeypatch.setattr(live_current, "run_with_timeout", _inline_timeout)
+    monkeypatch.setattr(live_current, "apply_live_addressed", capture)
+    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert captured["verify"] is False  # >12 cells -> read-back skipped for speed
+    assert "skipped for speed" in res["note"]
+
+
+def test_route_keeps_readback_for_small_batch(monkeypatch, tmp_path):
+    src = tmp_path / "form.hwpx"
+    _build_form(src)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _rot(src))
+    monkeypatch.setattr(live_current, "live_addressed_enabled", lambda: True)
+    preview = live_current.preview_current_hwp_document({}, edits=[_edit("t1.r0.c1", "홍길동", "{성명}")], mode="live_addressed")
+    captured = {}
+
+    def capture(path, targets, **kw):
+        captured["verify"] = kw.get("verify")
+        return {"available": True, "connected": True, "ok": True, "state": "applied_live_addressed",
+                "applied": [{"target": t["target"], "value": t["value"]} for t in targets],
+                "skipped": [], "remaining": [], "readback": {"verified": True, "failed": [], "checked": len(targets)}}
+
+    monkeypatch.setattr(live_current, "run_with_timeout", _inline_timeout)
+    monkeypatch.setattr(live_current, "apply_live_addressed", capture)
+    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert captured["verify"] is True  # small batch stays verified
+    assert "note" not in res
 
 
 def test_multipara_rejection_guides_to_whole_cell_multiline(tmp_path):

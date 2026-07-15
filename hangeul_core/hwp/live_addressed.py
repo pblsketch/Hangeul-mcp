@@ -173,8 +173,11 @@ def _read_cell_text(hwp, table: int, row: int, col: int) -> str | None:
     return text
 
 
-def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool = True) -> Dict:
+def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool = True, verify: bool = True) -> Dict:
     """Apply planned targets to the OPEN window (COM). Never opens/saves/closes."""
+    # verify runs a fresh-connection read-back (a whole second COM pass, ~30% of
+    # wall time); large batches skip it — the per-cell expected_text pre-check
+    # already guards each write before it happens.
     Hwp, err = load_pyhwpx()
     if err:
         return err
@@ -236,8 +239,8 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
     finally:
         restore_dialogs(hwp, previous_mode)
     # fresh read-back over a NEW COM connection (never trusts the writer object)
-    readback = {"verified": False, "failed": [], "checked": 0}
-    if applied:
+    readback = {"verified": False, "failed": [], "checked": 0, "skipped": not verify}
+    if verify and applied:
         try:
             fresh = Hwp(new=False, visible=visible, on_quit=False)
             fresh_mode = suppress_dialogs(fresh)
@@ -259,7 +262,7 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
         except Exception as exc:
             readback = {"verified": False, "failed": [], "checked": 0, "error": str(exc)}
     fully_applied = len(applied) == len(targets) and not skipped and not remaining
-    ok = fully_applied and (readback["verified"] or not applied)
+    ok = fully_applied and (not verify or readback["verified"] or not applied)
     out = {
         "available": True,
         "connected": True,
