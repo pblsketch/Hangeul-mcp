@@ -40,11 +40,14 @@ def test_split_merged_cell_unmerges_region(tmp_path):
     out = tmp_path / "split.hwpx"
     res = split_merged_cell(merged, 0, 0, 0, out)
     assert res["ok"] is True
-    # observable surface: the span>1 attributes disappear (python-hwpx keeps
-    # covered <hp:tc> elements, so tc COUNT does not change on split)
+    # observable contract: the span>1 attributes disappear (the merge is undone).
+    # python-hwpx's tc bookkeeping on unmerge changed across 2.24->2.29 (2.24 keeps
+    # the 6 merged-layout slots, 2.29 restores all 9 individual cells), so assert the
+    # merge is gone without pinning the count — an unmerge must never LOSE cells (BC1:
+    # tolerate minor delegate drift instead of over-pinning the version).
     after_xml = _section0(out)
     assert 'colSpan="2"' not in after_xml and 'rowSpan="2"' not in after_xml
-    assert after_xml.count("<hp:tc") == before_xml.count("<hp:tc")
+    assert after_xml.count("<hp:tc") >= before_xml.count("<hp:tc")
 
 
 def test_split_non_merged_cell_is_structured_error(tmp_path):
