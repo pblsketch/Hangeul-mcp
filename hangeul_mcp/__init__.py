@@ -1,3 +1,3 @@
 """Hangeul-mcp MCP server (client-agnostic: Claude Desktop, Codex, Antigravity 2.0)."""
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
