@@ -1,0 +1,70 @@
+{
+  "capture": "live_addressed_marker_multiline",
+  "started_at": "2026-07-15T03:32:54.635331+00:00",
+  "steps": [
+    {
+      "step": "targets_found",
+      "t": 0.2,
+      "goal": "t1.r4.c1",
+      "marker_cell": "t2.r1.c2",
+      "multi_cell": "t2.r5.c2"
+    },
+    {
+      "step": "plan",
+      "t": 0.2,
+      "ok": true,
+      "state": "planned",
+      "values": [
+        "1. 인물의 갈등을 설명할 수 있다.\n2. ",
+        "▶ 동기 유발 영상을 시청한다",
+        "▶ 인물 관계도를 그린다\n- 갈등의 원인을 "
+      ]
+    },
+    {
+      "step": "planned_marker_value",
+      "t": 0.2,
+      "value": "▶ 동기 유발 영상을 시청한다"
+    },
+    {
+      "step": "open_as_new_tab",
+      "t": 4.3,
+      "state": "opened_new_tab",
+      "ok": true
+    },
+    {
+      "step": "apply",
+      "t": 8.8,
+      "ok": true,
+      "state": "applied_live_addressed",
+      "counts": {
+        "requested": 3,
+        "applied": 3,
+        "skipped": 0,
+        "remaining": 0
+      },
+      "readback": {
+        "verified": true,
+        "failed": [],
+        "checked": 3
+      },
+      "skipped": []
+    },
+    {
+      "step": "checks",
+      "t": 8.8,
+      "apply_ok": true,
+      "all_applied": true,
+      "readback_verified": true,
+      "marker_preserved_readback": true
+    }
+  ],
+  "outcome": "pass",
+  "checks": {
+    "apply_ok": true,
+    "all_applied": true,
+    "readback_verified": true,
+    "marker_preserved_readback": true
+  },
+  "note": "temp copy only; a Hangul tab was left open — close it without saving",
+  "finished_at": "2026-07-15T03:33:03.420944+00:00"
+}

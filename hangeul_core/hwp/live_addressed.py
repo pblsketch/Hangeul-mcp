@@ -40,6 +40,13 @@ HYBRID_FALLBACK = (
     "original stays untouched"
 )
 
+MULTIPARA_FALLBACK = (
+    "this cell holds several paragraphs (e.g. ▶ / - list rows). Live editing can only "
+    "replace the WHOLE cell, so rebuild it: address it as tN.rN.cN (kind=cell) with a "
+    "single multi-line value that keeps every marker, e.g. \"▶ 활동1\\n- 세부1\\n▶ 활동2\". "
+    "For exact per-paragraph edits, " + HYBRID_FALLBACK
+)
+
 
 def live_addressed_enabled() -> bool:
     return bool(feature_flags().get("live_addressed_editing"))
@@ -112,9 +119,15 @@ def plan_live_addressed_edits(path: str | Path, edits: List[dict]) -> Dict:
         planned = live_map[str(entry.get("target"))]
         cell = cells[planned["cell"]]
         if str(entry.get("kind")) == "paragraph" and str(entry.get("before_text")) != cell.text:
-            # the cell holds more than this one paragraph; a whole-cell replace would destroy the rest
-            unresolved.append({"target": planned["target"], "reason": "multi_paragraph_cell_unsupported", "next": HYBRID_FALLBACK})
+            # can't isolate one paragraph of a multi-paragraph cell over COM; a whole-cell
+            # replace would destroy the rest. Rebuild the whole cell instead: address it as
+            # tN.rN.cN (kind=cell) with a multi-line value that keeps every ▶/- marker.
+            unresolved.append({"target": planned["target"], "reason": "multi_paragraph_cell_unsupported", "next": MULTIPARA_FALLBACK})
             continue
+        # insert the file-mode RESOLVED text, not the raw value: this carries the
+        # preserved ▶/□/○ marker (preserve_marker_replace_tail) and the \n-split
+        # multiline exactly as the byte-preserving file path would have written it.
+        planned = {**planned, "value": str(entry.get("after_text") or planned["value"])}
         targets.append(planned)
     if unresolved:
         return {**base, "state": "live_targets_unresolved", "unresolved": unresolved}
@@ -137,6 +150,10 @@ def _recovery(applied_count: int) -> Dict:
             "Hangul window, or close WITHOUT saving and reopen the original file."
         ),
     }
+
+
+def _norm_lines(text: str | None) -> str:
+    return str(text or "").replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _select_cell_content(hwp) -> None:
@@ -187,7 +204,8 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
                 _select_cell_content(hwp)
                 current = str(hwp.get_selected_text() or "")
                 hwp.HAction.Run("Cancel")
-                if current != t["expected_text"]:
+                # multi-para cells read back with \r\n separators the inspection text lacks
+                if _norm_lines(current).replace("\n", "") != _norm_lines(t["expected_text"]).replace("\n", ""):
                     skipped.append({
                         "target": t["target"],
                         "reason": "expected_text_mismatch",
@@ -232,7 +250,8 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
                 for entry in applied:
                     t = by_target[entry["target"]]
                     text = _read_cell_text(fresh, t["table"], t["row"], t["col"])
-                    if text != entry["value"]:
+                    # BreakPara inserts read back as \r\n between paragraphs; compare on \n
+                    if _norm_lines(text) != _norm_lines(entry["value"]):
                         failed.append({"target": entry["target"], "expected": entry["value"], "actual": text})
                 readback = {"verified": not failed, "failed": failed, "checked": len(applied)}
             finally:

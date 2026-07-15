@@ -55,8 +55,13 @@ def live_routes() -> List[Dict[str, str]]:
                 "edits the open window directly over COM — NOT byte-preserving and NOT saved by the "
                 "server (the file on disk stays untouched until the user saves). expected_text is "
                 "mandatory per edit and re-checked in the window right before each replace; mismatches "
-                "skip fail-closed with applied[]/remaining[] plus Ctrl-Z recovery guidance. Nested-table "
-                "documents fail closed — use the complete_and_load hybrid for those."
+                "skip fail-closed with applied[]/remaining[] plus Ctrl-Z recovery guidance. Markers "
+                "are preserved (preserve_marker_replace_tail keeps ▶/□/○/-) and a \\n in the value "
+                "makes real paragraphs, so fill a multi-paragraph ▶/- cell as ONE whole-cell "
+                "(tN.rN.cN) multi-line value. The apply runs in a bounded worker: a COM hang returns "
+                "timeout_outcome_unknown (may_have_partially_applied) instead of blocking. Nested "
+                "tables and per-paragraph edits of a multi-paragraph cell fail closed — use the "
+                "complete_and_load hybrid for those."
             ),
         },
         {

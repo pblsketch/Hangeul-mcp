@@ -67,6 +67,25 @@ def _build_multi_para_cell(dst: Path) -> None:
     _write_hwpx(dst, section0)
 
 
+def _build_marker_cell(dst: Path) -> None:
+    """1x1 table, cell holds a single ▶ marker paragraph."""
+    section0 = (
+        f'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hs:sec {_NS}>'
+        '<hp:tbl rowCnt="1" colCnt="1"><hp:tr>'
+        '<hp:tc><hp:cellAddr rowAddr="0" colAddr="0"/><hp:subList>'
+        '<hp:p id="40">' + _run("▶") + '</hp:p>'
+        '</hp:subList></hp:tc>'
+        '</hp:tr></hp:tbl>'
+        '</hs:sec>'
+    )
+    _write_hwpx(dst, section0)
+
+
+def _inline_timeout(func, *args, timeout_seconds, **kwargs):
+    """Run the apply inline (no subprocess) so fake-COM monkeypatches apply."""
+    return {"ok": True, "result": func(*args, **kwargs)}
+
+
 def _build_nested_table(dst: Path) -> None:
     section0 = (
         f'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hs:sec {_NS}>'
@@ -335,6 +354,7 @@ def test_preview_and_apply_live_addressed_when_enabled(monkeypatch, tmp_path):
     preview = live_current.preview_current_hwp_document({}, edits=[_edit("t1.r0.c1", "홍길동", "{성명}")], mode="live_addressed")
     assert preview["state"] == "preview_ready" and preview["route"] == "live_addressed"
     assert preview["preview"]["counts"] == {"requested": 1, "planned": 1}
+    monkeypatch.setattr(live_current, "run_with_timeout", _inline_timeout)
     monkeypatch.setattr(
         live_current,
         "apply_live_addressed",
@@ -400,3 +420,102 @@ def test_preview_live_addressed_passes_nested_fail_closed_through(monkeypatch, t
     res = live_current.preview_current_hwp_document({}, edits=[_edit("t1.r0.c0", "값", "외부")], mode="live_addressed")
     assert res["state"] == "nested_tables_unsupported"
     assert "preview_token" not in res
+
+
+# ---------- v0.5.2: marker preservation + multiline + timeout isolation ----------
+
+
+def test_plan_preserves_marker_via_after_text_then_applies(monkeypatch, tmp_path):
+    src = tmp_path / "marker.hwpx"
+    _build_marker_cell(src)
+    plan = plan_live_addressed_edits(
+        src,
+        [{"target": "t1.r0.c0.p1", "kind": "paragraph", "operation": "preserve_marker_replace_tail",
+          "value": "핵심 개념 정리", "expected_text": "▶"}],
+    )
+    assert plan["ok"] is True
+    # the live target carries the RESOLVED text (marker kept), not the raw '핵심 개념 정리'
+    assert plan["targets"][0]["value"] == "▶ 핵심 개념 정리"
+
+    _fake_com(monkeypatch, {(1, 0, 0): "▶"})
+    res = apply_live_addressed(src, plan["targets"])
+    assert res["ok"] is True
+    assert FakeHwp.cells[(1, 0, 0)] == "▶ 핵심 개념 정리"  # ▶ survived the live replace
+
+
+def test_whole_cell_multiline_value_splits_into_paragraphs(monkeypatch, tmp_path):
+    src = tmp_path / "form.hwpx"
+    _build_form(src)
+    plan = plan_live_addressed_edits(src, [_edit("t1.r1.c1", "1. 목표 하나\n2. 목표 둘", "")])
+    assert plan["ok"] is True
+    assert plan["targets"][0]["value"] == "1. 목표 하나\n2. 목표 둘"
+
+    _fake_com(monkeypatch, {(1, 1, 1): ""})
+    res = apply_live_addressed(src, plan["targets"])
+    assert res["ok"] is True
+    assert FakeHwp.cells[(1, 1, 1)] == "1. 목표 하나\n2. 목표 둘"  # BreakPara between lines
+    assert res["readback"]["verified"] is True  # \r\n vs \n normalized
+
+
+def test_apply_matches_multipara_expected_ignoring_paragraph_breaks(monkeypatch, tmp_path):
+    # a live COM read of a multi-paragraph cell carries \r\n separators the
+    # inspection expected_text ("▶-▶-") lacks; the contrast must still match
+    _fake_com(monkeypatch, {(1, 0, 0): "▶\r\n-\r\n\r\n▶\r\n-"})
+    res = apply_live_addressed(tmp_path / "f.hwpx", [
+        _target("t1.r0.c0", 1, 0, 0, "▶ 활동 하나\n- 세부 하나", "▶-▶-"),
+    ])
+    assert res["ok"] is True  # not skipped as expected_text_mismatch
+    assert FakeHwp.cells[(1, 0, 0)] == "▶ 활동 하나\n- 세부 하나"
+
+
+def test_multipara_rejection_guides_to_whole_cell_multiline(tmp_path):
+    multi = tmp_path / "multi.hwpx"
+    _build_multi_para_cell(multi)
+    plan = plan_live_addressed_edits(multi, [_edit("t1.r0.c0.p1", "값", "자료", kind="paragraph")])
+    assert plan["ok"] is False
+    u = plan["unresolved"][0]
+    assert u["reason"] == "multi_paragraph_cell_unsupported"
+    assert "kind=cell" in u["next"] and "\\n" in u["next"]  # tells the client how to fill it live
+
+
+def test_apply_route_isolates_hang_as_structured_timeout(monkeypatch, tmp_path):
+    src = tmp_path / "form.hwpx"
+    _build_form(src)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _rot(src))
+    monkeypatch.setattr(live_current, "live_addressed_enabled", lambda: True)
+    preview = live_current.preview_current_hwp_document({}, edits=[_edit("t1.r0.c1", "홍길동", "{성명}")], mode="live_addressed")
+    assert preview["state"] == "preview_ready"
+
+    def _hang(func, *args, timeout_seconds, **kwargs):
+        return {
+            "ok": False, "timed_out": True, "state": "timeout_outcome_unknown",
+            "may_have_partially_applied": True, "timeout_seconds": timeout_seconds,
+            "elapsed_seconds": 180.0, "error": "operation timed out in isolated worker",
+        }
+
+    monkeypatch.setattr(live_current, "run_with_timeout", _hang)
+    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert res["ok"] is False
+    assert res["state"] == "timeout_outcome_unknown"
+    assert res["may_have_partially_applied"] is True
+    assert "without saving" in res["recovery"]["instruction"].lower()
+    assert "complete_and_load" in res["next"]
+    # single-use token consumed even on a hang, so no accidental replay
+    again = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert again["state"] == "stale_preview_token"
+
+
+def test_apply_route_unwraps_worker_result_on_success(monkeypatch, tmp_path):
+    src = tmp_path / "form.hwpx"
+    _build_form(src)
+    monkeypatch.setattr(live_current, "list_rot_instances", lambda: _rot(src))
+    monkeypatch.setattr(live_current, "live_addressed_enabled", lambda: True)
+    preview = live_current.preview_current_hwp_document({}, edits=[_edit("t1.r0.c1", "홍길동", "{성명}")], mode="live_addressed")
+    monkeypatch.setattr(live_current, "run_with_timeout", _inline_timeout)
+    monkeypatch.setattr(live_current, "apply_live_addressed", lambda path, targets, **kw: {
+        "available": True, "connected": True, "ok": True, "state": "applied_live_addressed",
+        "applied": [{"target": t["target"], "value": t["value"]} for t in targets],
+        "skipped": [], "remaining": [], "readback": {"verified": True, "failed": [], "checked": len(targets)},
+    })
+    res = live_current.apply_to_current_hwp_document(preview["preview_token"])
+    assert res["ok"] is True and res["state"] == "applied_live_addressed" and res["route"] == "live_addressed"

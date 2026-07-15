@@ -14,6 +14,7 @@ from hangeul_core.addressed import (
 from hangeul_core.formfield import form_field_names
 from hangeul_core.hwp import HwpBridge
 from hangeul_core.hwp.com import list_rot_instances, normalize_live_path
+from hangeul_core.live_timeout import run_with_timeout
 from hangeul_core.hwp.live_attach import open_as_new_tab as _open_completed_in_window
 
 from hangeul_core.hwp.current_document import (
@@ -715,8 +716,35 @@ def _apply_live_addressed_route(preview_token: str, token: Dict[str, Any], candi
         }
     # single-use: consume BEFORE any COM mutation so no outcome can replay the write
     _PREVIEW_TOKENS.pop(preview_token, None)
-    result = apply_live_addressed(original_path, [dict(t) for t in token.get("targets") or []])
-    return {**result, "candidate": candidate, "route": "live_addressed"}
+    targets = [dict(t) for t in token.get("targets") or []]
+    # A hung COM call cannot be interrupted in-process, so run the destructive apply
+    # in an isolated worker with a bounded budget (60s + 4s/cell, capped 180s). This
+    # turns the old "client blocks for 4 minutes" hang into a structured timeout that
+    # names the safe recovery — the saved file is never touched by this path.
+    timeout_seconds = min(60 + 4 * len(targets), 180)
+    outcome = run_with_timeout(apply_live_addressed, original_path, targets, timeout_seconds=timeout_seconds)
+    if outcome.get("ok") and "result" in outcome:
+        return {**outcome["result"], "candidate": candidate, "route": "live_addressed"}
+    return {
+        "available": True,
+        "ok": False,
+        "state": str(outcome.get("state") or "live_addressed_worker_failed"),
+        "route": "live_addressed",
+        "candidate": candidate,
+        "may_have_partially_applied": bool(outcome.get("may_have_partially_applied", True)),
+        "timeout_seconds": outcome.get("timeout_seconds"),
+        "elapsed_seconds": outcome.get("elapsed_seconds"),
+        "error": outcome.get("error"),
+        "recovery": {
+            "instruction": (
+                "the live apply did not confirm completion within the time budget and may have "
+                "replaced some cells. Close the Hangul window WITHOUT saving and reopen the "
+                "original to be safe — this path never modified the saved file — then retry a "
+                "whole 40-cell form with the complete_and_load hybrid."
+            ),
+        },
+        "next": _LIVE_ADDRESSED_FALLBACK,
+    }
 
 
 def _normalize_apply_error(route: str, result: Dict[str, Any]) -> Dict[str, Any]:
