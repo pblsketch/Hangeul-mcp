@@ -139,6 +139,7 @@ def describe_capabilities() -> Dict[str, Any]:
     "resolve_current_hwp_document",
     "preview_current_hwp_document",
     "apply_to_current_hwp_document",
+    "live_delete_table_rows",
 ],
 requires=["Windows", "Hangul", "pywin32", "pyhwpx"],
 note=(

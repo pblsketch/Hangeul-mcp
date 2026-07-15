@@ -67,7 +67,10 @@ class AddressedEdit(BaseModel):
         ),
         examples=["t2.r4.c2.p1"],
     )
-    value: str = Field(description="Replacement text; use \\n to split into consecutive paragraphs (개조식 lines)")
+    value: str = Field(
+        default="",
+        description="Replacement text; use \\n to split into consecutive paragraphs (개조식 lines). Ignored by delete_paragraph / insert_blank_* ops.",
+    )
     expected_text: str = Field(
         default="",
         description="Optional current text copied from inspection; mismatch fails closed",
@@ -76,9 +79,24 @@ class AddressedEdit(BaseModel):
         default=None,
         description="Usually omit; inferred from target",
     )
-    operation: Literal["replace_text", "preserve_marker_replace_tail"] | None = Field(
+    operation: (
+        Literal[
+            "replace_text",
+            "preserve_marker_replace_tail",
+            "insert_blank_before",
+            "insert_blank_after",
+            "delete_paragraph",
+            "delete_table",
+            "delete_row",
+        ]
+        | None
+    ) = Field(
         default=None,
-        description="Usually omit; defaults to replace_text. preserve_marker_replace_tail keeps the ▶/-/□/○ marker (bN and tN.rN.cN.pN).",
+        description="Usually omit; defaults to replace_text. preserve_marker_replace_tail keeps the ▶/-/□/○ marker. insert_blank_before/after add an empty spacer paragraph around a bN body paragraph; delete_paragraph removes a bN body paragraph; delete_table removes a whole tN table (e.g. an unused <보기> box); delete_row is live-only (open Hangul window).",
+    )
+    bold: bool | None = Field(
+        default=None,
+        description="Optional. true = bold the edited text (문항/제목), false = force non-bold (선지), omit = keep existing weight. Applies to every non-empty text run in the value, including multiline clones.",
     )
 
 

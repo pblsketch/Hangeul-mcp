@@ -21,14 +21,24 @@ from hangeul_core.edit_session import (
     _snapshot_path,
     _utc_now,
 )
-from hangeul_core.fill import _find_cell_span, _match_close
+from hangeul_core.charpr import set_runs_bold
+from hangeul_core.fill import _TAG, _find_cell_span, _match_close
 from hangeul_core.owpml import HwpxPackage
+
+_HEADER_ENTRY = "Contents/header.xml"
 
 _TARGET = re.compile(r"^t(?P<table>\d+)\.r(?P<row>\d+)\.c(?P<col>\d+)$")
 _PARA_TARGET = re.compile(r"^(?P<cell>t\d+\.r\d+\.c\d+)\.p(?P<ordinal>\d+)$")
 _BODY_TARGET = re.compile(r"^b(?P<ordinal>\d+)$")
+_TABLE_TARGET = re.compile(r"^t(?P<table>\d+)$")
 _TEXT_NODE = re.compile(r"<hp:t>(.*?)</hp:t>", re.S)
 _PARA_ID = re.compile(r'\bid="([^"]*)"')
+
+# Body-paragraph structural ops: no text expectation, so verification skips them.
+_STRUCTURAL_BODY_OPS = {"insert_blank_before", "insert_blank_after", "delete_paragraph"}
+# All structural/formatting ops that must pass the validation gate and skip
+# text-verification (no meaningful after_text). delete_row is live-only.
+_STRUCTURAL_OPS = _STRUCTURAL_BODY_OPS | {"delete_table", "delete_row"}
 
 
 @dataclass
@@ -159,24 +169,46 @@ def _edit_cell_of(item: dict) -> str:
 
 
 def _ordered_edits(edits: List[dict]) -> List[dict]:
-    """Apply same-cell paragraph edits bottom-up (descending pN).
+    """Order a batch so in-place mutations never invalidate later targets.
 
-    Multiline edits INSERT paragraphs; applying high ordinals first keeps the
-    lower ordinals still waiting in the batch valid.
+    Same-cell paragraph edits and body ``bN`` edits are applied bottom-up
+    (descending ordinal): multiline edits INSERT paragraphs and
+    ``delete_paragraph`` REMOVES one, so touching high ordinals first keeps the
+    lower ordinals still waiting in the batch resolvable. Body paragraphs address
+    only non-empty paragraphs, so a blank insert is ordinal-neutral; deletes are
+    the case that would otherwise drift, and descending order absorbs them.
     """
     indexed = list(enumerate(edits))
     cell_first_index: Dict[str, int] = {}
+    body_first_index: int | None = None
     for idx, item in indexed:
-        match = _PARA_TARGET.match(str(item.get("target") or ""))
+        target = str(item.get("target") or "")
+        match = _PARA_TARGET.match(target)
         if match and match.group("cell") not in cell_first_index:
             cell_first_index[match.group("cell")] = idx
+        elif _BODY_TARGET.match(target) and body_first_index is None:
+            body_first_index = idx
 
     def sort_key(pair):
         idx, item = pair
-        match = _PARA_TARGET.match(str(item.get("target") or ""))
+        target = str(item.get("target") or "")
+        match = _PARA_TARGET.match(target)
         if match:
-            return (cell_first_index[match.group("cell")], -int(match.group("ordinal")))
-        return (idx, 0)
+            return (cell_first_index[match.group("cell")], -int(match.group("ordinal")), idx)
+        body = _BODY_TARGET.match(target)
+        if body:
+            # Cluster body edits at their first appearance and run them bottom-up
+            # (descending ordinal), so inserts/deletes never shift a lower target.
+            return (body_first_index if body_first_index is not None else idx, -int(body.group("ordinal")), idx)
+        table = _TABLE_TARGET.match(target)
+        if table:
+            # Tables run LAST (after every cell/body edit): deleting a table can
+            # preserve a caption that then becomes a counted body paragraph, which
+            # would shift later bN targets if any body edit ran afterwards. Among
+            # themselves, delete tables bottom-up (descending number) so removing a
+            # higher table keeps every lower section-local table index valid.
+            return (len(edits), -int(table.group("table")), idx)
+        return (idx, 0, idx)
 
     return [item for _, item in sorted(indexed, key=sort_key)]
 
@@ -269,6 +301,82 @@ def _body_paragraphs_in_section(section: str, section_number: int) -> List[dict]
             }
         )
     return items
+
+
+def _find_table_span(section: str, table_in_section: int) -> tuple[int, int] | None:
+    """Byte span of the *table_in_section*-th ``<hp:tbl>...</hp:tbl>`` in a section.
+
+    Counts opens the same way ``_find_cell_span`` does (nested tables included),
+    so the index matches the one carried on cells.
+    """
+    seen = 0
+    for m in _TAG.finditer(section):
+        if m.group(2) != "hp:tbl" or m.group(4) == "/" or m.group(1) == "/":
+            continue
+        seen += 1
+        if seen == table_in_section:
+            return m.start(), _match_close(section, m.start(), "hp:tbl")
+    return None
+
+
+_P_OPEN_RE = re.compile(r"<hp:p[ >]")
+_P_OPEN_TAG_RE = re.compile(r"<hp:p\b[^>]*>")
+_FIRST_CPR_RE = re.compile(r'charPrIDRef="(\d+)"')
+
+
+def _blank_paragraph_like(block: str) -> str | None:
+    """A minimal empty paragraph cloning only *block*'s paraPr + a run charPr.
+
+    Cloning the source block and blanking its ``<hp:t>`` would keep any
+    ``<hp:pic>``/equation/control, duplicating them; a spacer must carry nothing
+    but the paragraph style and one empty run.
+    """
+    open_m = _P_OPEN_TAG_RE.match(block)
+    if open_m is None:
+        return None
+    cpr_m = _FIRST_CPR_RE.search(block)
+    cpr = cpr_m.group(1) if cpr_m else "0"
+    return f'{open_m.group(0)}<hp:run charPrIDRef="{cpr}"><hp:t></hp:t></hp:run></hp:p>'
+
+
+def _delete_table_at(section: str, table_in_section: int) -> tuple[str, str] | None:
+    """Remove a whole table. Returns ``(new_section, removed_text)`` or None.
+
+    Removes the ``<hp:tbl>`` subtree, then cleans up: if its run has nothing else
+    (no caption text / control), drop the run too; if the paragraph is then
+    text-empty, drop the paragraph. A caption sharing the table's run OR its
+    paragraph survives (Principle: never delete more than addressed). Fails
+    closed if the table is not wrapped by a run in its paragraph.
+    """
+    span = _find_table_span(section, table_in_section)
+    if span is None:
+        return None
+    ts, te = span
+    opens = list(_P_OPEN_RE.finditer(section[:ts]))  # nearest paragraph OPEN tag
+    if not opens:
+        return None
+    p_start = opens[-1].start()
+    p_end = _match_close(section, p_start, "hp:p")
+    pblock = section[p_start:p_end]
+    rel_ts, rel_te = ts - p_start, te - p_start
+    run_start = pblock.rfind("<hp:run", 0, rel_ts)
+    if run_start < 0:
+        return None
+    run_end = _match_close(pblock, run_start, "hp:run")
+    if not (run_start < rel_ts < run_end):
+        return None  # table not wrapped by this run -> fail closed
+    removed_text = _paragraph_text(pblock)
+    run_wo_tbl = pblock[run_start:rel_ts] + pblock[rel_te:run_end]
+    # Does the run still carry anything besides the removed table?
+    inner = run_wo_tbl[run_wo_tbl.find(">") + 1 : run_wo_tbl.rfind("</hp:run>")]
+    if inner.strip():
+        new_pblock = pblock[:run_start] + run_wo_tbl + pblock[run_end:]  # keep run (caption)
+    else:
+        new_pblock = pblock[:run_start] + pblock[run_end:]  # drop the empty run
+    if _paragraph_text(new_pblock).strip() or "<hp:tbl" in new_pblock:
+        return section[:p_start] + new_pblock + section[p_end:], removed_text
+    # paragraph now holds only the deleted table -> drop the empty paragraph
+    return section[:p_start] + section[p_end:], removed_text
 
 
 def _cell_paragraph_entry(section: str, cell, ordinal: int) -> tuple[tuple[int, int], str, dict] | None:
@@ -607,6 +715,62 @@ def verify_targets(path: str | Path, expected_targets: List[dict]) -> Dict[str, 
     }
 
 
+def _batch_needs_validation(edits: List[dict]) -> bool:
+    for item in edits:
+        if item.get("bold") is not None:
+            return True
+        if str(item.get("operation") or "") in _STRUCTURAL_OPS:
+            return True
+    return False
+
+
+def _validate_structural_output(target: str | Path) -> Dict[str, object]:
+    """Validate an applied output. Fail-closed on structural or charPr-order damage.
+
+    Combines ``validate_hwpx`` (well-formedness / mimetype / declaration, plus
+    python-hwpx XSD when available) with own-engine checks that do NOT need the
+    optional XSD layer — a targeted charPr sequence check (python-hwpx does not
+    flag a mis-ordered ``<hh:bold/>``) and a dangling ``charPrIDRef`` check — so
+    the gate stays meaningful on installs without python-hwpx.
+    """
+    from hangeul_core.charpr import (
+        charpr_ids,
+        count_stray_empty_bold_runs,
+        header_charpr_order_ok,
+    )
+    from hangeul_core.validate import validate_hwpx
+
+    report = validate_hwpx(target)
+    errors: List[str] = list(report.get("errors") or [])
+    xsd = report.get("xsd") or {}
+    xsd_available = bool(xsd.get("available"))
+    if xsd_available and not xsd.get("valid", True):
+        errors.extend(f"xsd: {e}" for e in (xsd.get("errors") or []))
+    stray = 0
+    try:
+        pkg = HwpxPackage.open(target)
+        header = pkg.read(_HEADER_ENTRY).decode("utf-8")
+        order_ok, order_errors = header_charpr_order_ok(header)
+        errors.extend(order_errors)
+        ids = charpr_ids(header)
+        for name in pkg.names():
+            if name.startswith("Contents/section") and name.endswith(".xml"):
+                section = pkg.read(name).decode("utf-8")
+                stray += count_stray_empty_bold_runs(section, header)
+                dangling = {ref for ref in re.findall(r'charPrIDRef="(\d+)"', section) if ref not in ids}
+                errors.extend(f"{name}: dangling charPrIDRef {d}" for d in sorted(dangling))
+    except Exception as exc:  # pragma: no cover - defensive
+        order_ok = False
+        errors.append(f"charpr_order_check_failed: {exc}")
+    ok = bool(report.get("valid")) and order_ok and not errors
+    return {
+        "ok": ok,
+        "valid": bool(report.get("valid")),
+        "errors": errors,
+        "structure_report": {"stray_empty_bold_runs": stray, "xsd_available": xsd_available},
+    }
+
+
 def complete_addressed_template(
     path: str | Path,
     edits: List[dict],
@@ -698,6 +862,35 @@ def complete_addressed_template(
             "substrate": str(applied.get("substrate") or preview.get("substrate") or OWN_TEXT_SUBSTRATE),
         }
 
+    # Structural/formatting ops (bold today; insert/delete/table later) mutate
+    # more than run text, so gate the applied output on validation and a
+    # targeted charPr-order check. Fail closed rather than report "complete" on
+    # a schema-damaged file (Principle 3/4).
+    structure_report: Dict[str, object] | None = None
+    if _batch_needs_validation(edits):
+        gate = _validate_structural_output(target)
+        structure_report = gate.get("structure_report")
+        if not gate["ok"]:
+            gate_counts = counts_from(applied, verified=0)
+            gate_counts["skipped"] = gate_counts["requested"] - gate_counts["applied"]
+            timings_ms = {"preview": preview_ms, "apply": apply_ms, "verify": 0, "total": elapsed_ms(total_started)}
+            return {
+                "ok": False,
+                "state": "invalid_output",
+                "session_id": applied["session_id"],
+                "source_path": str(source),
+                "source_sha256": str(applied.get("source_sha256") or source_sha256),
+                "target_path": str(target),
+                "target_sha256": _sha256_path(target),
+                "counts": gate_counts,
+                "coverage_ratio": 0.0,
+                "unresolved": unresolved,
+                "failures": [{"reason": "validation_failed", **gate}],
+                "timings_ms": timings_ms,
+                "substrate": OWN_TEXT_SUBSTRATE,
+                "journal_path": applied.get("journal_path"),
+            }
+
     verify_ms = 0
     verified_count = 0
     failures: List[dict] = []
@@ -707,6 +900,9 @@ def complete_addressed_template(
         verify_started = time.perf_counter()
         expectations: List[dict] = []
         for item in preview["edits"]:
+            if item.get("skip_verify"):
+                # structural ops (insert_blank/delete_paragraph) have no text expectation
+                continue
             # multiline edits become consecutive paragraphs — verify each line
             expectations.extend(
                 item.get("verify_expansion")
@@ -757,6 +953,7 @@ def complete_addressed_template(
         "snapshot_path": applied.get("snapshot_path"),
         "changed_entries": list(applied.get("changed_entries") or []),
         "audit": list(applied.get("audit") or []),
+        **({"structure_report": structure_report} if structure_report is not None else {}),
     }
 
 def plan_template_completion(path: str | Path, compact: bool = False) -> Dict[str, object]:
@@ -836,6 +1033,8 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
         counts={"requested": len(edits), "resolved": 0, "applied": 0, "skipped": 0, "unresolved": 0},
     )
     cells = {cell.field_id: cell for cell in result.all_cells()}
+    # global table number (tN) -> (section entry, table index within that section)
+    table_map = {c.table: (c.section, c.table_in_section) for c in result.all_cells() if c.section}
     body_index = body_field_index(source)
     sections: Dict[str, str] = {}
     seen_targets: set[str] = set()
@@ -850,6 +1049,18 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
             sections[name] = pkg.read(name).decode("utf-8")
         return sections[name]
 
+    def apply_bold(block: str, bold: bool | None) -> str:
+        """Repoint text runs in *block* at a bold/non-bold charPr and stage the header.
+
+        No-op when *bold* is None. On the reuse/no-op path set_runs_bold returns
+        the header unchanged, so the header entry stays byte-identical.
+        """
+        if bold is None:
+            return block
+        new_block, new_header = set_runs_bold(block, section_text(_HEADER_ENTRY), bold)
+        sections[_HEADER_ENTRY] = new_header
+        return new_block
+
     conflicted_multiline = _multiline_conflicts(list(edits))
     for item in _ordered_edits(list(edits)):
         target = str(item.get("target") or "")
@@ -857,6 +1068,7 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
         operation = str(item.get("operation") or "")
         value = str(item.get("value") or "")
         expected_text = str(item.get("expected_text") or "")
+        bold = item.get("bold")
         if target in seen_targets:
             unresolved.append({"target": target, "reason": "duplicate_target"})
             continue
@@ -899,6 +1111,7 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
                     for offset, line in enumerate(lines)
                 ]
             new_tc = _strip_linesegs(new_tc)
+            new_tc = apply_bold(new_tc, bold)
             sections[cell.section] = section[:start] + new_tc + section[end:]
             before_text = cell.text
             after_text = value
@@ -943,6 +1156,7 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
                     {"target": f"{match.group('cell')}.p{ordinal + offset}", "expected_text": line}
                     for offset, line in enumerate(lines)
                 ]
+            new_para = apply_bold(new_para, bold)
             new_tc = tc_xml[: paragraph["start"]] + new_para + tc_xml[paragraph["end"] :]
             sections[cell.section] = section[: span[0]] + new_tc + section[span[1] :]
             before_text = paragraph["text"]
@@ -976,9 +1190,55 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
             before_text = paragraph["text"]
             refreshed = _body_paragraphs_in_section(new_section, section_numbers[section_name])[local_ordinal - 1]
             after_text = refreshed["text"]
-            stripped_block = _strip_linesegs(refreshed["block"])
+            stripped_block = apply_bold(_strip_linesegs(refreshed["block"]), bold)
             new_section = new_section[: refreshed["start"]] + stripped_block + new_section[refreshed["end"] :]
             sections[section_name] = new_section
+        elif operation in _STRUCTURAL_BODY_OPS and _BODY_TARGET.match(target):
+            section_name, local_ordinal = body_index.get(target, (None, None))
+            if not section_name or local_ordinal is None:
+                unresolved.append({"target": target, "reason": "target_not_found"})
+                continue
+            section = section_text(section_name)
+            paragraphs = _body_paragraphs_in_section(section, section_numbers[section_name])
+            if local_ordinal < 1 or local_ordinal > len(paragraphs):
+                unresolved.append({"target": target, "reason": "target_not_found"})
+                continue
+            paragraph = paragraphs[local_ordinal - 1]
+            if expected_text and paragraph["text"] != expected_text:
+                unresolved.append({"target": target, "reason": "expected_text_mismatch", "actual_text": paragraph["text"]})
+                continue
+            start, end = paragraph["start"], paragraph["end"]
+            if operation == "delete_paragraph":
+                sections[section_name] = section[:start] + section[end:]
+                before_text, after_text = paragraph["text"], ""
+            else:
+                blank = _blank_paragraph_like(paragraph["block"])
+                if blank is None:
+                    unresolved.append({"target": target, "reason": "no_text_nodes"})
+                    continue
+                if operation == "insert_blank_before":
+                    sections[section_name] = section[:start] + blank + section[start:]
+                else:  # insert_blank_after
+                    sections[section_name] = section[:end] + blank + section[end:]
+                before_text, after_text = "", ""
+        elif operation == "delete_table" and _TABLE_TARGET.match(target):
+            loc = table_map.get(int(_TABLE_TARGET.match(target).group("table")))
+            if loc is None or not loc[0]:
+                unresolved.append({"target": target, "reason": "target_not_found"})
+                continue
+            section_name, table_in_section = loc
+            section = section_text(section_name)
+            deleted = _delete_table_at(section, table_in_section)
+            if deleted is None:
+                unresolved.append({"target": target, "reason": "table_not_found"})
+                continue
+            sections[section_name], removed_text = deleted
+            before_text, after_text = removed_text, ""
+        elif operation == "delete_row":
+            # Offline row delete needs cellAddr/rowCnt/merge recompute that no
+            # library covers safely; ship it live-only (Hangul recomputes merges).
+            unresolved.append({"target": target, "reason": "delete_row_is_live_only", "next": "apply via the open Hangul window (live delete_row)"})
+            continue
         else:
             unresolved.append({"target": target, "reason": "unsupported_target"})
             continue
@@ -995,6 +1255,7 @@ def preview_addressed_edits(path: str | Path, edits: List[dict]) -> Dict[str, ob
                 "section": section_name,
                 "context_digest": _context_digest(target, expected_text, value),
                 **({"verify_expansion": verify_expansion} if verify_expansion else {}),
+                **({"skip_verify": True} if operation in _STRUCTURAL_OPS else {}),
             }
         )
         session.audit.append(f"{section_name}: {target} {operation}")

@@ -2,15 +2,12 @@
 
 ``plan_live_addressed_edits`` stays PURE (no COM): it resolves ``AddressedEdit``
 targets against the SAVED file, makes ``expected_text`` MANDATORY per edit, and
-fails closed on anything the live substrate cannot replace safely — nested
-tables (D7: the analyze global table index matches pyhwpx
-``get_into_nth_table`` order only for top-level tables), body paragraphs, and
-multi-paragraph cells. ``apply_live_addressed`` drives the open window over COM
-and re-reads each cell's CURRENT text immediately before the destructive
-replace, so a D7 drift surfaces as an ``expected_text_mismatch`` skip instead
-of a silent mis-write. The document is NEVER saved, closed, or reloaded here;
-the route stays behind ``feature_flags()['live_addressed_editing']`` until the
-desktop-live QA gate passes.
+fails closed on anything the live substrate cannot replace safely (nested tables
+per D7, body paragraphs, multi-paragraph cells). ``apply_live_addressed`` drives
+the open window over COM and re-reads each cell's CURRENT text right before the
+destructive replace, so a D7 drift surfaces as an ``expected_text_mismatch``
+skip. The document is NEVER saved/closed/reloaded; the route stays behind
+``feature_flags()['live_addressed_editing']`` until the desktop-live QA gate passes.
 """
 
 from __future__ import annotations
@@ -29,6 +26,7 @@ from hangeul_core.hwp.com import (
     suppress_dialogs,
 )
 from hangeul_core.hwp.live_attach import _ensure_active_document
+from hangeul_core.hwp.live_table import _apply_live_bold
 from hangeul_core.runtime_info import feature_flags
 
 _CELL_TARGET = re.compile(r"^t\d+\.r\d+\.c\d+$")
@@ -101,6 +99,7 @@ def plan_live_addressed_edits(path: str | Path, edits: List[dict]) -> Dict:
             "col": cell.col,
             "value": str(item.get("value") or ""),
             "expected_text": str(item.get("expected_text") or ""),
+            "bold": item.get("bold"),
         }
     if unresolved:
         return {**base, "state": "live_targets_unresolved", "unresolved": unresolved}
@@ -128,6 +127,7 @@ def plan_live_addressed_edits(path: str | Path, edits: List[dict]) -> Dict:
         # preserved ▶/□/○ marker (preserve_marker_replace_tail) and the \n-split
         # multiline exactly as the byte-preserving file path would have written it.
         planned = {**planned, "value": str(entry.get("after_text") or planned["value"])}
+        planned["bold"] = live_map[str(entry.get("target"))].get("bold")
         targets.append(planned)
     if unresolved:
         return {**base, "state": "live_targets_unresolved", "unresolved": unresolved}
@@ -230,6 +230,8 @@ def apply_live_addressed(path: str | Path, targets: List[dict], *, visible: bool
                         hwp.HAction.Run("BreakPara")
                     if line:
                         hwp.insert_text(line)
+                if t.get("bold") is not None:
+                    _apply_live_bold(hwp, t["table"], t["row"], t["col"], bool(t["bold"]))
                 applied.append({"target": t["target"], "value": t["value"]})
             except Exception as exc:
                 skipped.append({"target": t["target"], "reason": f"live_error: {exc}"})

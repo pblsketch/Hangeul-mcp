@@ -378,7 +378,7 @@ Hangeul-mcp/
 
 ```
 
-FastMCP stdio 서버에는 현재 59개의 도구가 등록됩니다 `(59 tools)`.
+FastMCP stdio 서버에는 현재 60개의 도구가 등록됩니다 `(60 tools)`.
 
 ## 관련 문서
 
