@@ -80,18 +80,20 @@ def test_missing_base_fails_closed():
     assert new_header == header
 
 
-def test_set_runs_bold_targets_only_nonempty_text_runs():
+def test_set_runs_bold_retargets_text_runs_but_not_control_runs():
     header = _header()
     block = (
         '<hp:p paraPrIDRef="31">'
+        '<hp:run charPrIDRef="13"/>'  # self-closing control run: keep
         '<hp:run charPrIDRef="15"><hp:t>1. 문항 본문</hp:t></hp:run>'
-        '<hp:run charPrIDRef="15"><hp:t>   </hp:t></hp:run>'  # whitespace-only: skip
+        '<hp:run charPrIDRef="15"><hp:t></hp:t></hp:run>'  # emptied paired run: cleaned
         "</hp:p>"
     )
     new_block, new_header = set_runs_bold(block, header, True)
-    # the text run repointed to the bold variant (14); the spacer run untouched.
+    # text run bolded (14); the empty run stays non-bold (15) -> no bold shell.
     assert 'charPrIDRef="14"><hp:t>1. 문항 본문' in new_block
-    assert 'charPrIDRef="15"><hp:t>   ' in new_block
+    assert 'charPrIDRef="15"><hp:t></hp:t>' in new_block
+    assert 'charPrIDRef="13"/>' in new_block  # control run untouched
 
 
 def test_set_runs_bold_multiline_clones_all_bolded():

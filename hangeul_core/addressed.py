@@ -181,7 +181,6 @@ def _ordered_edits(edits: List[dict]) -> List[dict]:
     indexed = list(enumerate(edits))
     cell_first_index: Dict[str, int] = {}
     body_first_index: int | None = None
-    table_first_index: int | None = None
     for idx, item in indexed:
         target = str(item.get("target") or "")
         match = _PARA_TARGET.match(target)
@@ -189,8 +188,6 @@ def _ordered_edits(edits: List[dict]) -> List[dict]:
             cell_first_index[match.group("cell")] = idx
         elif _BODY_TARGET.match(target) and body_first_index is None:
             body_first_index = idx
-        elif _TABLE_TARGET.match(target) and table_first_index is None:
-            table_first_index = idx
 
     def sort_key(pair):
         idx, item = pair
@@ -205,9 +202,12 @@ def _ordered_edits(edits: List[dict]) -> List[dict]:
             return (body_first_index if body_first_index is not None else idx, -int(body.group("ordinal")), idx)
         table = _TABLE_TARGET.match(target)
         if table:
-            # Delete tables bottom-up (descending table number): removing a higher
-            # table first keeps every lower section-local table index valid.
-            return (table_first_index if table_first_index is not None else idx, -int(table.group("table")), idx)
+            # Tables run LAST (after every cell/body edit): deleting a table can
+            # preserve a caption that then becomes a counted body paragraph, which
+            # would shift later bN targets if any body edit ran afterwards. Among
+            # themselves, delete tables bottom-up (descending number) so removing a
+            # higher table keeps every lower section-local table index valid.
+            return (len(edits), -int(table.group("table")), idx)
         return (idx, 0, idx)
 
     return [item for _, item in sorted(indexed, key=sort_key)]
@@ -728,16 +728,23 @@ def _validate_structural_output(target: str | Path) -> Dict[str, object]:
     """Validate an applied output. Fail-closed on structural or charPr-order damage.
 
     Combines ``validate_hwpx`` (well-formedness / mimetype / declaration, plus
-    python-hwpx XSD when available) with a targeted charPr sequence check, since
-    python-hwpx does not flag a mis-ordered ``<hh:bold/>``.
+    python-hwpx XSD when available) with own-engine checks that do NOT need the
+    optional XSD layer — a targeted charPr sequence check (python-hwpx does not
+    flag a mis-ordered ``<hh:bold/>``) and a dangling ``charPrIDRef`` check — so
+    the gate stays meaningful on installs without python-hwpx.
     """
-    from hangeul_core.charpr import count_stray_empty_bold_runs, header_charpr_order_ok
+    from hangeul_core.charpr import (
+        charpr_ids,
+        count_stray_empty_bold_runs,
+        header_charpr_order_ok,
+    )
     from hangeul_core.validate import validate_hwpx
 
     report = validate_hwpx(target)
     errors: List[str] = list(report.get("errors") or [])
     xsd = report.get("xsd") or {}
-    if xsd.get("available") and not xsd.get("valid", True):
+    xsd_available = bool(xsd.get("available"))
+    if xsd_available and not xsd.get("valid", True):
         errors.extend(f"xsd: {e}" for e in (xsd.get("errors") or []))
     stray = 0
     try:
@@ -745,9 +752,13 @@ def _validate_structural_output(target: str | Path) -> Dict[str, object]:
         header = pkg.read(_HEADER_ENTRY).decode("utf-8")
         order_ok, order_errors = header_charpr_order_ok(header)
         errors.extend(order_errors)
+        ids = charpr_ids(header)
         for name in pkg.names():
             if name.startswith("Contents/section") and name.endswith(".xml"):
-                stray += count_stray_empty_bold_runs(pkg.read(name).decode("utf-8"), header)
+                section = pkg.read(name).decode("utf-8")
+                stray += count_stray_empty_bold_runs(section, header)
+                dangling = {ref for ref in re.findall(r'charPrIDRef="(\d+)"', section) if ref not in ids}
+                errors.extend(f"{name}: dangling charPrIDRef {d}" for d in sorted(dangling))
     except Exception as exc:  # pragma: no cover - defensive
         order_ok = False
         errors.append(f"charpr_order_check_failed: {exc}")
@@ -756,7 +767,7 @@ def _validate_structural_output(target: str | Path) -> Dict[str, object]:
         "ok": ok,
         "valid": bool(report.get("valid")),
         "errors": errors,
-        "structure_report": {"stray_empty_bold_runs": stray},
+        "structure_report": {"stray_empty_bold_runs": stray, "xsd_available": xsd_available},
     }
 
 

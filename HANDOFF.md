@@ -10,7 +10,7 @@
 - 테스트: `./.venv/Scripts/python.exe -m pytest -q` → **current worktree baseline**
   - 코어/extra 설치 프로파일과 Windows live(COM) 환경 여부에 따라 일부 테스트는 skip 또는 `available:false`가 될 수 있다
 - 린트: `./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests` → clean
-- 런타임 MCP 툴: **59** (등록은 정적 — optional extra 유무와 무관하게 등록되고, 미설치 시 호출 결과가 `available:false`)
+- 런타임 MCP 툴: **60** (등록은 정적 — optional extra 유무와 무관하게 등록되고, 미설치 시 호출 결과가 `available:false`)
 
 - PRD: `docs/prd.json` **71 stories** (US-000~US-070), pass 카운트 정의 = `passes==true` (BC3)
 - 개발 환경: venv `./.venv` (Windows). CI(ubuntu)는 두 레인 — 코어(`.[dev]`, py3.11–3.13; 위임/렌더 테스트는 importorskip으로 skip)와 extras(`.[dev,delegate,render]` + chromium, py3.12). `live`/`com` extra는 win32 전용이라 CI에서 강제하지 않고 데스크톱에서 검증한다. 로컬 기준선은 설치 프로파일에 따라 달라질 수 있으므로 `pytest -q` 실측값을 함께 기록한다

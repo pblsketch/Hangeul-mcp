@@ -14,6 +14,15 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def test_live_delete_table_rows_tool_registered():  # finding #9: reachable MCP route
+    import asyncio
+
+    from hangeul_mcp import server
+
+    names = {t.name for t in asyncio.run(server.mcp.list_tools())}
+    assert "live_delete_table_rows" in names
+
+
 def test_offline_delete_row_fails_closed():
     prev = preview_addressed_edits(
         FIXTURE,

@@ -31,6 +31,22 @@ def _block_of(header, cid):
     return re.search(r'<hh:charPr id="' + cid + r'".*?</hh:charPr>', header, re.S).group(0)
 
 
+def test_delete_table_ordered_after_body_edits():  # finding #2
+    from hangeul_core.addressed import _ordered_edits
+
+    ordered = _ordered_edits([
+        {"target": "t2", "operation": "delete_table"},
+        {"target": "b5", "operation": "replace_text"},
+        {"target": "t3", "operation": "delete_table"},
+        {"target": "b2", "operation": "replace_text"},
+    ])
+    targets = [e["target"] for e in ordered]
+    # every body edit precedes every table delete; tables run bottom-up (t3 before t2)
+    assert targets.index("b5") < targets.index("t3")
+    assert targets.index("b2") < targets.index("t3")
+    assert targets.index("t3") < targets.index("t2")
+
+
 def test_bold_inserted_before_italic():  # finding #5
     header = _HDR.format(n=1, body=_charpr("5", italic=True))
     new_header, cid = ensure_char_pr(header, "5", bold=True)
@@ -63,6 +79,19 @@ def test_paired_bold_element_removed():  # finding #12
     assert "<hh:bold" not in _block_of(new_header, cid)
 
 
+def test_no_bold_shell_left_after_multirun_replace():  # finding #7
+    # An emptied run whose charPr was bold must not stay a bold shell.
+    header = _HDR.format(n=2, body=_charpr("15") + _charpr("14", bold=True))
+    block = (
+        '<hp:p><hp:run charPrIDRef="14"><hp:t>NEW</hp:t></hp:run>'
+        '<hp:run charPrIDRef="14"><hp:t></hp:t></hp:run></hp:p>'  # emptied bold shell
+    )
+    from hangeul_core.charpr import bold_charpr_ids, count_stray_empty_bold_runs
+    new_block, new_header = set_runs_bold(block, header, False)
+    assert count_stray_empty_bold_runs(new_block, new_header) == 0
+    assert not (set(re.findall(r'charPrIDRef="(\d+)"', new_block)) & bold_charpr_ids(new_header))
+
+
 def test_blank_paragraph_drops_image_keeps_style():  # finding #4
     block = '<hp:p paraPrIDRef="7"><hp:run charPrIDRef="3"><hp:t>cap</hp:t><hp:pic><hp:img/></hp:pic></hp:run></hp:p>'
     blank = _blank_paragraph_like(block)
@@ -78,6 +107,26 @@ def test_delete_table_keeps_same_run_caption():  # finding #3
     )
     new_section, _ = _delete_table_at(section, 1)
     assert "<hp:tbl" not in new_section and "Cap" in new_section
+
+
+@pytest.mark.skipif(not FIXTURE.exists(), reason="template fixture not present")
+def test_gate_flags_dangling_charpr_ref_without_xsd():  # finding #6
+    from hangeul_core.addressed import _validate_structural_output
+    from hangeul_core.owpml import HwpxPackage
+
+    with tempfile.TemporaryDirectory() as d:
+        bad = Path(d) / "bad.hwpx"
+        bad.write_bytes(FIXTURE.read_bytes())
+        pkg = HwpxPackage.open(bad)
+        sec = pkg.read("Contents/section0.xml").decode("utf-8").replace(
+            'charPrIDRef="15"', 'charPrIDRef="9999"', 1  # dangling ref
+        )
+        pkg.replace("Contents/section0.xml", sec.encode("utf-8"))
+        pkg.save(bad)
+        gate = _validate_structural_output(bad)
+        assert not gate["ok"]
+        assert any("dangling charPrIDRef 9999" in e for e in gate["errors"])
+        assert "xsd_available" in gate["structure_report"]
 
 
 @pytest.mark.skipif(not FIXTURE.exists(), reason="template fixture not present")

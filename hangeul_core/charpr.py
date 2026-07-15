@@ -122,17 +122,18 @@ def ensure_char_pr(header: str, base_char_pr: str, *, bold: bool) -> Tuple[str, 
 # (runs never nest runs, so the paired non-greedy match is safe).
 _RUN_RE = re.compile(r"<hp:run\b[^>]*/>|<hp:run\b[^>]*>.*?</hp:run>", re.S)
 _RUN_CPR_RE = re.compile(r'(<hp:run\b[^>]*\bcharPrIDRef=")(\d+)(")')
-# A text node carrying at least one non-whitespace character.
-_NONEMPTY_T_RE = re.compile(r"<hp:t>(?:[^<]*\S[^<]*)</hp:t>", re.S)
+# A run's <hp:t> holding at least one non-whitespace character.
+_RUN_HAS_TEXT_RE = re.compile(r"<hp:t>\s*[^\s<]")
 
 
 def set_runs_bold(block: str, header: str, bold: bool) -> Tuple[str, str]:
     """Repoint every text-bearing run in *block* at a charPr with the given bold.
 
-    Applies uniformly to all runs whose ``<hp:t>`` holds non-whitespace text —
-    which is exactly the desired "whole stem bold / whole choice normal"
-    semantic, and naturally covers multiline clones (each clone is its own run).
-    Runs with empty/whitespace text (markers, spacers) keep their formatting.
+    Applies uniformly to every run that carries an ``<hp:t>`` node (text-bearing
+    OR emptied-by-replace) — the desired "whole stem bold / whole choice normal"
+    semantic, covering multiline clones AND clearing the empty bold shells that a
+    text replace leaves behind (so no invisible bold blank runs remain). Runs
+    without a ``<hp:t>`` (self-closing control runs) keep their formatting.
     Returns ``(block, header)`` with the header possibly extended by one charPr.
     """
     # A run wrapping a table would break run matching (the first </hp:run>
@@ -146,10 +147,13 @@ def set_runs_bold(block: str, header: str, bold: bool) -> Tuple[str, str]:
     for m in _RUN_RE.finditer(block):
         run = m.group(0)
         out.append(block[last:m.start()])
-        if _NONEMPTY_T_RE.search(run):
+        if "<hp:t" in run:  # text-bearing or emptied paired run (not a control run)
             cpr_m = _RUN_CPR_RE.search(run)
             if cpr_m:
-                header, new_id = ensure_char_pr(header, cpr_m.group(2), bold=bold)
+                # Non-empty text takes the requested weight; an empty/whitespace
+                # run is forced non-bold so no invisible bold shell is left or made.
+                want = bold and bool(_RUN_HAS_TEXT_RE.search(run))
+                header, new_id = ensure_char_pr(header, cpr_m.group(2), bold=want)
                 if new_id is not None and new_id != cpr_m.group(2):
                     run = _RUN_CPR_RE.sub(
                         lambda mm: mm.group(1) + new_id + mm.group(3), run, count=1
@@ -174,6 +178,11 @@ _EMPTY_T_RUN_RE = re.compile(
 def bold_charpr_ids(header: str) -> set[str]:
     """Ids of every charPr carrying ``<hh:bold/>``."""
     return set(_BOLD_IDS_RE.findall(header))
+
+
+def charpr_ids(header: str) -> set[str]:
+    """Ids of every ``<hh:charPr>`` declared in the header."""
+    return set(_CHARPR_ID_RE.findall(header))
 
 
 def count_stray_empty_bold_runs(section: str, header: str) -> int:
