@@ -1,0 +1,102 @@
+{
+  "spec_version": 1,
+  "profile_id": "formative.assessment.v1",
+  "metadata": {
+    "title": "읽기 형성평가",
+    "subject": "국어",
+    "grade": "고등학교 1학년",
+    "unit": "설득하는 글 읽기",
+    "learning_objectives": ["주장의 타당성을 판단한다."],
+    "total_points": 10
+  },
+  "learning_evidence": [
+    {
+      "evidence_id": "ev-1",
+      "claim": "주장을 찾는다.",
+      "expected_evidence": "핵심 주장을 선택한다."
+    },
+    {
+      "evidence_id": "ev-2",
+      "claim": "근거를 요약한다.",
+      "expected_evidence": "허용 답 중 하나를 쓴다."
+    },
+    {
+      "evidence_id": "ev-3",
+      "claim": "타당성을 판단한다.",
+      "expected_evidence": "준거에 따라 서술한다."
+    }
+  ],
+  "items": [
+    {
+      "item_id": "item-1",
+      "order": 1,
+      "type": "multiple_choice",
+      "stem": "글의 핵심 주장으로 알맞은 것은?",
+      "points": 4,
+      "evidence_ids": ["ev-1"],
+      "choices": [
+        {"choice_id": "A", "text": "첫째 주장"},
+        {"choice_id": "B", "text": "둘째 주장"}
+      ],
+      "answer": "A",
+      "rationale": "본문의 반복 표현이 근거다.",
+      "misconceptions": ["예시를 주장으로 오해함"],
+      "feedback": {
+        "correct": "주장을 정확히 찾았다.",
+        "incorrect": "반복되는 핵심 문장을 다시 보자."
+      }
+    },
+    {
+      "item_id": "item-2",
+      "order": 2,
+      "type": "short_answer",
+      "stem": "핵심 근거를 한 문장으로 쓰시오.",
+      "points": 2,
+      "evidence_ids": ["ev-2"],
+      "answer": ["자료의 신뢰성", "자료가 믿을 만함"],
+      "rationale": "출처와 조사 방법이 제시되었다.",
+      "misconceptions": [],
+      "feedback": {
+        "correct": "근거를 정확히 요약했다.",
+        "incorrect": "자료의 출처를 확인하자."
+      }
+    },
+    {
+      "item_id": "item-3",
+      "order": 3,
+      "type": "constructed_response",
+      "stem": "주장의 타당성을 평가하시오.",
+      "points": 4,
+      "evidence_ids": ["ev-3"],
+      "answer": "근거의 관련성과 신뢰성을 함께 판단한다.",
+      "rationale": "두 준거가 모두 필요하다.",
+      "misconceptions": ["의견만 제시함"],
+      "feedback": {
+        "correct": "두 준거를 모두 적용했다.",
+        "incorrect": "판단 준거를 명시하자."
+      },
+      "rubric": {
+        "criteria": [
+          {
+            "criterion_id": "relevance",
+            "description": "관련성 판단",
+            "levels": [
+              {"level_id": "none", "min_score": 0, "max_score": 0, "descriptor": "판단 없음"},
+              {"level_id": "partial", "min_score": 1, "max_score": 1, "descriptor": "판단만 제시"},
+              {"level_id": "full", "min_score": 2, "max_score": 2, "descriptor": "근거와 함께 판단"}
+            ]
+          },
+          {
+            "criterion_id": "credibility",
+            "description": "신뢰성 판단",
+            "levels": [
+              {"level_id": "none", "min_score": 0, "max_score": 0, "descriptor": "판단 없음"},
+              {"level_id": "partial", "min_score": 1, "max_score": 1, "descriptor": "판단만 제시"},
+              {"level_id": "full", "min_score": 2, "max_score": 2, "descriptor": "근거와 함께 판단"}
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

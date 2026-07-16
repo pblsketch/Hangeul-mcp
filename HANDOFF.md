@@ -40,7 +40,7 @@
 ## 공통 게이트 (스토리 완료 조건)
 
 ```powershell
-Set-Location E:/github/Hangeul-mcp
+Set-Location <repository-root>
 ./.venv/Scripts/python.exe -m pytest -q
 ./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests
 ./.venv/Scripts/python.exe -m json.tool docs/prd.json > $null
