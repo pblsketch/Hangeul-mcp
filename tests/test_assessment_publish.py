@@ -21,6 +21,8 @@ class MoveRecorder:
         self.calls.append((source, destination, flags))
         if self.error is not None:
             raise OSError(self.error, "sensitive detail")
+        if flags == RENAME_NOREPLACE and destination.exists():
+            raise OSError(errno.EEXIST, "destination exists")
         source.replace(destination)
 
 

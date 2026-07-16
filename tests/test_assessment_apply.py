@@ -1,4 +1,5 @@
 from hashlib import sha256
+import json
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,27 @@ def test_apply_rejects_stale_source_before_any_write(tmp_path: Path) -> None:
 
     assert caught.value.code == "stale_source"
     assert source.read_bytes() == original
+    assert not output.exists()
+
+
+def test_apply_maps_missing_source_without_exposing_path(tmp_path: Path) -> None:
+    from hangeul_core.assessment_apply import ApplyError, ApplyPreconditions, validate_apply
+
+    source = tmp_path / "secret-user-name.hwpx"
+    output = tmp_path / "bundle"
+    check = ApplyPreconditions(
+        source, output, "missing", "profile-a", "profile-a", "plan-a", "plan-a"
+    )
+
+    with pytest.raises(ApplyError) as caught:
+        validate_apply(check)
+
+    serialized = json.dumps({"error_code": caught.value.code}, sort_keys=True)
+    assert caught.value.code == "stale_source"
+    assert serialized == '{"error_code": "stale_source"}'
+    assert str(source) not in serialized
+    assert "FileNotFoundError" not in serialized
+    assert caught.value.__cause__ is None
     assert not output.exists()
 
 
