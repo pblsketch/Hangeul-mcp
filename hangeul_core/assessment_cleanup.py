@@ -112,7 +112,7 @@ def create_owned_staging(
         owner.session_id,
     )
     return staging
-def cleanup_staging(
+def scan_owned_staging(
     safe_root: str | Path,
     safe_roots: SafeOutputRootRegistry,
     ownership: OwnershipRegistry,
@@ -133,6 +133,7 @@ def cleanup_staging(
         skipped += result.cleanup_skipped_unowned
         foreign += result.foreign_staging_detected
     return CleanupResult(removed, skipped, foreign)
+cleanup_staging = scan_owned_staging
 def cleanup_owned_staging(
     staging: str | Path,
     registry: OwnershipRegistry,
@@ -234,6 +235,7 @@ __all__ = [
     "cleanup_staging",
     "cleanup_owned_staging",
     "create_owned_staging",
+    "scan_owned_staging",
     "staging_directory_name",
     "write_staging_marker",
 ]
