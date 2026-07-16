@@ -147,6 +147,15 @@ def test_each_replacement_contains_expected_text():
             assert edit.expected_text == expected_by_target[edit.target]
 
 
+def test_compiled_body_edits_are_single_paragraph():
+    plan = _compiled()
+
+    for variant in plan.variants:
+        for edit in variant.edits:
+            assert edit.kind == "body_para"
+            assert "\n" not in edit.value
+
+
 def test_equivalent_canonical_input_compiles_identically():
     canonical = _spec()
     equivalent = deepcopy(canonical)

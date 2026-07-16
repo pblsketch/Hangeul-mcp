@@ -191,6 +191,16 @@ pip install -e ".[live]"
 
 기존 라벨 기반 fill:
 - `fill_form(path, values, out_path, ...)` — named field/placeholder 중심의 새 HWPX 파일 생성
+
+### 형성평가 preview → apply
+
+1. 게시할 기존 exact 디렉터리를 정합니다. 허용 root를 제한하려면 서버 시작 전에 `HANGEUL_MCP_ASSESSMENT_OUTPUT_ROOTS`에 등록하며, Windows에서 여러 root는 `;`로 구분합니다.
+2. `preview_assessment(template_path, spec)`을 호출해 strict spec/profile 검증과 학생용·교사용·정답지 plan을 확인합니다. 이 단계는 파일을 쓰지 않습니다.
+3. 성공 응답의 `session_id`와 일회용 `possession_token`을 보관합니다.
+4. `apply_assessment(session_id, possession_token, output_dir)`을 호출합니다. 환경 allowlist를 설정했다면 `output_dir`는 등록 root와 정확히 같아야 합니다. 미설정 기본값도 호출된 기존 디렉터리의 alias·하위 경로를 허용하지 않고 exact canonical root만 사용합니다. 세 HWPX와 safe manifest는 하나의 bundle로 원자 게시됩니다.
+
+검증 실패 응답은 고정 `error_code`와 비민감 count만 반환하며 template path, spec 원문, token을 포함하지 않습니다. token은 현재 stdio 서버 인스턴스에만 유효합니다.
+
 ### 2. 읽기·검색·감사
 
 - `extract_text`, `find_text`
@@ -315,7 +325,7 @@ resolve_current_hwp_document()
 ## 개발 상태와 품질
 
 - 패키지 버전: `0.5.3` (Pre-Alpha)
-- 런타임 MCP 도구: **59 tools**
+- 런타임 MCP 도구: **62 tools**
 
 - 최신 로컬 검증: **562 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 기준선 동일, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
@@ -378,7 +388,7 @@ Hangeul-mcp/
 
 ```
 
-FastMCP stdio 서버에는 현재 60개의 도구가 등록됩니다 `(60 tools)`.
+FastMCP stdio 서버에는 현재 62개의 도구가 등록됩니다 `(62 tools)`.
 
 ## 관련 문서
 

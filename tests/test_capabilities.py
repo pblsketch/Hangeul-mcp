@@ -37,6 +37,36 @@ def test_every_tool_has_nonempty_description():
     assert missing == [], f"tools without descriptions: {missing}"
 
 
+def test_assessment_tools_have_exact_single_bucket_parity():
+    expected = {"preview_assessment", "apply_assessment"}
+    buckets = [
+        cap
+        for cap in server.describe_capabilities()["capabilities"]
+        if expected & set(cap["tools"])
+    ]
+
+    assert len(buckets) == 1
+    assert buckets[0]["mode"] == "file_hwpx"
+    assert set(buckets[0]["tools"]) & expected == expected
+    assert all(
+        not (expected & set(cap["tools"]))
+        for cap in server.describe_capabilities()["capabilities"]
+        if cap["mode"] != "file_hwpx"
+    )
+
+
+def test_assessment_tool_descriptions_are_nonempty():
+    expected = {"preview_assessment", "apply_assessment"}
+    descriptions = {
+        tool.name: (tool.description or "").strip()
+        for tool in asyncio.run(server.mcp.list_tools())
+        if tool.name in expected
+    }
+
+    assert set(descriptions) == expected
+    assert all(descriptions.values())
+
+
 def test_own_engine_mail_merge_sits_in_file_bucket():
     file_cap = next(cap for cap in describe_capabilities()["capabilities"] if cap["mode"] == "file_hwpx")
     assert {"mail_merge", "analyze_formfit", "list_styles"} <= set(file_cap["tools"])

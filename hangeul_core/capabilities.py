@@ -89,6 +89,8 @@ def describe_capabilities() -> Dict[str, Any]:
                     "complete_addressed_template",
                     "apply_edit_session",
                     "restore_edit_session",
+                    "preview_assessment",
+                    "apply_assessment",
                 ],
                 note="Core HWPX analysis, byte-preserving fill, validation, and safety gates.",
             ),

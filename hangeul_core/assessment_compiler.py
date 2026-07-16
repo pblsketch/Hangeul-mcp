@@ -126,7 +126,7 @@ def _render(item: SpecMapping, rule: VariantRule) -> tuple[str, tuple[tuple[str,
         if value is not None:
             lines.append(f"{name}: {_display(value)}")
             sources.append((name, "teacher_only"))
-    return "\n".join(lines), tuple(sources)
+    return " | ".join(lines), tuple(sources)
 
 
 def _digest(variant: str, edits: tuple[AddressedEdit, ...], traces: tuple[ItemTrace, ...], edges: tuple[ProvenanceEdge, ...]) -> str:
