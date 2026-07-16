@@ -9,7 +9,17 @@ import pytest
 
 from hangeul_core import assessment_bundle, assessment_workflow
 from hangeul_core.assessment_publish import AtomicPublishAdapter, AtomicPublishProbeResult
-from hangeul_core.assessment_qa import assert_student_variant_safe, read_hwpx_text_parts
+from hangeul_core.assessment_plan import AssessmentPlan
+from hangeul_core.assessment_quality import (
+    AssessmentQualityReport,
+    check_assessment_quality,
+    requirements_for_variant,
+)
+from hangeul_core.assessment_qa import (
+    AssessmentAuditValues,
+    assert_student_variant_safe,
+    read_hwpx_text_parts,
+)
 from hangeul_core.assessment_workflow import AssessmentWorkflow, AssessmentWorkflowError
 from hangeul_core.validate import validate_hwpx
 from tests.test_assessment_spec import valid_spec
@@ -28,6 +38,8 @@ class PublishedAssessment:
     source_digest: str
     bundle: Path
     publisher: AtomicPublishAdapter
+    plan: AssessmentPlan
+    audit: AssessmentAuditValues
 
 
 def _digest(path: Path) -> str:
@@ -63,6 +75,9 @@ def published_assessment(tmp_path_factory: pytest.TempPathFactory) -> PublishedA
     workflow = AssessmentWorkflow(output_roots=(root,))
     source_digest = _digest(FIXTURE)
     preview = workflow.preview(str(FIXTURE), valid_spec())
+    session_id = str(preview["session_id"])
+    plan = workflow._sessions.snapshot(session_id).plan
+    audit = workflow._audit_values[session_id]
     assert _digest(FIXTURE) == source_digest
     applied = workflow.apply(
         str(preview["session_id"]),
@@ -77,6 +92,8 @@ def published_assessment(tmp_path_factory: pytest.TempPathFactory) -> PublishedA
         source_digest,
         root / str(applied["bundle_id"]),
         publisher,
+        plan,
+        audit,
     )
     yield context
     patcher.undo()
@@ -94,6 +111,43 @@ def test_all_variants_pass_structural_validation(
 ) -> None:
     for filename in EXPECTED_FILES - {"manifest.json"}:
         assert validate_hwpx(published_assessment.bundle / filename)["valid"] is True
+
+
+def test_all_variants_pass_pre_publish_quality_gate(
+    published_assessment: PublishedAssessment,
+) -> None:
+    for variant in published_assessment.plan.variants:
+        report = check_assessment_quality(
+            published_assessment.bundle
+            / assessment_bundle.VARIANT_FILENAMES[variant.variant],
+            requirements_for_variant(variant),
+        )
+        assert report.valid is True
+        assert report.codes == ()
+
+
+def test_metadata_is_filled_and_unused_template_items_are_removed(
+    published_assessment: PublishedAssessment,
+) -> None:
+    for variant in published_assessment.plan.variants:
+        visible = "".join(
+            fragment
+            for fragments in read_hwpx_text_parts(
+                published_assessment.bundle
+                / assessment_bundle.VARIANT_FILENAMES[variant.variant],
+            ).values()
+            for fragment in fragments
+        )
+        rendered = tuple(
+            edit.value for edit in variant.edits if edit.operation == "replace_text"
+        )
+        removed = tuple(
+            edit.expected_text
+            for edit in variant.edits
+            if edit.operation == "delete_paragraph"
+        )
+        assert all(value in visible for value in rendered)
+        assert all(value not in visible for value in removed)
 
 
 def test_variant_failure_publishes_nothing(
@@ -118,26 +172,52 @@ def test_variant_failure_publishes_nothing(
     assert _digest(FIXTURE) == source_digest
 
 
+def test_quality_failure_publishes_nothing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_digest = _digest(FIXTURE)
+    workflow = AssessmentWorkflow(output_roots=(tmp_path,))
+    preview = workflow.preview(str(FIXTURE), valid_spec())
+    _configure_publish(monkeypatch)
+    monkeypatch.setattr(
+        assessment_bundle,
+        "check_assessment_quality",
+        lambda _path, _requirements: AssessmentQualityReport(
+            False,
+            ("visible_placeholder",),
+        ),
+    )
+
+    with pytest.raises(AssessmentWorkflowError) as caught:
+        workflow.apply(
+            str(preview["session_id"]),
+            str(preview["possession_token"]),
+            str(tmp_path),
+        )
+
+    assert caught.value.code == "invalid_output"
+    assert tuple(tmp_path.iterdir()) == ()
+    assert _digest(FIXTURE) == source_digest
+
+
 def test_student_output_has_no_teacher_only_flow(
     published_assessment: PublishedAssessment,
 ) -> None:
-    snapshot = published_assessment.workflow._sessions.snapshot(published_assessment.session_id)
-    audit = published_assessment.workflow._audit_values[published_assessment.session_id]
     assert_student_variant_safe(
-        snapshot.plan.variant("student"),
+        published_assessment.plan.variant("student"),
         read_hwpx_text_parts(published_assessment.bundle / "student.hwpx"),
-        audit.teacher_only,
-        audit.student_visible,
+        published_assessment.audit.teacher_only,
+        published_assessment.audit.student_visible,
     )
 
 
 def test_all_variants_preserve_internal_item_evidence_linkage(
     published_assessment: PublishedAssessment,
 ) -> None:
-    plan = published_assessment.workflow._sessions.snapshot(published_assessment.session_id).plan
     linkages = {
         tuple((trace.item_id, trace.order, trace.points, trace.evidence_ids) for trace in variant.item_trace)
-        for variant in plan.variants
+        for variant in published_assessment.plan.variants
     }
     assert len(linkages) == 1
     assert len(next(iter(linkages))) == 3
@@ -167,14 +247,14 @@ def test_published_bundle_is_complete_and_immutable(
         for path in published_assessment.bundle.iterdir()
     }
 
-    with pytest.raises(AssessmentWorkflowError) as caught:
-        published_assessment.workflow.apply(
-            published_assessment.session_id,
-            published_assessment.token,
-            str(published_assessment.bundle.parent),
-        )
+    replay = published_assessment.workflow.apply(
+        published_assessment.session_id,
+        published_assessment.token,
+        str(published_assessment.bundle.parent),
+    )
 
-    assert caught.value.code == "already_applied"
+    assert replay["state"] == "already_applied"
+    assert replay["bundle_id"] == published_assessment.bundle.name
     assert published_assessment.publisher.publish_count == 1
     assert before == {
         path.name: _digest(path)

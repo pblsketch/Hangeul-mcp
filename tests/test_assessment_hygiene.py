@@ -1,7 +1,11 @@
 from pathlib import Path
 
+import pytest
+
 from scripts.check_artifact_hygiene import FindingCode
 from scripts.check_artifact_hygiene import check_paths
+from scripts.check_artifact_hygiene import main
+from scripts.check_artifact_hygiene import repository_findings
 from scripts.check_artifact_hygiene import repository_runtime_findings
 
 
@@ -10,6 +14,37 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 def test_repository_contains_no_assessment_runtime_artifacts() -> None:
     assert repository_runtime_findings(REPOSITORY_ROOT) == ()
+
+
+def test_repository_contains_no_artifact_hygiene_findings() -> None:
+    assert repository_findings(REPOSITORY_ROOT) == ()
+
+
+def test_no_argument_checker_detects_public_text_and_skips_private_fixtures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    (tmp_path / "README.md").write_text(
+        "[unsafe reference](https://example.invalid/source)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "user-template.hwpx").write_text(
+        r"C:\Users\account\private.txt",
+        encoding="utf-8",
+    )
+    for skipped_directory in (".git", ".venv", "tests"):
+        directory = tmp_path / skipped_directory
+        directory.mkdir()
+        (directory / "fixture.md").write_text("a" * 64, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = main(())
+
+    assert exit_code == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "forbidden_markdown_link:README.md:1"
+    ]
 
 
 def test_artifact_hygiene_checker_rejects_forbidden_text_and_runtime_artifact_fixtures(

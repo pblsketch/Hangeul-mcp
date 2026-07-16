@@ -74,6 +74,7 @@ def test_token_is_consumed_after_success() -> None:
     with pytest.raises(AssessmentSessionError) as caught:
         store.apply(credentials.session_id, credentials.possession_token)
     _assert_code("already_applied", caught)
+    assert caught.value.bundle_id == f"assessment-{credentials.session_id}"
 
 
 def test_wrong_token_against_applied_session_is_invalid() -> None:
@@ -159,6 +160,39 @@ def test_restart_invalidates_prior_instance_tokens() -> None:
         restarted_store.apply(credentials.session_id, credentials.possession_token)
 
     _assert_code("invalid_session_instance", caught)
+
+
+def test_terminal_records_move_to_bounded_replay_tombstones() -> None:
+    store = _store(capacity=2)
+    credentials: list[CreatedAssessmentSession] = []
+    for index in range(3):
+        created = _create(store, index)
+        credentials.append(created)
+        with store.apply(created.session_id, created.possession_token):
+            pass
+
+    assert store.active_session_ids == frozenset()
+    assert store.tombstone_count == 2
+    with pytest.raises(AssessmentSessionError) as evicted:
+        store.apply(credentials[0].session_id, credentials[0].possession_token)
+    _assert_code("invalid_session_instance", evicted)
+    with pytest.raises(AssessmentSessionError) as retained:
+        store.apply(credentials[-1].session_id, credentials[-1].possession_token)
+    _assert_code("already_applied", retained)
+
+
+def test_expired_records_are_pruned_before_capacity_check() -> None:
+    clock = FakeClock()
+    store = _store(clock=clock, capacity=1)
+    expired = _create(store)
+    clock.now = 900.0
+
+    replacement = _create(store, 1)
+
+    assert store.active_session_ids == frozenset({replacement.session_id})
+    with pytest.raises(AssessmentSessionError) as caught:
+        store.apply(expired.session_id, expired.possession_token)
+    _assert_code("expired_session", caught)
 
 
 def test_token_never_appears_in_persistent_or_observable_state() -> None:

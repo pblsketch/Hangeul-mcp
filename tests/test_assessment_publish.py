@@ -1,4 +1,6 @@
 import errno
+import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,12 @@ from hangeul_core.assessment_publish import (
     PublishError,
     recover_published_session,
     run_atomic_publish_probe,
+)
+from hangeul_core.assessment_observability import (
+    AssessmentManifest,
+    ManifestInput,
+    VariantManifestInput,
+    build_manifest,
 )
 
 
@@ -30,6 +38,39 @@ def _directories(tmp_path: Path) -> tuple[Path, Path]:
     staging = tmp_path / "staging"
     staging.mkdir()
     return staging, tmp_path / "final"
+
+
+def _published_bundle(final: Path) -> AssessmentManifest:
+    final.mkdir()
+    digests: dict[str, str] = {}
+    for variant, filename in {
+        "student": "student.hwpx",
+        "teacher": "teacher.hwpx",
+        "answer_key": "answer-key.hwpx",
+    }.items():
+        content = f"{variant}-content".encode()
+        (final / filename).write_bytes(content)
+        digests[variant] = sha256(content).hexdigest()
+    manifest = build_manifest(
+        ManifestInput(
+            bundle_id="assessment-session-a",
+            session_id="session-a",
+            created_at="2026-07-16T00:00:00Z",
+            spec_fingerprint="spec-a",
+            source_digest="source-a",
+            profile_id="profile-a",
+            profile_version=1,
+            profile_definition_digest="profile-definition-a",
+            student=VariantManifestInput(digests["student"], 1, 1, 1),
+            teacher=VariantManifestInput(digests["teacher"], 1, 1, 1),
+            answer_key=VariantManifestInput(digests["answer_key"], 1, 1, 1),
+        )
+    )
+    (final / "manifest.json").write_text(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    return manifest
 
 
 def test_windows_movefileex_omits_replace_flag(tmp_path: Path) -> None:
@@ -133,12 +174,90 @@ def test_probe_directories_are_owned_and_cleaned_on_success_and_failure(tmp_path
 
 
 def test_response_failure_after_publish_recovers_as_applied_without_republish(tmp_path: Path) -> None:
-    staging, final = _directories(tmp_path)
+    staging = tmp_path / "staging"
+    final = tmp_path / "final"
     adapter = AtomicPublishAdapter.linux(MoveRecorder(), device_id=lambda _path: 1)
+    manifest = _published_bundle(staging)
     adapter.publish(staging, final)
 
-    result = recover_published_session(final, adapter)
+    result = recover_published_session(final, adapter, manifest)
 
     assert result.code == "already_applied"
     assert adapter.publish_count == 1
     assert final.is_dir()
+
+
+def test_recovery_rejects_manifest_schema_or_identity_change(tmp_path: Path) -> None:
+    final = tmp_path / "final"
+    manifest = _published_bundle(final)
+    changed = json.loads((final / "manifest.json").read_text(encoding="utf-8"))
+    changed["unexpected"] = "field"
+    (final / "manifest.json").write_text(json.dumps(changed), encoding="utf-8")
+    adapter = AtomicPublishAdapter.linux(MoveRecorder(), device_id=lambda _path: 1)
+
+    with pytest.raises(PublishError) as caught:
+        recover_published_session(final, adapter, manifest)
+
+    assert caught.value.code == "publish_io_error"
+    assert adapter.publish_count == 0
+
+
+def test_recovery_rejects_manifest_identity_change(tmp_path: Path) -> None:
+    final = tmp_path / "final"
+    manifest = _published_bundle(final)
+    changed = json.loads((final / "manifest.json").read_text(encoding="utf-8"))
+    changed["session_id"] = "other-session"
+    (final / "manifest.json").write_text(json.dumps(changed), encoding="utf-8")
+    adapter = AtomicPublishAdapter.linux(MoveRecorder(), device_id=lambda _path: 1)
+
+    with pytest.raises(PublishError) as caught:
+        recover_published_session(final, adapter, manifest)
+
+    assert caught.value.code == "publish_io_error"
+    assert adapter.publish_count == 0
+
+
+def test_recovery_rejects_manifest_scalar_type_change(tmp_path: Path) -> None:
+    final = tmp_path / "final"
+    manifest = _published_bundle(final)
+    changed = json.loads((final / "manifest.json").read_text(encoding="utf-8"))
+    changed["profile_version"] = True
+    (final / "manifest.json").write_text(
+        json.dumps(changed, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    adapter = AtomicPublishAdapter.linux(MoveRecorder(), device_id=lambda _path: 1)
+
+    with pytest.raises(PublishError) as caught:
+        recover_published_session(final, adapter, manifest)
+
+    assert caught.value.code == "publish_io_error"
+    assert adapter.publish_count == 0
+
+
+def test_recovery_rejects_variant_filename_change(tmp_path: Path) -> None:
+    final = tmp_path / "final"
+    manifest = _published_bundle(final)
+    changed = json.loads((final / "manifest.json").read_text(encoding="utf-8"))
+    changed["variants"]["student"]["filename"] = "other.hwpx"
+    (final / "manifest.json").write_text(json.dumps(changed), encoding="utf-8")
+    adapter = AtomicPublishAdapter.linux(MoveRecorder(), device_id=lambda _path: 1)
+
+    with pytest.raises(PublishError) as caught:
+        recover_published_session(final, adapter, manifest)
+
+    assert caught.value.code == "publish_io_error"
+    assert adapter.publish_count == 0
+
+
+def test_recovery_rejects_variant_digest_mismatch(tmp_path: Path) -> None:
+    final = tmp_path / "final"
+    manifest = _published_bundle(final)
+    (final / "student.hwpx").write_bytes(b"tampered")
+    adapter = AtomicPublishAdapter.linux(MoveRecorder(), device_id=lambda _path: 1)
+
+    with pytest.raises(PublishError) as caught:
+        recover_published_session(final, adapter, manifest)
+
+    assert caught.value.code == "publish_io_error"
+    assert adapter.publish_count == 0

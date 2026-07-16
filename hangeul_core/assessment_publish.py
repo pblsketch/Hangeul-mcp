@@ -1,12 +1,15 @@
 ﻿from __future__ import annotations
 import ctypes
 import errno
+import hashlib
+import json
 import os
 import sys
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Iterable, Protocol
+from hangeul_core.assessment_observability import AssessmentManifest
 RENAME_NOREPLACE: Final = 1
 _AT_FDCWD: Final = -100
 _COLLISION_ERRORS: Final = frozenset({errno.EEXIST, errno.ENOTEMPTY, 80, 183})
@@ -203,18 +206,42 @@ def run_atomic_publish_probe(
 def recover_published_session(
     final: str | Path,
     adapter: AtomicPublishAdapter,
+    expected_manifest: AssessmentManifest,
 ) -> PublishedRecovery:
     del adapter
-    if not Path(final).is_dir():
+    bundle = Path(final)
+    variants = expected_manifest["variants"]
+    expected_variants = (
+        variants["student"],
+        variants["teacher"],
+        variants["answer_key"],
+    )
+    expected_files = {
+        "manifest.json",
+        *(variant["filename"] for variant in expected_variants),
+    }
+    expected_manifest_bytes = json.dumps(
+        expected_manifest,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    try:
+        children = tuple(bundle.iterdir())
+        actual_manifest_bytes = (bundle / "manifest.json").read_bytes()
+        actual_files = {child.name for child in children}
+        digests_match = all(
+            hashlib.sha256((bundle / variant["filename"]).read_bytes()).hexdigest()
+            == variant["file_digest"]
+            for variant in expected_variants
+        )
+    except OSError:
+        raise PublishError("publish_io_error") from None
+    if (
+        actual_files != expected_files
+        or not all(child.is_file() for child in children)
+        or actual_manifest_bytes != expected_manifest_bytes
+        or not digests_match
+    ):
         raise PublishError("publish_io_error")
     return PublishedRecovery(code="already_applied")
-__all__ = [
-    "RENAME_NOREPLACE",
-    "AtomicPublishAdapter",
-    "AtomicPublishProbeResult",
-    "PublishError", "PublishedRecovery", "SafeOutputRootRegistry",
-    "_publish_directory_no_replace",
-    "platform_atomic_publish_adapter",
-    "recover_published_session",
-    "run_atomic_publish_probe",
-]

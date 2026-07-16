@@ -21,6 +21,8 @@ _ERROR_CODES: Final = frozenset(
     {
         "invalid_spec",
         "invalid_item_shape",
+        "unknown_evidence_reference",
+        "orphan_evidence",
         "profile_mismatch",
         "ambiguous_mapping",
         "stale_source",
@@ -72,7 +74,7 @@ class ManifestInput:
 class AssessmentLogEvent:
     event: AssessmentEvent
     state: AssessmentState
-    session_id: str
+    session_id: str | None = None
     variant: VariantName | None = None
     item_count: int | None = None
     target_count: int | None = None
@@ -120,10 +122,10 @@ class AssessmentManifest(TypedDict):
 class SafeLogRecordRequired(TypedDict):
     event: AssessmentEvent
     state: AssessmentState
-    session_id: str
 
 
 class SafeLogRecord(SafeLogRecordRequired, total=False):
+    session_id: str
     variant: VariantName
     item_count: int
     target_count: int
@@ -186,8 +188,9 @@ def _log_record(value: AssessmentLogEvent) -> SafeLogRecord:
     record: SafeLogRecord = {
         "event": value.event,
         "state": value.state,
-        "session_id": value.session_id,
     }
+    if value.session_id is not None:
+        record["session_id"] = value.session_id
     if value.variant is not None:
         record["variant"] = value.variant
     if value.item_count is not None:

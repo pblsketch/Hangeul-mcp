@@ -34,8 +34,21 @@ class HygieneFinding:
 
 
 _SKIPPED_DIRECTORIES: Final = frozenset(
-    {".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "build", "dist"}
+    {
+        ".git",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv",
+        "__pycache__",
+        "build",
+        "dist",
+    }
 )
+_PUBLIC_ROOT_DOCUMENTS: Final = frozenset({"handoff.md", "readme.md"})
+_PUBLIC_TEXT_DIRECTORIES: Final = frozenset({"docs", "skills"})
+_PUBLIC_TEXT_SUFFIXES: Final = frozenset({".json", ".md"})
+_PUBLIC_TEXT_SKIPPED_DIRECTORIES: Final = frozenset({"evidence", "fixtures", "tests"})
 _ALLOWED_EXTERNAL_HOSTS: Final = frozenset(
     {
         "docs.python.org",
@@ -86,6 +99,16 @@ def repository_runtime_findings(repository_root: Path) -> tuple[HygieneFinding, 
     return tuple(findings)
 
 
+def repository_findings(repository_root: Path) -> tuple[HygieneFinding, ...]:
+    root = repository_root.resolve()
+    findings: list[HygieneFinding] = []
+    for path in _expanded_paths((root,)):
+        findings.extend(_runtime_findings(path, root))
+        if path.is_file() and _is_public_text(path, root):
+            findings.extend(_text_findings(path, root))
+    return tuple(findings)
+
+
 def _expanded_paths(paths: Sequence[Path]) -> Iterator[Path]:
     for path in sorted(paths, key=lambda candidate: candidate.as_posix().casefold()):
         yield path
@@ -113,6 +136,17 @@ def _runtime_findings(path: Path, root: Path) -> tuple[HygieneFinding, ...]:
     ):
         return (HygieneFinding(FindingCode.RUNTIME_HWPX, relative),)
     return ()
+
+
+def _is_public_text(path: Path, root: Path) -> bool:
+    relative = _display_path(path, root)
+    if path.suffix.casefold() not in _PUBLIC_TEXT_SUFFIXES:
+        return False
+    if any(part.casefold() in _PUBLIC_TEXT_SKIPPED_DIRECTORIES for part in relative.parts):
+        return False
+    if len(relative.parts) == 1:
+        return relative.name.casefold() in _PUBLIC_ROOT_DOCUMENTS
+    return relative.parts[0].casefold() in _PUBLIC_TEXT_DIRECTORIES
 
 
 def _text_findings(path: Path, root: Path) -> tuple[HygieneFinding, ...]:
@@ -164,7 +198,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     findings = (
         check_paths(parsed.paths, repository_root=root)
         if parsed.paths
-        else repository_runtime_findings(root)
+        else repository_findings(root)
     )
     for finding in findings:
         location = f":{finding.line}" if finding.line is not None else ""

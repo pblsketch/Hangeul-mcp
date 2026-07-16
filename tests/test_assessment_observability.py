@@ -2,17 +2,64 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 
 from hangeul_core.assessment_observability import (
     AssessmentLogEvent,
     AssessmentManifest,
-    FailureCounts,
     ManifestInput,
     VariantManifestInput,
-    build_failure_evidence,
     build_manifest,
     emit_assessment_event,
 )
+from hangeul_mcp import tools_assessment
+from tests.test_assessment_spec import valid_spec
+
+
+FIXTURE = next((Path(__file__).parent / "hwpx template").glob("12_*.hwpx"))
+
+
+def _sentinel_spec() -> dict[str, object]:
+    spec = valid_spec()
+    metadata = spec["metadata"]
+    metadata["title"] = "TITLE-SENTINEL"
+    metadata["subject"] = "SUBJECT-SENTINEL"
+    metadata["grade"] = "GRADE-SENTINEL"
+    metadata["unit"] = "UNIT-SENTINEL"
+    metadata["learning_objectives"] = ["OBJECTIVE-SENTINEL"]
+    evidence_ids: list[str] = []
+    for index, evidence in enumerate(spec["learning_evidence"], start=1):
+        evidence_id = f"EVIDENCE-ID-SENTINEL-{index}"
+        evidence_ids.append(evidence_id)
+        evidence["evidence_id"] = evidence_id
+        evidence["claim"] = f"CLAIM-SENTINEL-{index}"
+        evidence["expected_evidence"] = f"EXPECTED-EVIDENCE-SENTINEL-{index}"
+    for index, item in enumerate(spec["items"], start=1):
+        item["item_id"] = f"ITEM-ID-SENTINEL-{index}"
+        item["evidence_ids"] = [evidence_ids[index - 1]]
+        item["stem"] = f"STEM-SENTINEL-{index}"
+        item["rationale"] = f"RATIONALE-SENTINEL-{index}"
+        item["misconceptions"] = [f"MISCONCEPTION-SENTINEL-{index}"]
+        item["feedback"] = {
+            "correct": f"FEEDBACK-CORRECT-SENTINEL-{index}",
+            "incorrect": f"FEEDBACK-INCORRECT-SENTINEL-{index}",
+        }
+    choices = spec["items"][0]["choices"]
+    for index, choice in enumerate(choices, start=1):
+        choice["choice_id"] = f"CHOICE-ID-SENTINEL-{index}"
+        choice["text"] = f"CHOICE-TEXT-SENTINEL-{index}"
+    spec["items"][0]["answer"] = choices[0]["choice_id"]
+    spec["items"][1]["answer"] = ["SHORT-ANSWER-SENTINEL-1", "SHORT-ANSWER-SENTINEL-2"]
+    spec["items"][2]["answer"] = "CONSTRUCTED-ANSWER-SENTINEL"
+    for criterion_index, criterion in enumerate(
+        spec["items"][2]["rubric"]["criteria"], start=1
+    ):
+        criterion["criterion_id"] = f"CRITERION-ID-SENTINEL-{criterion_index}"
+        criterion["description"] = f"RUBRIC-DESCRIPTION-SENTINEL-{criterion_index}"
+        for level_index, level in enumerate(criterion["levels"], start=1):
+            level["level_id"] = f"LEVEL-ID-SENTINEL-{criterion_index}-{level_index}"
+            level["descriptor"] = f"RUBRIC-DESCRIPTOR-SENTINEL-{criterion_index}-{level_index}"
+    return spec
 
 
 def _variant(file_digest: str, item_count: int) -> VariantManifestInput:
@@ -86,67 +133,72 @@ def test_manifest_uses_fixed_variant_filenames() -> None:
     assert variants["answer_key"]["filename"] == "answer-key.hwpx"
 
 
-def test_all_spec_string_and_identifier_sentinels_are_absent_from_manifest() -> None:
-    sentinels = (
-        "TITLE-SENTINEL",
-        "SUBJECT-SENTINEL",
-        "UNIT-SENTINEL",
-        "ITEM-ID-SENTINEL",
-        "EVIDENCE-ID-SENTINEL",
-        "STEM-SENTINEL",
-        "ANSWER-SENTINEL",
-        "RUBRIC-SENTINEL",
-        "FEEDBACK-SENTINEL",
-        "C:/SECRET/PATH-SENTINEL",
-        "TOKEN-SENTINEL",
+def test_all_spec_string_and_identifier_sentinels_are_absent_from_manifest(tmp_path) -> None:
+    tools_assessment.configure_assessment_output_roots((tmp_path,))
+    preview = tools_assessment.preview_assessment(str(FIXTURE), _sentinel_spec())
+    applied = tools_assessment.apply_assessment(
+        str(preview["session_id"]),
+        str(preview["possession_token"]),
+        str(tmp_path),
     )
+    manifest_path = tmp_path / str(applied["bundle_id"]) / "manifest.json"
 
-    rendered = json.dumps(_manifest(), ensure_ascii=False)
+    rendered = manifest_path.read_text(encoding="utf-8")
 
-    assert all(sentinel not in rendered for sentinel in sentinels)
+    assert "SENTINEL" not in rendered
 
 
-def test_all_spec_string_and_identifier_sentinels_are_absent_from_logs(caplog) -> None:
+def test_all_spec_string_and_identifier_sentinels_are_absent_from_logs(tmp_path, caplog) -> None:
     caplog.set_level(logging.INFO, logger="hangeul_core.assessment")
-
-    emit_assessment_event(
-        AssessmentLogEvent(
-            event="assessment_apply",
-            state="verified",
-            session_id="session-safe",
-            variant="student",
-            item_count=3,
-            target_count=4,
-            duration_ms=25,
-        )
+    tools_assessment.configure_assessment_output_roots((tmp_path,))
+    preview = tools_assessment.preview_assessment(str(FIXTURE), _sentinel_spec())
+    tools_assessment.apply_assessment(
+        str(preview["session_id"]),
+        str(preview["possession_token"]),
+        str(tmp_path),
     )
 
-    record = json.loads(caplog.messages[-1])
-    assert set(record) == {
-        "event",
-        "state",
-        "session_id",
-        "variant",
-        "item_count",
-        "target_count",
-        "duration_ms",
-    }
     assert "SENTINEL" not in caplog.text
 
 
-def test_all_spec_string_and_identifier_sentinels_are_absent_from_errors() -> None:
-    evidence = build_failure_evidence(
-        "raw exception: ANSWER-SENTINEL at C:/SECRET/PATH-SENTINEL",
-        FailureCounts(requested=3, resolved=2, unresolved=1, variant_count=3),
+def test_all_spec_string_and_identifier_sentinels_are_absent_from_errors(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="hangeul_core.assessment")
+    result = tools_assessment.preview_assessment(
+        "C:/SECRET/PATH-SENTINEL.hwpx",
+        {"unexpected": "ANSWER-SENTINEL"},
     )
 
-    assert evidence == {
-        "error_code": "publish_io_error",
-        "requested": 3,
-        "resolved": 2,
-        "unresolved": 1,
-        "variant_count": 3,
-    }
+    assert result["error_code"] == "invalid_spec"
+    assert "SENTINEL" not in json.dumps(result, ensure_ascii=False)
+    assert "SENTINEL" not in caplog.text
+
+
+def test_unknown_evidence_reference_is_not_reported_as_publish_failure(caplog) -> None:
+    # Given
+    caplog.set_level(logging.INFO, logger="hangeul_core.assessment")
+    spec = valid_spec()
+    spec["items"][0]["evidence_ids"] = ["missing"]
+
+    # When
+    result = tools_assessment.preview_assessment(str(FIXTURE), spec)
+
+    # Then
+    assert result["error_code"] == "unknown_evidence_reference"
+    assert json.loads(caplog.messages[-1])["error_code"] == "unknown_evidence_reference"
+
+
+def test_orphan_evidence_is_not_reported_as_publish_failure(caplog) -> None:
+    # Given
+    caplog.set_level(logging.INFO, logger="hangeul_core.assessment")
+    spec = valid_spec()
+    spec["items"][2]["evidence_ids"] = ["ev-2"]
+
+    # When
+    result = tools_assessment.preview_assessment(str(FIXTURE), spec)
+
+    # Then
+    assert result["error_code"] == "orphan_evidence"
+    assert json.loads(caplog.messages[-1])["error_code"] == "orphan_evidence"
 
 
 def test_manifest_and_logs_expose_only_safe_counts_digests_and_durations(caplog) -> None:
@@ -193,26 +245,34 @@ def test_manifest_and_logs_expose_only_safe_counts_digests_and_durations(caplog)
     }
 
 
-def test_failure_evidence_contains_only_error_code_and_safe_counts() -> None:
-    evidence = build_failure_evidence(
-        "stale_source",
-        FailureCounts(
-            requested=4,
-            resolved=3,
-            applied=2,
-            verified=1,
-            unresolved=1,
-            variant_count=3,
-        ),
+def test_failure_evidence_contains_only_error_code_and_safe_counts(tmp_path, caplog) -> None:
+    caplog.set_level(logging.INFO, logger="hangeul_core.assessment")
+    tools_assessment.configure_assessment_output_roots((tmp_path,))
+    preview = tools_assessment.preview_assessment(str(FIXTURE), _sentinel_spec())
+    applied = tools_assessment.apply_assessment(
+        str(preview["session_id"]),
+        str(preview["possession_token"]),
+        str(tmp_path),
     )
+    failure = tools_assessment.apply_assessment(
+        str(preview["session_id"]),
+        "invalid-possession-token",
+        str(tmp_path),
+    )
+    manifest = (tmp_path / str(applied["bundle_id"]) / "manifest.json").read_text(
+        encoding="utf-8"
+    )
+    failure_log = json.loads(caplog.messages[-1])
 
-    assert set(evidence) == {
-        "error_code",
-        "requested",
-        "resolved",
-        "applied",
-        "verified",
-        "unresolved",
-        "variant_count",
+    assert failure == {
+        "available": True,
+        "ok": False,
+        "state": "failed",
+        "error_code": "invalid_session_instance",
     }
-    assert evidence["error_code"] == "stale_source"
+    assert failure_log == {
+        "event": "assessment_apply",
+        "state": "failed",
+        "error_code": "invalid_session_instance",
+    }
+    assert "SENTINEL" not in manifest + caplog.text + json.dumps(failure)

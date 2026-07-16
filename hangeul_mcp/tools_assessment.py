@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
 from hangeul_core.assessment_observability import (
     AssessmentLogEvent,
@@ -12,6 +12,13 @@ from hangeul_core.assessment_observability import (
     emit_assessment_event,
 )
 from hangeul_core.assessment_workflow import AssessmentWorkflow, AssessmentWorkflowError
+
+
+AssessmentTool = Callable[..., dict[str, object]]
+
+
+class AssessmentToolRegistrar(Protocol):
+    def tool(self) -> Callable[[AssessmentTool], AssessmentTool]: ...
 
 
 def _configured_output_roots() -> tuple[Path, ...]:
@@ -27,12 +34,21 @@ def configure_assessment_output_roots(roots: tuple[str | Path, ...]) -> None:
     _WORKFLOW = AssessmentWorkflow(output_roots=roots)
 
 
-def _failure(code: str) -> dict[str, object]:
+def _failure(event: str, code: str) -> dict[str, object]:
+    if event == "assessment_preview":
+        emit_assessment_event(
+            AssessmentLogEvent(event="assessment_preview", state="failed", error_code=code)
+        )
+    else:
+        emit_assessment_event(
+            AssessmentLogEvent(event="assessment_apply", state="failed", error_code=code)
+        )
+    evidence = build_failure_evidence(code, FailureCounts())
     return {
         "available": True,
         "ok": False,
         "state": "failed",
-        **build_failure_evidence(code, FailureCounts()),
+        "error_code": evidence["error_code"],
     }
 
 
@@ -54,12 +70,12 @@ def _preview_counts(result: Mapping[str, object]) -> tuple[int, int]:
     return item_count, target_count
 
 
-def preview_assessment(template_path: str, spec: object) -> dict[str, object]:
+def preview_assessment(template_path: str, spec: dict[str, object]) -> dict[str, object]:
     """Validate and preview three deterministic assessment variants without writing files."""
     try:
         result = _WORKFLOW.preview(template_path, spec)
     except AssessmentWorkflowError as exc:
-        return _failure(exc.code)
+        return _failure("assessment_preview", exc.code)
     item_count, target_count = _preview_counts(result)
     emit_assessment_event(
         AssessmentLogEvent(
@@ -82,7 +98,7 @@ def apply_assessment(
     try:
         result = _WORKFLOW.apply(session_id, possession_token, output_dir)
     except AssessmentWorkflowError as exc:
-        return _failure(exc.code)
+        return _failure("assessment_apply", exc.code)
     emit_assessment_event(
         AssessmentLogEvent(
             event="assessment_apply",
@@ -93,7 +109,9 @@ def apply_assessment(
     return result
 
 
-def register_assessment_tools(mcp: Any) -> dict[str, Any]:
+def register_assessment_tools(
+    mcp: AssessmentToolRegistrar,
+) -> dict[str, AssessmentTool]:
     registered_preview = mcp.tool()(preview_assessment)
     registered_apply = mcp.tool()(apply_assessment)
     return {
