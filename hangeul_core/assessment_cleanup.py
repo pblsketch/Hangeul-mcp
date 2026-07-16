@@ -176,13 +176,27 @@ def _read_marker(marker_path: Path) -> OwnershipMarker | None:
         payload = json.loads(marker_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
+    if not isinstance(payload, dict):
+        return None
     if set(payload) != set(OwnershipMarker.__dataclass_fields__):
         return None
     try:
         marker = OwnershipMarker(**payload)
     except TypeError:
         return None
-    if marker.marker_version != _MARKER_VERSION:
+    if (
+        type(marker.marker_version) is not int
+        or marker.marker_version != _MARKER_VERSION
+        or type(marker.created_at_epoch) is not int
+        or not all(
+            isinstance(value, str) and bool(value)
+            for value in (
+                marker.session_id,
+                marker.owner_instance_id,
+                marker.ownership_nonce,
+            )
+        )
+    ):
         return None
     return marker
 def _unsafe_entry(path: Path) -> bool:
