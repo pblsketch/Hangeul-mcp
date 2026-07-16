@@ -194,12 +194,20 @@ pip install -e ".[live]"
 
 ### 형성평가 preview → apply
 
-1. 게시할 기존 exact 디렉터리를 정합니다. 허용 root를 제한하려면 서버 시작 전에 `HANGEUL_MCP_ASSESSMENT_OUTPUT_ROOTS`에 등록하며, Windows에서 여러 root는 `;`로 구분합니다.
+1. 게시할 기존 exact 디렉터리를 서버 시작 전에 `HANGEUL_MCP_ASSESSMENT_OUTPUT_ROOTS`에 등록합니다. Windows에서 여러 root는 `;`로 구분합니다. 이 startup allowlist는 apply에 필수입니다.
 2. `preview_assessment(template_path, spec)`을 호출해 strict spec/profile 검증과 학생용·교사용·정답지 plan을 확인합니다. 이 단계는 파일을 쓰지 않습니다.
 3. 성공 응답의 `session_id`와 일회용 `possession_token`을 보관합니다.
-4. `apply_assessment(session_id, possession_token, output_dir)`을 호출합니다. 환경 allowlist를 설정했다면 `output_dir`는 등록 root와 정확히 같아야 합니다. 미설정 기본값도 호출된 기존 디렉터리의 alias·하위 경로를 허용하지 않고 exact canonical root만 사용합니다. 세 HWPX와 safe manifest는 하나의 bundle로 원자 게시됩니다.
+4. `apply_assessment(session_id, possession_token, output_dir)`을 호출합니다. `output_dir`는 등록 root와 정확히 같아야 합니다. allowlist가 비어 있거나 경로가 등록되지 않았다면 `unregistered_output_root`로 파일을 쓰지 않고 거부합니다. 세 HWPX와 safe manifest는 하나의 bundle로 원자 게시됩니다.
 
 검증 실패 응답은 고정 `error_code`와 비민감 count만 반환하며 template path, spec 원문, token을 포함하지 않습니다. token은 현재 stdio 서버 인스턴스에만 유효합니다.
+
+G005 출하 게이트는 단순 생성 성공이 아니라 다음 증거를 함께 요구합니다.
+- 등록된 실제 HWPX fixture에서 학생용·교사용·정답지 **정확히 3개**가 하나의 immutable bundle로 게시되고 원본 SHA가 유지됩니다.
+- variant 하나라도 실패하면 staging/final 산출물을 남기지 않으며, 학생용에는 teacher-only 흐름이 없어야 합니다.
+- 품질 검사는 visible placeholder, 빈 필수 target, marker 훼손, 구조 오류를 각각 거부합니다.
+- 저장소 hygiene 검사는 staging·journal·snapshot·생성 HWPX residue와 공개 산출물에 부적절한 로컬 provenance가 없음을 검사합니다.
+
+독립 검증은 `pytest -q tests/test_assessment_e2e.py tests/test_assessment_quality.py tests/test_assessment_hygiene.py`와 전체 회귀 suite로 수행합니다.
 
 ### 2. 읽기·검색·감사
 
@@ -327,10 +335,10 @@ resolve_current_hwp_document()
 - 패키지 버전: `0.5.3` (Pre-Alpha)
 - 런타임 MCP 도구: **62 tools**
 
-- 최신 로컬 검증: **562 passed, 1 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 기준선 동일, 회귀 0)
+- 최신 로컬 검증: **668 passed, 16 skipped** (+ 로컬 프로파일 한정 사전 환경 실패 6건 — 기준선 동일, 회귀 0)
 - Architect 최신 브랜치 리뷰: current branch evidence 참조
 - Critic 최신 브랜치 리뷰: current branch evidence 참조
-- 마일스톤·유저 스토리: **71개 — 70 pass** + 라이브/스파이크 pending
+- 마일스톤·유저 스토리: **72개 — 71 pass** + 라이브/스파이크 pending
 
 
 ### 배포 채널과 release 증거 원칙
@@ -341,7 +349,7 @@ resolve_current_hwp_document()
 - 실제 release를 공지할 때는 release notes와 함께 최소한 SHA256 checksum 또는 provenance 위치를 같이 제공해야 합니다.
 `skipped`에는 Windows·한글·Playwright·python-hwpx처럼 현재 환경에 없는 선택 의존성 테스트가 포함될 수 있습니다. 최신 자동 검증 산출물은 [`docs/evidence/`](docs/evidence/)에 있습니다.
 
-여기서 `66 pass`는 PRD 장부의 인수조건 boolean 수치이며 “사용자 기능 66개가 모두 완성됐다”는 뜻이 아닙니다. `desktop-live-pending`, `optional-gated`, `spike-pending` 항목도 별도로 존재하므로 실제 지원 범위는 위 상태표와 [`docs/prd.json`](docs/prd.json)을 함께 봐야 합니다.
+여기서 `71 pass`는 PRD 장부의 인수조건 boolean 수치이며 “사용자 기능 66개가 모두 완성됐다”는 뜻이 아닙니다. `desktop-live-pending`, `optional-gated`, `spike-pending` 항목도 별도로 존재하므로 실제 지원 범위는 위 상태표와 [`docs/prd.json`](docs/prd.json)을 함께 봐야 합니다.
 
 ### 아직 하지 않는 것
 

@@ -1039,6 +1039,22 @@
         "PENDING BLOCKER: replace+reload 라우트(전제 3 consent 파라미터·전제 4 백업 의무 포함)는 미구현·미출하 — D19 4조건 전부 + 실기기 QA 캡처를 갖춘 별도 스토리에서만 live_reload.py 스캐폴딩 연결 허용"
       ],
       "statusNote": "Prerequisites 1-2 delivered with dual evidence; the route itself is deliberately NOT shipped (Critic MAJOR: reload silently discards unsaved typing). Prereqs 3-4 are binding conditions of the future route story."
+    },
+    {
+      "id": "US-071",
+      "title": "형성평가 G005 출하 게이트 — 실제 HWPX 3-variant E2E, 품질 checker, artifact hygiene",
+      "milestone": "M18-FORMATIVE-ASSESSMENT",
+      "priority": "P0",
+      "passes": true,
+      "status": "complete",
+      "acceptanceCriteria": [
+        "AC-E2E-01~08: 등록된 실제 HWPX fixture에서 학생용·교사용·정답지 정확히 3개를 immutable bundle로 게시하고, 구조 검증·학생용 teacher-only 흐름 차단·item evidence linkage·source bytes 불변·bundle 불변을 증명한다",
+        "variant 하나라도 실패하면 staging/final 산출물 0개이며 source bytes는 불변이고, 등록되지 않은 template/profile inference는 fail-closed다",
+        "AC-QUALITY-01: 문서 품질 checker가 깨끗한 fixture를 통과시키고 visible placeholder, 빈 required target, marker 훼손, invalid structure 오염 fixture를 각각 고정 오류로 거부한다",
+        "AC-HYG-01~02: artifact hygiene checker가 깨끗한 저장소를 통과시키고 staging·journal·snapshot·생성 HWPX residue와 공개 산출물에 부적절한 로컬 provenance fixture를 거부한다",
+        "독립 검증: tests/test_assessment_e2e.py, tests/test_assessment_quality.py, tests/test_assessment_hygiene.py와 관련 회귀 suite가 모두 통과한다"
+      ],
+      "statusNote": "Verified independently on 2026-07-16: AC-E2E, AC-QUALITY, and AC-HYG targeted suite passed 11 tests; full regression evidence is recorded in the task result."
     }
   ],
   "decisions": {

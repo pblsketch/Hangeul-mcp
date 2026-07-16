@@ -12,16 +12,17 @@
 - 린트: `./.venv/Scripts/python.exe -m pyflakes hangeul_core hangeul_mcp tests` → clean
 - 런타임 MCP 툴: **62** (등록은 정적 — optional extra 유무와 무관하게 등록되고, 미설치 시 호출 결과가 `available:false`)
 
-- 형성평가 workflow: `preview_assessment(template_path, spec)` → `apply_assessment(session_id, possession_token, output_dir)`. `HANGEUL_MCP_ASSESSMENT_OUTPUT_ROOTS`를 설정하면 apply root를 startup allowlist로 제한하고, 미설정 시에도 호출된 기존 exact canonical root만 허용한다. strict parser/profile/compiler를 우회하지 않으며 실패 응답·manifest·로그에는 path/spec/token을 남기지 않는다.
+- 형성평가 workflow: `preview_assessment(template_path, spec)` → `apply_assessment(session_id, possession_token, output_dir)`. apply 전에 `HANGEUL_MCP_ASSESSMENT_OUTPUT_ROOTS` startup allowlist를 반드시 설정해야 하며, `output_dir`는 등록된 exact canonical root와 같아야 한다. 미설정 또는 미등록 경로는 `unregistered_output_root`로 쓰기 없이 거부한다. strict parser/profile/compiler를 우회하지 않으며 실패 응답·manifest·로그에는 path/spec/token을 남기지 않는다.
+- G005 완료 게이트: `tests/test_assessment_e2e.py`의 실제 HWPX 3-variant bundle·실패 시 무게시·학생용 leakage 차단·evidence linkage·원본 불변·bundle 불변, `tests/test_assessment_quality.py`의 오염 fixture별 고정 오류, `tests/test_assessment_hygiene.py`의 저장소 residue/source-neutral 검사를 모두 통과해야 한다.
 
-- PRD: `docs/prd.json` **71 stories** (US-000~US-070), pass 카운트 정의 = `passes==true` (BC3)
+- PRD: `docs/prd.json` **72 stories** (US-000~US-071), pass 카운트 정의 = `passes==true` (BC3)
 - 개발 환경: venv `./.venv` (Windows). CI(ubuntu)는 두 레인 — 코어(`.[dev]`, py3.11–3.13; 위임/렌더 테스트는 importorskip으로 skip)와 extras(`.[dev,delegate,render]` + chromium, py3.12). `live`/`com` extra는 win32 전용이라 CI에서 강제하지 않고 데스크톱에서 검증한다. 로컬 기준선은 설치 프로파일에 따라 달라질 수 있으므로 `pytest -q` 실측값을 함께 기록한다
 
 ## 상태 매트릭스 (SSOT — 기계판독 원본은 docs/prd.json의 status 필드)
 
 | 상태 | 의미 | 해당 영역 |
 |---|---|---|
-| `complete` | 코드 + 테스트 + 관측 산출물 모두 존재 | v1 헤드리스 코어(인식·바이트보존 채우기·읽기·검증·PII·formfit), 텍스트치환(OWN), text edit-session preview/apply/restore, mail_merge, capability manifest, **saved `.hwpx` current-document UX(다중 인스턴스 resolver US-067 + `complete_and_load` + in-place `live_addressed` US-068 — 실기기 캡처 2026-07-15)**, Track D ROT 스파이크 ADR D18(US-069), Track B 전제(D19+dirty-probe, US-070) |
+| `complete` | 코드 + 테스트 + 관측 산출물 모두 존재 | v1 헤드리스 코어(인식·바이트보존 채우기·읽기·검증·PII·formfit), 텍스트치환(OWN), text edit-session preview/apply/restore, mail_merge, capability manifest, **saved `.hwpx` current-document UX(다중 인스턴스 resolver US-067 + `complete_and_load` + in-place `live_addressed` US-068 — 실기기 캡처 2026-07-15)**, Track D ROT 스파이크 ADR D18(US-069), Track B 전제(D19+dirty-probe, US-070), **형성평가 실제 HWPX E2E·품질·artifact hygiene 게이트(D20, US-071)** |
 | `optional-gated` | 코드·테스트 완료, optional extra 필요(미설치 시 `available:false`) | 위임 편집/생성/내보내기(python-hwpx `delegate`, `create_document_from_spec` 포함), `render_preview`(playwright `render`) |
 | `desktop-live-pending` | 코드 완료, **raw probe/json은 exact-path resolver 존재를 보여 주지만 literal write-safe 실기기(Windows+한글) 증거는 대기** | `apply_to_open_hwp`(US-010) · `apply_small_live_label_cells`(US-029) · COM 브릿지(US-009) — 잔여 증거 목록은 `PENDING_DESKTOP_LIVE_QA.md`. D7: 중첩표 인덱스 매핑은 best-effort(단, `live_addressed`는 중첩 감지 시 fail-closed) |
 | `spike-pending` | 구현 전 리서치/ADR 필요 | `.hwp` 비COM 읽기(US-042/054/055) · 표 행/열 추가삭제·TOC(US-060, python-hwpx 미노출) |
