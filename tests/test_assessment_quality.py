@@ -79,3 +79,13 @@ def test_quality_checker_rejects_placeholder_empty_required_marker_damage_and_in
     assert check_assessment_quality(invalid_structure, requirements).codes == (
         "invalid_structure",
     )
+
+
+def test_json_object_text_is_not_treated_as_a_template_placeholder(tmp_path: Path) -> None:
+    path = tmp_path / "json-text.hwpx"
+    _write_fixture(path, "필수 내용", '{"correct":"좋음"}')
+
+    assert check_assessment_quality(
+        path,
+        AssessmentQualityRequirements(required_targets=("b1",)),
+    ).valid is True

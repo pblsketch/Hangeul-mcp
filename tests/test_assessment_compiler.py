@@ -25,6 +25,9 @@ def _spec():
     return {
         "assessment_id": "assessment-001",
         "title": "형성평가",
+        "subject": "국어",
+        "grade": "고등학교 1학년",
+        "unit": "기사문의 특성",
         "total_points": 10,
         "evidence": [
             {"evidence_id": "ev-1", "description": "기사문의 특징"},
@@ -125,7 +128,7 @@ def test_compiled_operations_are_exact_allowlist_subset():
         for edit in variant.edits
     }
 
-    assert operations == {"replace_text"}
+    assert operations == {"replace_text", "delete_paragraph"}
     assert operations <= ADDRESSED_OPERATION_ALLOWLIST
     assert operations <= set(profile.allowed_operations)
 
@@ -136,6 +139,11 @@ def test_each_replacement_contains_expected_text():
         region["target"]: region["text"]
         for region in inspection["regions"]
     }
+    for region in inspection["regions"]:
+        expected_by_target.update({
+            paragraph["target"]: paragraph["text"]
+            for paragraph in region.get("paragraphs", [])
+        })
 
     plan = _compiled(inspection=inspection)
 
@@ -151,8 +159,13 @@ def test_compiled_body_edits_are_single_paragraph():
     plan = _compiled()
 
     for variant in plan.variants:
-        for edit in variant.edits:
-            assert edit.kind == "body_para"
+        metadata_edits = [edit for edit in variant.edits if edit.kind == "paragraph"]
+        assert [edit.target for edit in metadata_edits] == ["t1.r0.c0.p1"]
+        for edit in (
+            edit
+            for edit in variant.edits
+            if edit.kind == "body_para" and edit.operation == "replace_text"
+        ):
             assert "\n" not in edit.value
 
 
@@ -215,7 +228,11 @@ def test_variant_ordinals_points_and_evidence_links_are_identical():
 
     assert expected
     for variant in plan.variants:
-        assert tuple(edit.target for edit in variant.edits) == expected_targets
+        assert tuple(
+            edit.target
+            for edit in variant.edits
+            if edit.kind == "body_para" and edit.operation == "replace_text"
+        ) == expected_targets
         assert tuple(trace.target for trace in variant.item_trace) == expected_targets
         actual = tuple(
             (

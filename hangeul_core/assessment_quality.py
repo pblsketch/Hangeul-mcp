@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import Final, Mapping, Sequence
 
 from .addressed import _paragraph_marker, inspect_editable_regions
+from .assessment_plan import VariantPlan
 from .owpml import HwpxPackage
 from .validate import validate_hwpx
 
 
-_PLACEHOLDER: Final = re.compile(r"\{[^{}\r\n]+\}")
+_PLACEHOLDER: Final = re.compile(r"\{[\w .-]+\}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,12 +25,52 @@ class ExpectedMarkers:
 class AssessmentQualityRequirements:
     required_targets: tuple[str, ...]
     expected_markers: tuple[ExpectedMarkers, ...] = ()
+    expected_values: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class AssessmentQualityReport:
     valid: bool
     codes: tuple[str, ...]
+
+
+def requirements_for_variant(variant: VariantPlan) -> AssessmentQualityRequirements:
+    rendered_edits = tuple(
+        edit for edit in variant.edits if edit.operation != "delete_paragraph"
+    )
+    return AssessmentQualityRequirements(
+        required_targets=tuple(
+            edit.target for edit in rendered_edits if edit.kind != "body_para"
+        ),
+        expected_markers=tuple(
+            ExpectedMarkers(
+                edit.target,
+                tuple(_paragraph_marker(line) for line in edit.value.splitlines()),
+            )
+            for edit in rendered_edits
+            if edit.kind != "body_para"
+        ),
+        expected_values=tuple(edit.value for edit in rendered_edits),
+    )
+
+
+def addressed_requirements_for_variant(
+    variant: VariantPlan,
+) -> AssessmentQualityRequirements:
+    rendered_edits = tuple(
+        edit for edit in variant.edits if edit.operation != "delete_paragraph"
+    )
+    return AssessmentQualityRequirements(
+        required_targets=tuple(edit.target for edit in rendered_edits),
+        expected_markers=tuple(
+            ExpectedMarkers(
+                edit.target,
+                tuple(_paragraph_marker(line) for line in edit.value.splitlines()),
+            )
+            for edit in rendered_edits
+        ),
+        expected_values=tuple(edit.value for edit in rendered_edits),
+    )
 
 
 def _visible_text(path: str | Path) -> str:
@@ -59,6 +100,17 @@ def _regions(inspection: Mapping[str, object]) -> dict[str, Mapping[str, object]
         target = region.get("target")
         if isinstance(target, str):
             regions[target] = region
+        raw_paragraphs = region.get("paragraphs")
+        if isinstance(raw_paragraphs, Sequence) and not isinstance(
+            raw_paragraphs,
+            (str, bytes),
+        ):
+            for paragraph in raw_paragraphs:
+                if not isinstance(paragraph, Mapping):
+                    continue
+                paragraph_target = paragraph.get("target")
+                if isinstance(paragraph_target, str):
+                    regions[paragraph_target] = paragraph
     return regions
 
 
@@ -115,7 +167,7 @@ def check_assessment_quality(
     if any(
         _required_target_is_empty(regions.get(target), expected.get(target, ()))
         for target in requirements.required_targets
-    ):
+    ) or any(value not in visible_text for value in requirements.expected_values):
         codes.append("empty_required_target")
     if any(
         expected_markers != _markers(regions[target])
@@ -130,5 +182,7 @@ __all__ = [
     "AssessmentQualityReport",
     "AssessmentQualityRequirements",
     "ExpectedMarkers",
+    "addressed_requirements_for_variant",
     "check_assessment_quality",
+    "requirements_for_variant",
 ]

@@ -17,6 +17,7 @@ from .assessment_plan import (
 from .assessment_profile import (
     AssessmentProfile,
     AssessmentProfileError,
+    MetadataSlot,
     SemanticItemSlot,
     VariantRule,
     match_assessment_profile,
@@ -114,6 +115,36 @@ def _select_slots(profile: AssessmentProfile, items: tuple[SpecMapping, ...]) ->
     return tuple(selected)
 
 
+def _metadata(spec: SpecMapping) -> SpecMapping:
+    raw = spec.get("metadata")
+    return _mapping(raw) if raw is not None else spec
+
+
+def _metadata_edit(
+    slot: MetadataSlot,
+    region: SpecMapping,
+    metadata: SpecMapping,
+) -> AddressedEdit:
+    if slot.fields != ("title", "subject", "grade", "unit", "total_points"):
+        raise AssessmentCompilerError("profile_mismatch")
+    paragraphs = _sequence(region.get("paragraphs"), "profile_mismatch")
+    if not paragraphs:
+        raise AssessmentCompilerError("profile_mismatch")
+    first = _mapping(paragraphs[0], "profile_mismatch")
+    target = first.get("target")
+    expected_text = first.get("text")
+    if not isinstance(target, str) or not isinstance(expected_text, str) or not expected_text:
+        raise AssessmentCompilerError("profile_mismatch")
+    value = " | ".join((
+        _text(metadata.get("grade")),
+        _text(metadata.get("subject")),
+        _text(metadata.get("unit")),
+        _text(metadata.get("title")),
+        f"총점 {_integer(metadata.get('total_points'))}점",
+    ))
+    return AddressedEdit(target, value, expected_text, "paragraph", "replace_text")
+
+
 def _render(item: SpecMapping, rule: VariantRule) -> tuple[str, tuple[tuple[str, str], ...]]:
     order = _integer(item.get("order"))
     points = _integer(item.get("points"))
@@ -151,8 +182,11 @@ def compile_assessment(spec: SpecMapping, profile: AssessmentProfile, inspection
         raise AssessmentCompilerError("unsupported_operation")
 
     regions = _region_map(inspection)
-    items = _items(_mapping(_normalized(spec)))
+    normalized_spec = _mapping(_normalized(spec))
+    metadata = _metadata(normalized_spec)
+    items = _items(normalized_spec)
     slots = _select_slots(profile, items)
+    selected_targets = frozenset(slot.target for slot in slots)
 
     variants: list[VariantPlan] = []
     rules = {rule.variant: rule for rule in profile.variant_rules}
@@ -162,25 +196,61 @@ def compile_assessment(spec: SpecMapping, profile: AssessmentProfile, inspection
         edits: list[AddressedEdit] = []
         traces: list[ItemTrace] = []
         edges: list[ProvenanceEdge] = []
-        for item, semantic_slot in zip(items, slots):
-            slot = next((region for region in profile.regions if region.target == semantic_slot.target), None)
-            if slot is None:
+        rule = rules[variant]
+        metadata_by_id = {slot.slot_id: slot for slot in profile.metadata_slots}
+        for slot_id in rule.use_metadata_slots:
+            metadata_slot = metadata_by_id.get(slot_id)
+            region = None if metadata_slot is None else regions.get(metadata_slot.target)
+            if metadata_slot is None or region is None:
                 raise AssessmentCompilerError("profile_mismatch")
-            region = regions.get(slot.target)
+            edit = _metadata_edit(metadata_slot, region, metadata)
+            edits.append(edit)
+            edges.extend(
+                ProvenanceEdge(edit.target, field, "student_visible")
+                for field in metadata_slot.fields
+            )
+        for item, semantic_slot in zip(items, slots):
+            item_region = next(
+                (region for region in profile.regions if region.target == semantic_slot.target),
+                None,
+            )
+            if item_region is None:
+                raise AssessmentCompilerError("profile_mismatch")
+            region = regions.get(item_region.target)
             if region is None or not isinstance(region.get("text"), str) or not region["text"]:
                 raise AssessmentCompilerError("profile_mismatch")
-            value, sources = _render(item, rules[variant])
-            edits.append(AddressedEdit(slot.target, value, _text(region["text"]), slot.kind, operation))
+            value, sources = _render(item, rule)
+            edits.append(AddressedEdit(item_region.target, value, _text(region["text"]), item_region.kind, operation))
             traces.append(
                 ItemTrace(
                     _text(item.get("item_id")),
                     _integer(item.get("order")),
                     _integer(item.get("points")),
                     _strings(item.get("evidence_ids")),
-                    slot.target,
+                    item_region.target,
                 )
             )
-            edges.extend(ProvenanceEdge(slot.target, source, classification) for source, classification in sources)
+            edges.extend(
+                ProvenanceEdge(item_region.target, source, classification)
+                for source, classification in sources
+            )
+        for unused_slot in profile.item_slots:
+            if unused_slot.target in selected_targets:
+                continue
+            unused_region = regions.get(unused_slot.target)
+            if (
+                unused_region is None
+                or not isinstance(unused_region.get("text"), str)
+                or not unused_region["text"]
+            ):
+                raise AssessmentCompilerError("profile_mismatch")
+            edits.append(AddressedEdit(
+                unused_slot.target,
+                "",
+                _text(unused_region["text"]),
+                "body_para",
+                "delete_paragraph",
+            ))
         frozen_edits, frozen_traces, frozen_edges = tuple(edits), tuple(traces), tuple(edges)
         variants.append(
             VariantPlan(

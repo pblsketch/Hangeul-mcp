@@ -73,7 +73,7 @@ _EXPECTED_REGIONS = (
     RegionSignature("t2.r2.c0", "cell", "table_cell", 2, 2, 0, 3, ("", "", "")),
     RegionSignature("t3.r0.c0", "cell", "table_cell", 3, 0, 0, 1, ("",)),
 )
-_ALLOWED_OPERATIONS = ("replace_text",)
+_ALLOWED_OPERATIONS = ("replace_text", "delete_paragraph")
 _METADATA_SLOTS = (
     MetadataSlot("assessment_header", "t1.r0.c0", ("title", "subject", "grade", "unit", "total_points")),
 )
@@ -84,9 +84,9 @@ _ITEM_SLOTS = (
 )
 _ITEM_TARGETS = tuple(slot.target for slot in _ITEM_SLOTS)
 _VARIANT_RULES = (
-    VariantRule("student", ("t1.r0.c0",), _ITEM_TARGETS, (), ()),
-    VariantRule("teacher", ("t1.r0.c0",), _ITEM_TARGETS, (), ("answer", "rationale", "rubric", "misconceptions", "feedback")),
-    VariantRule("answer_key", ("t1.r0.c0",), _ITEM_TARGETS, (), ("answer", "rationale", "rubric")),
+    VariantRule("student", ("assessment_header",), _ITEM_TARGETS, (), ()),
+    VariantRule("teacher", ("assessment_header",), _ITEM_TARGETS, (), ("answer", "rationale", "rubric", "misconceptions", "feedback")),
+    VariantRule("answer_key", ("assessment_header",), _ITEM_TARGETS, (), ("answer", "rationale", "rubric")),
 )
 
 
