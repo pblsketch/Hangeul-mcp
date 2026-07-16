@@ -45,6 +45,9 @@ def test_apply_maps_missing_source_without_exposing_path(tmp_path: Path) -> None
     assert serialized == '{"error_code": "stale_source"}'
     assert str(source) not in serialized
     assert "FileNotFoundError" not in serialized
+    assert str(source) not in str(caught.value)
+    assert str(source) not in repr(caught.value)
+    assert caught.value.__context__ is None
     assert caught.value.__cause__ is None
     assert not output.exists()
 

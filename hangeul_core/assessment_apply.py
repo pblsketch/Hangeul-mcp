@@ -43,11 +43,15 @@ class ApplyPreconditions:
 
 
 def validate_apply(preconditions: ApplyPreconditions) -> None:
+    current_source_digest: str | None
     try:
         current_source_digest = hashlib.sha256(preconditions.source_path.read_bytes()).hexdigest()
     except OSError:
-        raise ApplyError("stale_source") from None
-    if current_source_digest != preconditions.expected_source_digest:
+        current_source_digest = None
+    if (
+        current_source_digest is None
+        or current_source_digest != preconditions.expected_source_digest
+    ):
         raise ApplyError("stale_source")
     if (
         preconditions.current_profile_definition_digest
@@ -57,18 +61,29 @@ def validate_apply(preconditions: ApplyPreconditions) -> None:
     if preconditions.current_plan_digest != preconditions.expected_plan_digest:
         raise ApplyError("stale_plan")
 
+    source: Path | None
+    output: Path | None
     try:
         source = preconditions.source_path.resolve(strict=True)
         output = preconditions.output_path.resolve(strict=False)
     except OSError:
-        raise ApplyError("stale_source") from None
+        source = None
+        output = None
+    if source is None or output is None:
+        raise ApplyError("stale_source")
     if source == output:
         raise ApplyError("source_output_collision")
+    identity_failed = False
+    output_collides = False
     try:
-        if preconditions.output_path.exists() and source.samefile(preconditions.output_path):
-            raise ApplyError("source_output_collision")
+        output_collides = (
+            preconditions.output_path.exists()
+            and source.samefile(preconditions.output_path)
+        )
     except OSError:
-        raise ApplyError("source_output_collision") from None
+        identity_failed = True
+    if identity_failed or output_collides:
+        raise ApplyError("source_output_collision")
 
 
 __all__ = ["ApplyError", "ApplyPreconditions", "validate_apply"]
