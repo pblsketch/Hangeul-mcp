@@ -24,7 +24,6 @@ AssessmentSessionErrorCode = Literal[
 
 class AssessmentSessionError(ValueError):
     __slots__ = ("code",)
-
     def __init__(self, code: AssessmentSessionErrorCode) -> None:
         super().__init__(code)
         self.code = code
@@ -63,7 +62,7 @@ class AssessmentSessionSnapshot:
 class _SessionRecord:
     __slots__ = (
         "expires_at_monotonic", "instance_id", "lock", "plan", "session_id",
-        "spec_fingerprint", "state", "token_digest",
+        "spec_fingerprint", "state", "token_consumed", "token_digest",
     )
 
     def __init__(
@@ -83,6 +82,7 @@ class _SessionRecord:
         self.token_digest = token_digest
         self.expires_at_monotonic = expires_at_monotonic
         self.state = AssessmentSessionState.PREVIEW_READY
+        self.token_consumed = False
         self.lock = threading.Lock()
 
     def snapshot(self) -> AssessmentSessionSnapshot:
@@ -211,6 +211,10 @@ class AssessmentSessionStore:
             return record.snapshot()
 
     def _authorize_locked(self, record: _SessionRecord, possession_token: str) -> None:
+        supplied_digest = hashlib.sha256(possession_token.encode("utf-8")).digest()
+        if not hmac.compare_digest(record.token_digest, supplied_digest):
+            raise AssessmentSessionError("invalid_session_instance")
+
         match record.state:
             case AssessmentSessionState.APPLIED | AssessmentSessionState.FAILED_TERMINAL:
                 raise AssessmentSessionError("already_applied")
@@ -226,11 +230,7 @@ class AssessmentSessionStore:
         if self._clock() >= record.expires_at_monotonic:
             record.state = AssessmentSessionState.EXPIRED
             raise AssessmentSessionError("expired_session")
-        supplied_digest = hashlib.sha256(possession_token.encode("utf-8")).digest()
-        if not hmac.compare_digest(record.token_digest, supplied_digest):
-            raise AssessmentSessionError("invalid_session_instance")
-
-        record.token_digest = b""
+        record.token_consumed = True
         record.state = AssessmentSessionState.APPLYING
 
     def _expire_ready_sessions(self, now: float) -> None:
